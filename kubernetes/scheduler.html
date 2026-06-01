@@ -1,0 +1,1896 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Scheduler · Taints · Capacidad · KEDA</title>
+<style>
+  :root{
+    --bg:#f3ecd9;
+    --bg2:#ebe2c8;
+    --card:#eef3ff;
+    --card-border:#c8d3ea;
+    --ink:#1a2233;
+    --muted:#5b6577;
+    --muted2:#8893a8;
+    --accent:#3956d3;
+    --accent-2:#7c4dff;
+    --line:#cdd5e5;
+    --chip:#dfe6f5;
+    --chip-ink:#2a3550;
+    --warn:#c0392b;
+    --ok:#2e8b57;
+    --node-bg:#f6f9ff;
+    --node-border:#c2cde3;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    background:
+      radial-gradient(1200px 800px at 20% 0%, #f6efdc 0%, transparent 60%),
+      radial-gradient(900px 700px at 100% 100%, #efe6cc 0%, transparent 55%),
+      var(--bg);
+    -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+  }
+  .app{
+    height:100vh;
+    display:grid;
+    grid-template-rows:auto auto 1fr auto;
+    padding:14px 18px 8px;
+    gap:8px;
+  }
+  /* Header */
+  header.top{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+  }
+  header.top h1{
+    font-size:18px;font-weight:700;letter-spacing:.2px;margin:0;
+  }
+  header.top h1 .sep{color:var(--muted2);margin:0 6px;font-weight:400}
+  .toolbar{display:flex;gap:8px;align-items:center}
+  .btn{
+    background:#fff;border:1px solid var(--card-border);color:var(--ink);
+    padding:6px 12px;border-radius:6px;font-size:12.5px;cursor:pointer;
+    transition:background .12s, border-color .12s, color .12s;
+  }
+  .btn:hover{background:#f4f7ff;border-color:#9fb1d4}
+  .btn.toggle.on{background:#e8f5ec;border-color:#7cb88f;color:#2e7d4f}
+  .btn.toggle.off{background:#fdecec;border-color:#d49a9a;color:#9c2a2a}
+  .btn.danger{color:#7a1f1f}
+  .subtitle{
+    text-align:center;color:var(--muted);font-size:13px;line-height:1.35;
+    padding:0 12px;
+  }
+  .subtitle b{color:var(--ink)}
+  .subtitle .em{font-style:italic;color:#5b3df0}
+  /* Main grid: left fits pod defs, center fits the queue, nodes take the rest */
+  main.grid{
+    display:grid;
+    grid-template-columns: 336px 216px minmax(360px,1fr);
+    gap:14px;
+    min-height:0;
+  }
+  .col{display:flex;flex-direction:column;gap:14px;min-height:0;overflow:hidden}
+  *::-webkit-scrollbar{width:8px;height:8px}
+  *::-webkit-scrollbar-thumb{background:#d2d8e5;border-radius:4px}
+  *::-webkit-scrollbar-track{background:transparent}
+  /* Section */
+  .section{
+    background:var(--card);
+    border:1px solid var(--card-border);
+    border-radius:10px;
+    padding:10px 12px 12px;
+    position:relative;
+  }
+  .section.flex{flex:1 1 0;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  .section-head{
+    display:flex;align-items:center;justify-content:space-between;
+    user-select:none;cursor:pointer;margin-bottom:8px;
+  }
+  .section-head .title{
+    display:flex;align-items:center;gap:6px;
+    font-weight:600;font-size:12px;letter-spacing:.6px;color:var(--ink);
+    text-transform:uppercase;
+  }
+  .section-head .title .caret{
+    display:inline-block;transform:translateY(-1px);
+    color:var(--muted2);transition:transform .15s;
+  }
+  .section.collapsed .section-head .caret{transform:rotate(-90deg)}
+  .section.collapsed .section-body{display:none}
+  .section-head .actions{display:flex;gap:6px;align-items:center}
+  .section-head .actions .strat{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+  .section-head .actions .strat select{font-size:11px;font-weight:600;padding:2px 6px;border:1px solid var(--card-border);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;text-transform:none;letter-spacing:0}
+  /* Center column is narrow (216px): let the Scheduler header wrap so the
+     scoring control drops to its own full-width line and isn't clipped. */
+  #schedulerSection .section-head{flex-wrap:wrap;row-gap:6px}
+  #schedulerSection .section-head .actions{flex:1 1 100%}
+  #schedulerSection .section-head .actions .strat{flex:1 1 auto;flex-direction:column;align-items:stretch;gap:3px}
+  #schedulerSection .section-head .actions .strat select{width:100%;min-width:0}
+  .ghost-btn{
+    background:#fff;border:1px dashed var(--card-border);color:var(--muted);
+    padding:3px 10px;border-radius:6px;font-size:12px;cursor:pointer;
+  }
+  .ghost-btn:hover{color:var(--ink);border-color:#9fb1d4}
+  .section-body{display:flex;flex-direction:column;gap:10px;min-height:0}
+  .section.flex .section-body{flex:1;min-height:0;overflow:auto}
+  /* KEDA day selector (compact segmented control) */
+  .keda-wrap{display:flex;flex-direction:column;gap:8px}
+  .day-selector{display:flex;align-items:stretch;gap:6px}
+  .day-arrow{
+    background:#fff;border:1px solid var(--card-border);border-radius:7px;
+    width:26px;cursor:pointer;color:var(--muted);font-size:12px;flex:0 0 auto;
+  }
+  .day-arrow:hover{background:#eef2ff;color:var(--ink)}
+  .seg{
+    flex:1;display:grid;grid-template-columns:repeat(7,1fr);gap:3px;
+    background:#e7edfa;border:1px solid var(--card-border);border-radius:8px;padding:3px;
+  }
+  .seg .day{
+    text-align:center;font-size:11px;color:var(--muted);
+    padding:6px 0;border-radius:5px;cursor:pointer;user-select:none;
+    transition:background .12s,color .12s,transform .08s;
+  }
+  .seg .day:hover{background:#fff;color:var(--ink)}
+  .seg .day.weekend{color:#b06a2a}
+  .seg .day.active{
+    background:var(--accent);color:#fff;font-weight:700;
+    box-shadow:0 1px 5px rgba(57,86,211,.32);
+  }
+  .seg .day.weekend.active{background:#d8821a;box-shadow:0 1px 5px rgba(216,130,26,.32);color:#fff}
+  .day-current{text-align:center;font-size:13px;color:var(--ink);font-weight:600;line-height:1.35}
+  .day-current .sub{display:block;font-weight:400;color:var(--muted);font-size:11px;margin-top:1px}
+  .help{
+    color:var(--muted);font-size:11.5px;text-align:center;line-height:1.4;padding:0 4px;
+  }
+  /* Pod type card */
+  .pod-card,.node-card{
+    background:#fff;border:1px solid var(--card-border);border-radius:8px;padding:10px;
+    display:flex;flex-direction:column;gap:8px;position:relative;
+  }
+  .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .row .label{font-size:12px;color:var(--ink)}
+  .row .small{font-size:11px;color:var(--muted)}
+  .badge-color{
+    width:18px;height:18px;border-radius:4px;flex:0 0 auto;border:1px solid rgba(0,0,0,.08);
+    cursor:pointer;
+  }
+  .name-input,.text-input{
+    background:transparent;border:none;border-bottom:1px dashed transparent;
+    color:var(--ink);font-size:13px;font-weight:600;padding:1px 2px;outline:none;width:auto;
+  }
+  .name-input:hover,.text-input:hover{border-bottom-color:var(--card-border)}
+  .name-input:focus,.text-input:focus{border-bottom-color:var(--accent)}
+  .close-x{
+    margin-left:auto;background:none;border:none;color:var(--muted2);cursor:pointer;
+    font-size:14px;line-height:1;padding:2px 4px;border-radius:4px;
+  }
+  .close-x:hover{color:#9c2a2a;background:#fbe9e9}
+  .num{
+    display:inline-flex;align-items:center;gap:0;
+    border:1px solid var(--card-border);border-radius:5px;background:#fff;height:22px;overflow:hidden;
+  }
+  .num button{background:#fff;border:none;width:22px;height:22px;cursor:pointer;color:var(--muted);font-size:13px}
+  .num button:hover{background:#eef2ff;color:var(--ink)}
+  .num span{min-width:22px;text-align:center;font-size:12.5px;color:var(--ink);font-weight:600}
+  .pill{
+    background:var(--chip);color:var(--chip-ink);font-size:10.5px;border-radius:4px;padding:1px 6px;
+  }
+  .check{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink);cursor:pointer;user-select:none}
+  .check input{accent-color:var(--accent)}
+  .days-grid{
+    display:grid;grid-template-columns:repeat(7,1fr);gap:4px;
+  }
+  .days-grid .day-cell{display:flex;flex-direction:column;align-items:center;gap:2px}
+  .days-grid .day-cell .lbl{font-size:10px;color:var(--muted)}
+  .days-grid .day-cell .lbl.today{color:var(--accent);font-weight:700}
+  .days-grid input{
+    width:100%;min-width:0;max-width:38px;text-align:center;font-size:11.5px;
+    border:1px solid var(--card-border);border-radius:4px;padding:2px;outline:none;background:#fff;color:var(--ink);
+  }
+  .days-grid input:focus{border-color:var(--accent)}
+  .days-grid input.today{border-color:var(--accent);background:#eef2ff}
+  .small-head{font-size:11px;color:var(--muted);margin-top:4px}
+  .tolerations,.taints{display:flex;flex-direction:column;gap:4px}
+  .kv-row{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+  .kv-row input{
+    background:#fff;border:1px solid var(--card-border);border-radius:4px;
+    padding:2px 6px;font-size:11px;color:var(--ink);outline:none;width:80px;
+  }
+  .kv-row input:focus{border-color:var(--accent)}
+  .kv-row select{
+    background:#fff;border:1px solid var(--card-border);border-radius:4px;
+    padding:2px 6px;font-size:11px;color:var(--ink);outline:none;
+  }
+  .kv-row .x{
+    background:none;border:none;color:var(--muted2);cursor:pointer;font-size:13px;padding:0 4px;
+  }
+  .kv-row .x:hover{color:#9c2a2a}
+  /* Scheduler queue — pods are full-width bars stacked single-file (fila india);
+     each bar's height = request × CPU_UNIT so bigger requests are taller. */
+  .queue{display:flex;flex-direction:column;gap:6px;align-items:stretch;padding:6px 4px}
+  .queue-empty{color:var(--muted);font-size:12px;padding:12px;text-align:center}
+  .pod{
+    width:100%;flex:0 0 auto;   /* never shrink: height (request×CPU_UNIT) is exact for tiling */
+    background:var(--accent);color:#fff;border-radius:6px;
+    display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:8px;
+    padding:0 10px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.22);   /* thin separator; box-sizing keeps tiling exact */
+    cursor:grab;user-select:none;font-size:12.5px;font-weight:600;
+    box-shadow:0 1px 2px rgba(0,0,0,.08);
+    transition:box-shadow .12s, opacity .15s;
+  }
+  .pod:active{cursor:grabbing}
+  .pod:hover{box-shadow:0 6px 16px rgba(0,0,0,.22)}
+  .pod .pod-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto;min-width:0}
+  .pod .req{font-size:11px;opacity:.85;font-weight:500;white-space:nowrap;flex:0 0 auto}
+  .pod.dragging{opacity:.35}
+  /* Pod that the scheduler cannot place on any node (Pending / Unschedulable) */
+  .pod.unschedulable{outline:2px dashed #e0a300;outline-offset:2px;cursor:help}
+  .pod.unschedulable::after{
+    content:"!";position:absolute;top:-7px;right:-7px;width:16px;height:16px;
+    background:#e0a300;color:#fff;border-radius:50%;font-size:11px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.3);
+  }
+  .pod{position:relative}
+  /* Pod phase indicator (left dot/spinner) mirroring kubectl phases:
+     Pending = hollow ring · ContainerCreating = spinner+stripes · Running = solid. */
+  .pod .status{width:11px;height:11px;flex:0 0 auto;border-radius:50%;box-sizing:border-box}
+  .pod.pending .status{background:transparent;box-shadow:inset 0 0 0 2px rgba(255,255,255,.6);animation:podpulse 1.4s ease-in-out infinite}
+  .pod.unschedulable .status{background:#ffe08a;box-shadow:none}
+  .pod.running .status{background:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.22)}
+  .pod.creating .status{
+    width:13px;height:13px;background:transparent;
+    border:2px solid rgba(255,255,255,.35);border-top-color:#fff;
+    animation:spin .7s linear infinite;
+  }
+  .pod.creating{   /* faint diagonal stripes over the type colour = "still starting" */
+    background-image:repeating-linear-gradient(45deg,
+      rgba(255,255,255,0) 0 9px, rgba(255,255,255,.16) 9px 18px);
+  }
+  .pod.creating .req{font-style:italic;opacity:.95}
+  /* Pod being scaled away: Terminating (SIGTERM, draining during the grace period).
+     Dimmed + greyed + dark diagonal stripes = "shutting down"; not interactive. */
+  .pod.terminating{
+    opacity:.5;filter:grayscale(.45);pointer-events:none;
+    background-image:repeating-linear-gradient(45deg,
+      rgba(0,0,0,0) 0 9px, rgba(0,0,0,.16) 9px 18px);
+    transition:opacity .3s ease, filter .3s ease;
+  }
+  .pod.terminating .status{
+    width:13px;height:13px;background:transparent;
+    border:2px solid rgba(255,255,255,.3);border-top-color:#fff;
+    animation:spin .7s linear infinite;
+  }
+  .pod.terminating .req{font-style:italic;opacity:.95}
+  /* Top-level layer where pods physically fly between columns — never clipped */
+  #flyLayer{position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:visible}
+  .pod-fly{position:fixed;z-index:9999;box-shadow:0 12px 28px rgba(0,0,0,.32);pointer-events:none;margin:0}
+  /* Nodes flow left→right and wrap onto the next line, filling the cluster panel's
+     width instead of wasting the space to the right. Each card has a fixed width so
+     pods read as full-width bars; taller (scaled-out) cards top-align in their row. */
+  #nodesList{flex-direction:row;flex-wrap:wrap;gap:12px;align-items:flex-start;align-content:flex-start}
+  .node-card{padding:10px 12px 12px;display:flex;flex-direction:column;gap:8px;
+    width:340px;flex:0 0 auto;transition:opacity .45s ease, background .45s ease, filter .45s ease}
+  .node-card.inactive{opacity:.62;background:#f4f4f4;filter:grayscale(.5)}
+  .node-card.drop-target{outline:2px dashed var(--accent);outline-offset:-4px;background:#f1f5ff}
+  .node-card.invalid-drop{outline:2px dashed #d04848;outline-offset:-4px;background:#fdf0f0}
+  .node-head{display:flex;align-items:center;gap:8px}
+  .node-head .name{font-weight:700;font-size:14px}
+  .usage{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ok)}
+  .usage.warn{color:#a06900}
+  .usage.full{color:var(--warn)}
+  .usage.cooldown{color:#a06900}
+  .usage.prov{color:#b9842b}
+  .usage.off{color:#8a93a6}
+  .usage .dot{
+    width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;
+    border-bottom:6px solid currentColor;display:inline-block;
+  }
+  /* Node body = one or more instance "bins" stacked DOWN (node scale-out).
+     Each bin is EXACTLY capacity×CPU_UNIT tall (height set inline by JS) and pods
+     stack gap-free, so a capacity-6 bin with 3 request-2 pods (3×60px) tiles the
+     180px box with no leftover space — the node IS the grid. */
+  .node-instances{display:flex;flex-direction:column;gap:8px}
+  .node-instance{
+    display:flex;flex-direction:column;justify-content:flex-start;gap:0;
+    background:#fbfcff;border-radius:6px;box-shadow:inset 0 0 0 1px #e7ecf5;
+    overflow:hidden;position:relative;transition:height .35s ease;
+  }
+  .node-instance .ilabel{
+    position:absolute;top:3px;right:6px;font-size:9.5px;font-weight:700;
+    color:#aab3c6;letter-spacing:.3px;pointer-events:none;z-index:2;
+  }
+  /* An instance the autoscaler just provisioned: still booting / NotReady for a few
+     seconds (striped amber box + spinner badge); its pods stay ContainerCreating. */
+  .node-instance.provisioning{
+    background:repeating-linear-gradient(45deg,#fff7e6,#fff7e6 9px,#fdeccd 9px,#fdeccd 18px);
+    box-shadow:inset 0 0 0 1px #f0d49a;
+  }
+  .node-instance .iboot{
+    position:absolute;top:3px;left:6px;display:flex;align-items:center;gap:4px;z-index:3;
+    font-size:9.5px;font-weight:800;color:#b9842b;letter-spacing:.3px;pointer-events:none;
+  }
+  .node-instance .iboot .spin{
+    width:9px;height:9px;border:2px solid rgba(185,132,43,.35);border-top-color:#b9842b;
+    border-radius:50%;display:inline-block;animation:spin .7s linear infinite;
+  }
+  /* Powered-off placeholder shown when a node has scaled to zero */
+  .node-off{display:none;align-items:center;justify-content:center;gap:8px;
+    flex:1;min-height:50px;border:1.5px dashed #cdd5e6;border-radius:6px;color:#8a93a6;
+    font-size:12px;font-weight:600;text-align:center;
+    background:repeating-linear-gradient(45deg,#fafafa,#fafafa 9px,#f1f2f5 9px,#f1f2f5 18px)}
+  .node-off .pwr{font-size:15px}
+  .node-card.inactive .node-instances{display:none}
+  .node-card.inactive .node-off{display:flex}
+  /* Footer */
+  footer.bottom{
+    text-align:center;color:var(--muted);font-size:11.5px;padding:4px 4px 0;
+  }
+  /* Add node placeholder */
+  .add-placeholder{
+    display:flex;align-items:center;justify-content:center;
+    width:100%;max-width:480px;min-height:54px;border:1.5px dashed #c2cde3;color:var(--muted);
+    border-radius:8px;cursor:pointer;font-size:12.5px;background:transparent;
+  }
+  .add-placeholder:hover{border-color:var(--accent);color:var(--accent);background:#eef2ff}
+  /* Fullscreen */
+  body.fs{padding:0}
+  /* Anim — only brand-new pods animate in; nothing else flashes on re-render */
+  @keyframes podin{from{opacity:0;transform:scale(.8)} to{opacity:1;transform:none}}
+  .pod.pod-enter{animation:podin .22s cubic-bezier(.22,.7,.18,1)}
+  /* Spinner shared by ContainerCreating pods and NotReady node instances */
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes podpulse{0%,100%{opacity:.35}50%{opacity:1}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="top">
+    <h1>Scheduler <span class="sep">·</span> Taints <span class="sep">·</span> Capacidad <span class="sep">·</span> KEDA</h1>
+    <div class="toolbar">
+      <button class="btn toggle off" id="autoBtn">Auto-scheduler: OFF</button>
+      <button class="btn" id="scheduleAllBtn">Programar todos</button>
+      <button class="btn" id="emptyBtn">Vaciar nodos</button>
+      <button class="btn danger" id="resetBtn">Reset</button>
+    </div>
+  </header>
+
+  <div class="subtitle" id="subtitle"></div>
+
+  <main class="grid">
+    <!-- LEFT COLUMN -->
+    <div class="col">
+      <section class="section" id="kedaSection">
+        <header class="section-head"><div class="title"><span class="caret">▼</span>KEDA · Día de la semana</div></header>
+        <div class="section-body">
+          <div class="keda-wrap">
+            <div class="day-selector">
+              <button class="day-arrow" id="prevDay" title="día anterior">◄</button>
+              <div class="seg" id="daySeg"></div>
+              <button class="day-arrow" id="nextDay" title="día siguiente">►</button>
+            </div>
+            <div class="day-current" id="dayCurrent"></div>
+            <div class="help">Selecciona el día (o usa ◄ ►). Las réplicas de cada Pod con KEDA activo se ajustan a su valor del día.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section flex" id="podsSection">
+        <header class="section-head">
+          <div class="title"><span class="caret">▼</span>Definición de pods</div>
+          <div class="actions"><button class="ghost-btn" id="addPodTypeBtn">+ tipo</button></div>
+        </header>
+        <div class="section-body" id="podTypesList"></div>
+      </section>
+    </div>
+
+    <!-- CENTER COLUMN -->
+    <div class="col">
+      <section class="section flex" id="schedulerSection">
+        <header class="section-head">
+          <div class="title"><span class="caret">▼</span>Scheduler</div>
+          <div class="actions">
+            <label class="strat" title="NodeResourcesFit scoringStrategy del kube-scheduler: cómo puntúa los nodos factibles.">scoring
+              <select id="scoringStrategy">
+                <option value="MostAllocated">Empaquetar (MostAllocated)</option>
+                <option value="LeastAllocated">Repartir (LeastAllocated)</option>
+              </select>
+            </label>
+          </div>
+        </header>
+        <div class="section-body">
+          <div class="queue" id="queue"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="col">
+      <section class="section flex" id="nodesSection">
+        <header class="section-head">
+          <div class="title"><span class="caret">▼</span>Nodos del clúster</div>
+          <div class="actions"><button class="ghost-btn" id="addNodeBtn">+ Node</button></div>
+        </header>
+        <div class="section-body" id="nodesList"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="bottom">
+    KEDA escala réplicas según el día (gira la rueda) · click o arrastra un Pod para programarlo · cabeceras para colapsar secciones · los nodos sin demanda se escalan a 0 tras 10 s · F pantalla completa
+  </footer>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+// ---------- Constants ----------
+const DAYS_FULL = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+const DAYS_SHORT = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+const SCALE_TO_ZERO_MS = 10000;
+// Vertical pixels per CPU unit. A pod's height = request × CPU_UNIT and a node's
+// body height = capacity × CPU_UNIT, so stacked pod bars fill the node exactly in
+// proportion to how much CPU they request (bigger request → consumes more node).
+const CPU_UNIT = 30;
+// Default scale-out ceiling: how many node instances the autoscaler may add.
+const DEFAULT_MAX_REPLICAS = 3;
+// Lifecycle timings (compressed from real-world minutes to a few seconds):
+//   POD_START_MS  — a freshly-bound Pod sits in ContainerCreating (pulling image,
+//                   starting the container) before it reports Running.
+//   NODE_BOOT_MS  — a freshly-provisioned Node instance is NotReady (booting,
+//                   joining the cluster) before Pods on it can actually run.
+//   POD_TERMINATE_MS — a Pod scaled away isn't deleted instantly: it goes
+//                   Terminating (SIGTERM + grace period) before the object is removed.
+const POD_START_MS = 2500;
+const NODE_BOOT_MS = 4500;
+const POD_TERMINATE_MS = 3000;
+const COLORS = ['#3956d3','#7c4dff','#27a36b','#d8821a','#c0397f','#1e90b8','#7a5fbf','#b85c5c'];
+
+// ---------- Initial state ----------
+function initialState(){
+  return {
+    day: 0,
+    autoScheduler: false,
+    // kube-scheduler NodeResourcesFit scoringStrategy: 'MostAllocated' bin-packs
+    // (cost-efficient, pairs with scale-to-zero); 'LeastAllocated' spreads (upstream default).
+    scoringStrategy: 'MostAllocated',
+    podTypes: [
+      { id: uid('t'), name:'web',     color:'#3956d3', request:2, kedaEnabled:true, replicas:3,
+        replicasByDay:[3,3,3,3,3,1,1], tolerations:[] },
+      { id: uid('t'), name:'gpu-job', color:'#7c4dff', request:2, kedaEnabled:true, replicas:2,
+        replicasByDay:[2,2,2,2,2,0,0],
+        tolerations:[{key:'gpu', value:'true', effect:'NoSchedule'}] },
+    ],
+    nodes: [
+      { id: uid('n'), name:'node-1', capacity:6, maxReplicas:3, taints:[] },
+      { id: uid('n'), name:'node-2', capacity:4, maxReplicas:3, taints:[{key:'gpu', value:'true', effect:'NoSchedule'}] },
+    ],
+    // pods: {id, typeId, index, location:null|nodeId}
+    pods: [],
+    // For scale-to-zero tracking
+    nodeIdleSince: {},
+    nodeInactive: {},
+    // Node-instance readiness: nodeId -> [readyAtMs per running instance index].
+    // A timestamp in the future means that instance is still booting (NotReady).
+    nodeReadyAt: {},
+  };
+}
+
+let S = initialState();
+
+function uid(prefix='id'){ return prefix + '_' + Math.random().toString(36).slice(2,9); }
+
+// ---------- Helpers ----------
+function getType(typeId){ return S.podTypes.find(t => t.id === typeId); }
+function getNode(nodeId){ return S.nodes.find(n => n.id === nodeId); }
+
+function desiredReplicas(t, day=S.day){
+  // KEDA on -> replicas driven by the day's metric; KEDA off -> fixed manual replica count
+  return t.kedaEnabled ? (t.replicasByDay[day] | 0) : (t.replicas | 0);
+}
+
+function usage(nodeId){
+  let used = 0;
+  for(const p of S.pods){
+    if(p.location === nodeId){
+      const t = getType(p.typeId);
+      used += t ? t.request : 0;
+    }
+  }
+  return used;
+}
+
+// ----- Node scale-out (a node group = up to maxReplicas instances of `capacity`) -----
+function maxReplicas(n){ return Math.max(1, n.maxReplicas || DEFAULT_MAX_REPLICAS); }
+function groupCapacity(n){ return n.capacity * maxReplicas(n); }
+// How many node instances are currently provisioned. This is the cluster-autoscaler's
+// decision, made AUTHORITATIVE in S.nodeReadyAt — each entry is one instance, Ready or
+// still booting. A powered-on node always shows ≥1; a scaled-to-zero node shows 0.
+function activeInstanceCount(n){
+  if(S.nodeInactive[n.id]) return 0;
+  return Math.max(1, (S.nodeReadyAt[n.id] || []).length);
+}
+// Can `pod` be bound RIGHT NOW to an instance of node n that has finished booting
+// (Ready)? Mirrors the renderer's bin-packing: the Pod must fit either an occupied
+// Ready bin or a still-empty Ready instance. Booting (NotReady) instances are
+// deliberately excluded — kube-scheduler never binds to a node that hasn't joined the
+// cluster, so such Pods stay Pending until their instance becomes Ready.
+function fitsInReadyInstances(pod, n, now = Date.now()){
+  const req = getType(pod.typeId).request;
+  if(req > n.capacity) return false;                 // bigger than a single instance — never fits
+  const ready = readyInstanceCount(n, now);
+  const bins  = packNode(n);                         // occupied instances (index-aligned to nodeReadyAt)
+  for(let k = 0; k < bins.length && k < ready; k++){
+    if(bins[k].used + req <= n.capacity) return true;   // room left in an occupied, Ready instance
+  }
+  return bins.length < ready;                        // a Ready instance with no Pods yet is wide open
+}
+
+// k8s matching: empty key => operator Exists (matches any taint of the given/any effect).
+// Otherwise key must equal; empty value => Exists on that key; empty effect => matches all effects.
+function tolerationMatchesTaint(tol, taint){
+  if(tol.key === '') return (tol.effect === '' || tol.effect === taint.effect);
+  return tol.key === taint.key &&
+    (tol.value === '' || tol.value === taint.value) &&
+    (tol.effect === '' || tol.effect === taint.effect);
+}
+
+// Used for SCHEDULING decisions: NoSchedule + NoExecute block; PreferNoSchedule is soft (ignored here).
+function tolerates(pod, node){
+  const t = getType(pod.typeId);
+  if(!t) return false;
+  for(const taint of node.taints){
+    if(taint.effect === 'PreferNoSchedule') continue;
+    if(!t.tolerations.some(tol => tolerationMatchesTaint(tol, taint))) return false;
+  }
+  return true;
+}
+
+// Evict running pods only for NoExecute taints they don't tolerate (NoSchedule never evicts).
+function evictForTaints(node){
+  for(const p of S.pods){
+    if(p.location !== node.id) continue;
+    const t = getType(p.typeId);
+    const violates = node.taints.some(tnt =>
+      tnt.effect === 'NoExecute' &&
+      !t.tolerations.some(tol => tolerationMatchesTaint(tol, tnt))
+    );
+    if(violates) p.location = null;
+  }
+}
+
+// Enforce capacity everywhere: evict the most-recently placed pods until usage
+// fits within the whole node GROUP (capacity × maxReplicas instances).
+function enforceNodeCapacity(){
+  for(const n of S.nodes){
+    let guard = 0;
+    while(usage(n.id) > groupCapacity(n) && guard++ < 999){
+      const here = S.pods.filter(p => p.location === n.id);
+      if(here.length === 0) break;
+      here[here.length - 1].location = null;
+    }
+  }
+}
+
+function nodeFits(pod, node){
+  const t = getType(pod.typeId);
+  if(!t) return false;
+  if(!tolerates(pod, node)) return false;
+  if(t.request > node.capacity) return false;              // a single pod can't exceed one instance
+  return usage(node.id) + t.request <= groupCapacity(node);  // room within maxReplicas instances
+}
+
+// ===================================================================
+//  Node selection = the real Kubernetes pipeline, split into the two
+//  independent components a managed cluster actually runs:
+//
+//    1) kube-scheduler  — binds a Pod to an EXISTING (running) Node. For each
+//       Pod it runs Filter plugins (predicates: is the Node feasible?), then
+//       Score plugins (priorities: 0–100 each, weighted), and picks the highest.
+//       It never invents Nodes; if nothing is feasible the Pod stays Pending.
+//
+//    2) cluster-autoscaler — watches for Pending Pods. When the scheduler can
+//       place none, it provisions a NEW node instance in the node group its
+//       "expander" judges best (least-waste here), after which the Pod binds.
+// ===================================================================
+const MAX_NODE_SCORE = 100;          // kube-scheduler framework MaxNodeScore
+
+// ---- Filter plugins (predicates). A Node is feasible only if ALL pass. ----
+//   TaintToleration  : NoSchedule / NoExecute taints must be tolerated (hard).
+//   NodeResourcesFit : the Pod's CPU request must fit the Node's RUNNING allocatable.
+function passesFilters(pod, n){
+  if(S.nodeInactive[n.id]) return false;                  // scaled-to-zero: not a running target
+  return tolerates(pod, n) && fitsInReadyInstances(pod, n);   // bind only to Ready (booted) capacity
+}
+
+// ---- Score plugins (priorities). Each returns 0..MAX_NODE_SCORE. ----
+// NodeResourcesFit scoring mirrors kube-scheduler's configurable scoringStrategy:
+//   MostAllocated  → fuller Node scores higher  (bin-packing; pairs with scale-to-zero)
+//   LeastAllocated → emptier Node scores higher  (spread; the upstream default)
+function scoreNodeResources(pod, n){
+  const req   = getType(pod.typeId).request;
+  const alloc = Math.max(1, readyInstanceCount(n) * n.capacity);    // Ready (bindable) allocatable CPU
+  const frac  = Math.min(1, (usage(n.id) + req) / alloc);           // utilization AFTER placing
+  const least = S.scoringStrategy === 'LeastAllocated';
+  return Math.round((least ? (1 - frac) : frac) * MAX_NODE_SCORE);
+}
+// TaintToleration scoring: penalise PreferNoSchedule taints the Pod does NOT tolerate
+// (a soft "repel" — the Node stays feasible but loses points).
+function scoreTaintToleration(pod, n){
+  const t = getType(pod.typeId);
+  let intolerable = 0;
+  for(const taint of n.taints){
+    if(taint.effect !== 'PreferNoSchedule') continue;
+    if(!t.tolerations.some(tol => tolerationMatchesTaint(tol, taint))) intolerable++;
+  }
+  return Math.max(0, MAX_NODE_SCORE - intolerable * 50);
+}
+// Default-profile plugin weights (NodeResourcesFit:1, TaintToleration:3).
+const SCORE_PLUGINS = [
+  { weight:1, fn:scoreNodeResources },
+  { weight:3, fn:scoreTaintToleration },
+];
+function nodeScore(pod, n){
+  return SCORE_PLUGINS.reduce((s, p) => s + p.weight * p.fn(pod, n), 0);
+}
+
+// A node group can host a brand-new instance for this Pod (the autoscaler's test):
+// tolerated, the Pod fits inside one instance, and the group is below máx réplicas.
+function canScaleOutFor(pod, n){
+  const req = getType(pod.typeId).request;
+  return tolerates(pod, n) && req <= n.capacity && usage(n.id) + req <= groupCapacity(n);
+}
+
+// One kube-scheduler cycle for one Pod → {node, phase:'scheduler', score} or null.
+// It Filters running Nodes, Scores the survivors and binds the best — but ONLY to
+// instances that are already Ready (passesFilters). It never invents capacity: if
+// nothing Ready fits, the Pod stays Pending and the cluster-autoscaler
+// (reconcileAutoscaler) provisions a new instance, after which the Pod binds.
+function scheduleDecision(pod){
+  if(!getType(pod.typeId)) return null;
+  const feasible = S.nodes.filter(n => passesFilters(pod, n));
+  if(!feasible.length) return null;                          // Pending / Unschedulable
+  const best = feasible
+    .map(n => ({ n, s: nodeScore(pod, n) }))
+    .sort((a, b) => b.s - a.s                                // highest score wins
+                 || a.n.capacity - b.n.capacity              // tie: smaller node (tighter pack)
+                 || S.nodes.indexOf(a.n) - S.nodes.indexOf(b.n))[0];
+  return { node: best.n, phase:'scheduler', score: best.s };
+}
+
+// Deferred MANUAL placement. A click/drag on a queued Pod records a bindIntent instead of
+// binding right away, so a Pod is NEVER dropped onto an instance that is still booting (which
+// would paint a bogus ContainerCreating on a NotReady node). The Pod waits Pending while the
+// cluster-autoscaler boots the instance; this pass then commits the bind the moment a Ready
+// instance can host it — exactly how kube-scheduler only ever binds to Ready Nodes.
+//   bindIntent === 'auto'  → any Node the scheduler would pick (best Ready fit)
+//   bindIntent === <id>    → that specific Node, once one of ITS instances is Ready
+function bindIntendedPods(now = Date.now()){
+  let progress = true, changed = false;
+  while(progress){
+    progress = false;
+    for(const p of S.pods){
+      if(p.location !== null || p.terminatingAt || !p.bindIntent) continue;
+      let target = null;
+      if(p.bindIntent === 'auto'){
+        target = findBestNode(p);                          // best Ready instance, or null
+      } else {
+        const n = getNode(p.bindIntent);                   // a specific Node was requested
+        if(n && passesFilters(p, n)) target = n;           // bind only once one of ITS instances is Ready
+      }
+      if(!target) continue;                                // nothing Ready yet → keep waiting Pending
+      p.location = target.id; p.bindIntent = null;
+      delete S.nodeIdleSince[target.id]; S.nodeInactive[target.id] = false;
+      progress = true; changed = true;
+    }
+  }
+  return changed;
+}
+
+function findBestNode(pod){
+  const d = scheduleDecision(pod);
+  return d ? d.node : null;
+}
+
+// A node is "needed" if it runs pods OR a pending pod could be placed on it.
+// The autoscaler only scales a node to zero when it has no demand at all.
+function nodeHasDemand(node){
+  if(usage(node.id) > 0) return true;
+  return S.pods.some(p => p.location === null && !p.terminatingAt && nodeFits(p, node));
+}
+
+// ---------- Pod generation from KEDA ----------
+function syncPodsToReplicas(){
+  const now = Date.now();
+  // Per type, keep the count of LIVE (non-terminating) pods == desiredReplicas.
+  // Scaling DOWN never deletes instantly: like a real Deployment/ReplicaSet the
+  // surplus pods enter Terminating (SIGTERM + grace period) and are reaped a few
+  // seconds later by reapTerminatedPods(). Scaling UP first revives still-terminating
+  // pods (demand returned before they died) to keep numbering stable, then adds new.
+  for(const t of S.podTypes){
+    const want = desiredReplicas(t);
+    const all = S.pods.filter(p => p.typeId === t.id);
+    const alive = all.filter(p => !p.terminatingAt).sort((a,b)=>a.index-b.index);
+    if(alive.length < want){
+      let need = want - alive.length;
+      const used = new Set(all.map(p => p.index));   // don't collide with terminating pods' indices
+      // 1) revive the lowest-indexed terminating pods — their demand came back
+      for(const p of all.filter(p => p.terminatingAt).sort((a,b)=>a.index-b.index)){
+        if(need <= 0) break;
+        p.terminatingAt = 0; need--;
+      }
+      // 2) add brand-new pods for whatever demand is still unmet.
+      //    boundTo/boundAt drive the lifecycle: when location first matches a node,
+      //    boundAt stamps the ContainerCreating start (see syncPodLifecycle).
+      let i = 1;
+      while(need > 0){
+        while(used.has(i)) i++;
+        S.pods.push({ id: uid('p'), typeId: t.id, index: i, location: null, boundTo: null, boundAt: 0, terminatingAt: 0, bindIntent: null });
+        used.add(i); i++; need--;
+      }
+    } else if(alive.length > want){
+      // Mark the surplus Terminating (don't remove yet): prefer not-yet-running
+      // (queued) pods first, then the highest-indexed running ones.
+      const surplus = alive.length - want;
+      const order = alive.slice().sort((a,b)=>{
+        const aq = a.location===null ? 0 : 1;
+        const bq = b.location===null ? 0 : 1;
+        if(aq!==bq) return aq-bq;
+        return b.index - a.index;
+      });
+      for(let k=0;k<surplus;k++) order[k].terminatingAt = now;
+    }
+  }
+  // Pods whose type no longer exists go immediately (type deleted ~ kubectl delete).
+  S.pods = S.pods.filter(p => getType(p.typeId));
+}
+
+// Reap pods whose graceful-termination window has elapsed: the container has been
+// killed and the Pod object is removed. Returns true if anything was removed, so the
+// control loop knows it needs a structural relayout.
+function reapTerminatedPods(now){
+  const before = S.pods.length;
+  S.pods = S.pods.filter(p => !(p.terminatingAt && (now - p.terminatingAt) >= POD_TERMINATE_MS));
+  return S.pods.length !== before;
+}
+
+// ---------- Lifecycle: Pod phases + Node-instance readiness ----------
+// Pods don't snap to Running and nodes don't snap to Ready — both take a few
+// seconds, exactly like a real cluster (image pull + container start; node boot
+// + kubelet registration). We track timestamps and let the control loop tick the
+// transitions; nothing here mutates scheduling, only how state is reported.
+
+// Mark existing nodes as already-Ready (provisioned before the sim started) so the
+// initial cluster doesn't flash NotReady on load. Nodes added later DO boot.
+function seedNodeReadiness(){
+  const past = Date.now() - 1;
+  for(const n of S.nodes) S.nodeReadyAt[n.id] = [past];
+}
+
+// ---- cluster-autoscaler ----
+// Decide how many instances each node group should run and step S.nodeReadyAt toward
+// it: new instances start a NODE_BOOT_MS timer (NotReady → booting), surplus EMPTY
+// instances are released, and a scaled-to-zero node drops to none. This NEVER binds
+// Pods — kube-scheduler does that, and only to Ready instances — so a freshly
+// scaled-out instance appears empty and booting while its candidate Pods wait Pending.
+//
+// It ALWAYS simulates scale-UP for queued Pods (the autoscaler runs independently of
+// kube-scheduler — it reacts to Pending Pods whether you schedule by hand or let the
+// auto-scheduler do it): it bin-packs them onto projected capacity exactly as the
+// renderer/scheduler will, provisioning extra instances (up to máx réplicas) where the
+// running ones are full. A Pod pinned to a specific Node by a manual drag must scale THAT
+// Node, so those are planned first and only onto their target; the rest use free
+// first-fit-decreasing bin-packing. Returns true if the instance topology changed.
+function reconcileAutoscaler(now){
+  const planned = {};                       // node.id -> simulated bins [{used}]
+  for(const n of S.nodes){
+    planned[n.id] = S.nodeInactive[n.id] ? [] : packNode(n).map(b => ({ used: b.used }));
+  }
+  const pending = S.pods.filter(p => p.location === null && !p.terminatingAt && getType(p.typeId));
+  const canHost = (p, n) => !S.nodeInactive[n.id] && tolerates(p, n) && getType(p.typeId).request <= n.capacity;
+  // (1) Pods pinned to a Node by a manual drag → grow that Node specifically.
+  for(const p of pending.filter(p => p.bindIntent && p.bindIntent !== 'auto')){
+    const n = getNode(p.bindIntent);
+    if(!n || !canHost(p, n)) continue;
+    const req = getType(p.typeId).request;
+    const bin = planned[n.id].find(b => b.used + req <= n.capacity);
+    if(bin) bin.used += req;
+    else if(planned[n.id].length < maxReplicas(n)) planned[n.id].push({ used: req });
+  }
+  // (2) everything else → free FFD: tightest existing instance, else least-wasteful new one.
+  for(const p of pending.filter(p => !p.bindIntent || p.bindIntent === 'auto')
+                        .sort((a, b) => getType(b.typeId).request - getType(a.typeId).request)){
+    const req = getType(p.typeId).request;
+    const eligible = S.nodes.filter(n => canHost(p, n));
+    let host = null, binIdx = -1, bestWaste = Infinity;
+    for(const n of eligible){
+      planned[n.id].forEach((b, i) => {
+        if(b.used + req <= n.capacity && (n.capacity - b.used - req) < bestWaste){
+          bestWaste = n.capacity - b.used - req; host = n; binIdx = i;
+        }
+      });
+    }
+    if(host){ planned[host.id][binIdx].used += req; continue; }
+    const grow = eligible
+      .filter(n => planned[n.id].length < maxReplicas(n))
+      .sort((a, b) => (a.capacity - req) - (b.capacity - req)
+                   || planned[a.id].length - planned[b.id].length
+                   || S.nodes.indexOf(a) - S.nodes.indexOf(b))[0];
+    if(grow) planned[grow.id].push({ used: req });
+    // else: no group can take it → it stays Pending/Unschedulable (no instance added)
+  }
+  let changed = false;
+  for(const n of S.nodes){
+    let arr = S.nodeReadyAt[n.id] || (S.nodeReadyAt[n.id] = []);
+    if(S.nodeInactive[n.id]){
+      if(arr.length){ S.nodeReadyAt[n.id] = []; changed = true; }   // powered off → no instances
+      continue;
+    }
+    const want = Math.min(maxReplicas(n), Math.max(1, planned[n.id].length));
+    while(arr.length < want){ arr.push(now + NODE_BOOT_MS); changed = true; }   // scale out → booting
+    while(arr.length > want){ arr.pop(); changed = true; }                      // release empty instance
+  }
+  return changed;
+}
+
+// Render-time safety net: guarantee every OCCUPIED bin has a readiness slot, so a Pod
+// bound between control-loop ticks (e.g. a manual drag) shows its instance's boot state
+// immediately. Grow-only — scale-IN is reconcileAutoscaler's job, so we never undo a
+// pending scale-out (a booting instance provisioned for queued Pods) here.
+function ensureInstanceReadiness(now){
+  for(const n of S.nodes){
+    if(S.nodeInactive[n.id]) continue;
+    const need = Math.max(1, packNode(n).length);
+    let arr = S.nodeReadyAt[n.id] || (S.nodeReadyAt[n.id] = []);
+    while(arr.length < need) arr.push(now + NODE_BOOT_MS);
+  }
+}
+function readyInstanceCount(n, now = Date.now()){
+  const arr = S.nodeReadyAt[n.id] || [];
+  let c = 0; for(const t of arr) if(t <= now) c++; return c;
+}
+function instanceReady(n, k, now = Date.now()){
+  const arr = S.nodeReadyAt[n.id] || [];
+  return arr[k] !== undefined && arr[k] <= now;
+}
+
+// Detect when a Pod becomes bound to (or moves between) nodes so we can stamp the
+// moment its container starts being created. Leaving a node resets it to Pending.
+function syncPodLifecycle(now){
+  for(const p of S.pods){
+    if(p.location === null){
+      if(p.boundTo){ p.boundTo = null; p.boundAt = 0; }
+    } else if(p.location !== p.boundTo){
+      p.boundTo = p.location;
+      p.boundAt = now;        // (re)start ContainerCreating on this node
+    }
+  }
+}
+
+// Are any pods still ContainerCreating or any node instances still booting? While
+// true the control loop must keep re-rendering so the transitions show live.
+function hasPendingTransitions(now){
+  for(const n of S.nodes){
+    for(const t of (S.nodeReadyAt[n.id] || [])) if(t > now) return true;
+  }
+  for(const p of S.pods){
+    if(p.terminatingAt && (now - p.terminatingAt) < POD_TERMINATE_MS) return true;
+    if(p.location !== null && (now - (p.boundAt || 0)) < POD_START_MS) return true;
+  }
+  return false;
+}
+
+// Lightweight per-tick update: advance Pod phases (ContainerCreating→Running) and
+// Node-instance readiness (NotReady→Ready) on the EXISTING DOM. Pods do NOT move
+// between containers when only their phase changes, so this must NOT rebuild bins
+// or run the FLIP machinery (doing that every tick churns clones and hides chips).
+function refreshPhases(){
+  const now = Date.now();
+  syncPodLifecycle(now);
+  ensureInstanceReadiness(now);
+  // queued pods → Pending / Unschedulable
+  for(const p of S.pods){
+    if(p.location !== null) continue;
+    const el = podEls.get(p.id);
+    if(el) refreshPodEl(el, p, p.terminatingAt ? 'Terminating' : (unschedulableInfo(p) ? 'Unschedulable' : 'Pending'), now);
+  }
+  // scheduled pods → ContainerCreating / Running, by their live instance bin
+  for(const n of S.nodes){
+    const ref = nodeRefs.get(n.id);
+    if(!ref) continue;
+    const bins = ref.instancesEl.children;
+    for(let k = 0; k < bins.length; k++){
+      const bin = bins[k];
+      const ready = instanceReady(n, k, now);
+      bin.classList.toggle('provisioning', !ready);
+      let boot = bin.querySelector('.iboot');
+      if(!ready && !boot){
+        boot = document.createElement('span');
+        boot.className = 'iboot';
+        boot.innerHTML = `<span class="spin"></span>NotReady`;
+        bin.insertBefore(boot, bin.firstChild);
+      } else if(ready && boot){
+        boot.remove();
+      }
+      for(const el of bin.querySelectorAll('.pod[data-pod-id]')){
+        const p = S.pods.find(x => x.id === el.dataset.podId);
+        if(!p) continue;
+        const started = (now - (p.boundAt || now)) >= POD_START_MS;
+        refreshPodEl(el, p, p.terminatingAt ? 'Terminating' : ((ready && started) ? 'Running' : 'ContainerCreating'), now);
+      }
+    }
+  }
+  updateUsages();
+}
+
+// ---------- Control loop (scale-to-zero + auto scheduler) ----------
+let scaleTimer = null;
+let wasTransitioning = false;
+function pumpControlLoop(){
+  if(window._dragPodId) return;   // don't move things while the user is dragging
+  const now = Date.now();
+  let dirty = false;
+
+  // Graceful termination: drop pods whose grace period elapsed first, so the usage /
+  // instance sizing below already reflects the smaller replica count. Structural change.
+  if(reapTerminatedPods(now)) dirty = true;
+
+  // Scale-to-zero: a node with NO demand (empty AND no pending pod fits its group) for
+  // SCALE_TO_ZERO_MS goes inactive — like a cluster autoscaler scaling a node down.
+  for(const n of S.nodes){
+    if(!nodeHasDemand(n)){
+      if(!S.nodeIdleSince[n.id]) S.nodeIdleSince[n.id] = now;
+      const nowInactive = (now - S.nodeIdleSince[n.id]) >= SCALE_TO_ZERO_MS;
+      if(!!S.nodeInactive[n.id] !== nowInactive){
+        S.nodeInactive[n.id] = nowInactive;
+        dirty = true;
+      }
+    } else {
+      if(S.nodeIdleSince[n.id]){ delete S.nodeIdleSince[n.id]; dirty = true; }
+      if(S.nodeInactive[n.id]){ delete S.nodeInactive[n.id]; dirty = true; }
+    }
+  }
+
+  // kube-scheduler: bind pending Pods to instances that are ALREADY Ready. With the
+  // auto-scheduler OFF the user plays scheduler by hand, but a click/drag only records a
+  // bindIntent — bindIntendedPods() commits it the moment a Ready instance can host it, so
+  // a Pod never lands on an instance that is still booting.
+  if(S.autoScheduler){
+    const before = S.pods.filter(p => p.location === null && !p.terminatingAt).length;
+    scheduleAllFit();
+    if(S.pods.filter(p => p.location === null && !p.terminatingAt).length !== before) dirty = true;
+  } else if(bindIntendedPods(now)){
+    dirty = true;
+  }
+  // cluster-autoscaler runs INDEPENDENTLY of the scheduler (as in a real cluster): it always
+  // reacts to Pending Pods — booting new instances where the running ones are full (up to máx
+  // réplicas) or releasing empty ones. Pods that triggered a scale-out keep waiting Pending
+  // until their new instance finishes booting (Ready), then get bound.
+  if(reconcileAutoscaler(now)) dirty = true;
+  // Lifecycle bookkeeping: stamp newly-bound pods so their ContainerCreating clock starts.
+  syncPodLifecycle(now);
+  // Keep re-rendering while anything is mid-transition (ContainerCreating / NotReady)
+  // and for ONE extra tick after it settles, so the final Running/Ready frame paints.
+  const transitioning = hasPendingTransitions(now);
+
+  // Structural changes (pods placed/evicted, nodes powering on/off) need the full
+  // FLIP relayout; pure phase/readiness ticks use the lightweight in-place refresh.
+  if(dirty) placePods();                                   // move chips + refresh phases/usages
+  else if(transitioning || wasTransitioning) refreshPhases();   // tick phases without churn
+  else updateUsages();     // otherwise still tick the "escalando a 0 en Ns…" countdown live
+  wasTransitioning = transitioning;
+}
+
+function startScaleTimer(){
+  if(scaleTimer) clearInterval(scaleTimer);
+  scaleTimer = setInterval(pumpControlLoop, 500);
+}
+
+// ---------- Auto-scheduler ----------
+function scheduleAllFit(){
+  // try to schedule all queued pods (terminating pods are draining — never place them)
+  const queued = S.pods.filter(p => p.location === null && !p.terminatingAt);
+  let progress = true;
+  while(progress){
+    progress = false;
+    for(const p of queued){
+      if(p.location !== null) continue;
+      const n = findBestNode(p);
+      if(n){
+        p.location = n.id; p.bindIntent = null;
+        progress = true;
+      }
+    }
+  }
+}
+
+function autoIfEnabled(){
+  if(S.autoScheduler) scheduleAllFit();
+}
+
+// A toleration edit can both free a pod for a tainted node and force a NoExecute
+// eviction elsewhere — re-evaluate both, then do a structural refresh.
+function tolerationsChanged(){
+  S.nodes.forEach(n => evictForTaints(n));
+  autoIfEnabled();
+  reconcile();
+}
+
+// ---------- Render ----------
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+// Persistent DOM so pods can be MOVED (and FLIP-animated) instead of recreated.
+const podEls = new Map();   // pod.id  -> .pod element (created once, reused)
+const nodeRefs = new Map(); // node.id -> { card, usageEl, instancesEl }
+let queuePlaceholder = null;
+
+function queueSort(a, b){
+  const ta = getType(a.typeId).name, tb = getType(b.typeId).name;
+  if(ta !== tb) return ta.localeCompare(tb);
+  return a.index - b.index;
+}
+
+// Get (or lazily create) the persistent chip for a pod.
+function getPodEl(pod){
+  let el = podEls.get(pod.id);
+  if(!el){
+    el = makePodEl(pod);
+    el.classList.add('pod-enter');                 // gentle entrance, only on first creation
+    el.addEventListener('animationend', () => el.classList.remove('pod-enter'), { once:true });
+    podEls.set(pod.id, el);
+  }
+  return el;
+}
+
+// Refresh a chip's label/colour/phase in place (cheap, no reflow churn).
+// phase ∈ {Pending, Unschedulable, ContainerCreating, Running} — drives the status
+// dot/spinner + styling via CSS classes, mirroring `kubectl get pods` states.
+function refreshPodEl(el, pod, phase, now){
+  const t = getType(pod.typeId);
+  const label = `${escapeHtml(t.name)}-${pod.index}`;
+  if(el._label !== label){ el.querySelector('.pod-name').textContent = label; el._label = label; }
+  if(el._color !== t.color){ el.style.backgroundColor = t.color; el._color = t.color; }
+  // Height encodes the CPU request: a req-4 pod is twice as tall as a req-2 one.
+  const h = Math.max(1, t.request) * CPU_UNIT;
+  if(el._h !== h){ el.style.height = h + 'px'; el._h = h; }
+
+  // The right-hand caption shows the live phase for scheduled pods, else the request.
+  let cap;
+  if(phase === 'Running')                 cap = 'Running';
+  else if(phase === 'ContainerCreating')  cap = 'ContainerCreating';
+  else if(phase === 'Terminating')        cap = 'Terminating';
+  else                                    cap = 'Pending';   // queued / Unschedulable — kubectl STATUS is Pending
+  if(el._cap !== cap){ el.querySelector('.req').textContent = cap; el._cap = cap; }
+
+  if(el._phase !== phase){
+    el.classList.toggle('creating', phase === 'ContainerCreating');
+    el.classList.toggle('running',  phase === 'Running');
+    el.classList.toggle('pending',  phase === 'Pending');
+    el.classList.toggle('unschedulable', phase === 'Unschedulable');
+    el.classList.toggle('terminating', phase === 'Terminating');
+    el._phase = phase;
+  }
+  if(phase === 'Running')                 el.title = `${label} · Running · click para devolver a la cola · arrastra a otro nodo`;
+  else if(phase === 'ContainerCreating')  el.title = `${label} · ContainerCreating · arrancando contenedor…`;
+  else if(phase === 'Terminating')        el.title = `${label} · Terminating · SIGTERM enviado, drenando durante el grace period…`;
+  else if(phase === 'Unschedulable')      el.title = unschedulableInfo(pod) || `${label} · Pending`;
+  else                                    el.title = `${label} · Pending · click para auto-programar · arrastra a un nodo`;
+}
+
+// Pack a node's located pods into instance bins (node scale-out) of `capacity`
+// CPU each. First-fit: fill the running instance before opening a new one below.
+// Each instance is a single vertical column; pods stack gap-free so the bin tiles
+// exactly (e.g. capacity 6 = three request-2 pods filling 180px with no leftover).
+function packNode(n){
+  const cap = n.capacity;
+  const pods = S.pods.filter(p => p.location === n.id).sort(queueSort);
+  const instances = [];
+  let cur = null;
+  for(const p of pods){
+    const req = getType(p.typeId).request;
+    if(!cur || cur.used + req > cap){ cur = { used:0, pods:[] }; instances.push(cur); }
+    cur.used += req;
+    cur.pods.push(p);
+  }
+  return instances;
+}
+
+// Move every pod chip into its correct container with a FLIP glide.
+// Pass pre-captured rects when the caller already measured (e.g. reconcile()).
+function placePods(firstRects){
+  if(!firstRects) firstRects = capturePodRects();
+  const now = Date.now();
+  syncPodLifecycle(now);     // stamp newly-bound pods before we compute their phase
+  ensureInstanceReadiness(now);   // every rendered (occupied) instance has a boot state
+
+  // drop chips whose pod no longer exists
+  const live = new Set(S.pods.map(p => p.id));
+  for(const [id, el] of podEls){
+    if(!live.has(id)){ el.remove(); podEls.delete(id); }
+  }
+
+  // queued pods (sorted) go into #queue
+  const q = $('#queue');
+  if(queuePlaceholder && queuePlaceholder.parentNode) queuePlaceholder.remove();
+  const queued = S.pods.filter(p => p.location === null).sort(queueSort);
+  for(const p of queued){
+    const el = getPodEl(p);
+    // queued pods are Pending (yellow ! badge if nothing can host them); a queued pod
+    // that was just scaled away shows Terminating until it's reaped.
+    refreshPodEl(el, p, p.terminatingAt ? 'Terminating' : (unschedulableInfo(p) ? 'Unschedulable' : 'Pending'), now);
+    q.appendChild(el);                 // appendChild MOVES the node if already in the DOM
+  }
+  if(queued.length === 0){
+    if(!queuePlaceholder){
+      queuePlaceholder = document.createElement('div');
+      queuePlaceholder.className = 'queue-empty';
+      queuePlaceholder.textContent = 'Cola vacía. Todos los Pods deseados están programados o no hay réplicas para hoy.';
+    }
+    q.appendChild(queuePlaceholder);
+  }
+
+  // scheduled pods go into their node's instance bins (one bin per running instance).
+  // Each bin is EXACTLY capacity×CPU_UNIT tall and pods stack gap-free inside it, so a
+  // full instance tiles the box with no leftover space — the node body IS a grid.
+  for(const n of S.nodes){
+    const ref = nodeRefs.get(n.id);
+    if(!ref) continue;
+    let instances = packNode(n);
+    const inactive = !!S.nodeInactive[n.id] && usage(n.id) === 0 && !nodeHasDemand(n);
+    // Show every PROVISIONED instance, not just the occupied ones: a powered-on node
+    // keeps ≥1 open instance, and any instance the autoscaler is booting for queued
+    // Pods appears here empty + NotReady while those Pods wait in the queue.
+    if(!inactive){
+      const provisioned = activeInstanceCount(n);
+      while(instances.length < provisioned) instances.push({ used:0, pods:[] });
+    }
+    // Rebuild the bin scaffolding, but keep the persistent chips ATTACHED throughout:
+    // append each new (empty) bin to the live container FIRST, then move chips from
+    // their old in-document bin into the new one. Moving a node between two in-document
+    // parents doesn't restart its CSS animation, so the entrance effect only fires for
+    // genuinely new chips. Old (now-empty) scaffolding is removed afterwards.
+    const oldBins = Array.from(ref.instancesEl.children);
+    const multi = instances.length > 1;
+    const binH = n.capacity * CPU_UNIT;
+    instances.forEach((inst, k) => {
+      const bin = document.createElement('div');
+      bin.className = 'node-instance';
+      bin.style.height = binH + 'px';                // exact capacity×CPU_UNIT box
+      ref.instancesEl.appendChild(bin);              // attach before moving chips in
+      // A just-provisioned instance is NotReady for a few seconds: striped amber box
+      // with a spinner badge; the pods inside it stay ContainerCreating until it's up.
+      const ready = instanceReady(n, k, now);
+      bin.classList.toggle('provisioning', !ready);
+      if(!ready){
+        const boot = document.createElement('span');
+        boot.className = 'iboot';
+        boot.innerHTML = `<span class="spin"></span>NotReady`;
+        bin.appendChild(boot);
+      }
+      if(multi){
+        const lab = document.createElement('span');
+        lab.className = 'ilabel';
+        lab.textContent = `#${k + 1}`;
+        bin.appendChild(lab);
+      }
+      for(const p of inst.pods){
+        // Running only once the container start delay elapsed AND its node is Ready.
+        const started = (now - (p.boundAt || now)) >= POD_START_MS;
+        const phase = p.terminatingAt ? 'Terminating' : ((ready && started) ? 'Running' : 'ContainerCreating');
+        const el = getPodEl(p); refreshPodEl(el, p, phase, now);
+        bin.appendChild(el);                         // in-document → in-document move (no anim restart)
+      }
+    });
+    oldBins.forEach(b => b.remove());                // drop the emptied-out old scaffolding
+  }
+
+  updateUsages();
+  playFlip(firstRects);
+}
+
+// In-place refresh of every node's usage line + scale-to-zero styling (no rebuild).
+// Three states, like a cluster autoscaler:
+//   active            → running/ready, shows used/capacity
+//   cooldown          → no demand, counting down before scaling to zero
+//   off (inactive)    → scaled to zero, node powered off
+function updateUsages(){
+  const now = Date.now();
+  for(const n of S.nodes){
+    const ref = nodeRefs.get(n.id);
+    if(!ref) continue;
+    const u = usage(n.id);
+    const demand = nodeHasDemand(n);
+    // demand-aware: a node powers back on the instant something needs it,
+    // without waiting for the next control-loop tick to clear the flag.
+    const inactive = !!S.nodeInactive[n.id] && u === 0 && !demand;
+    ref.card.classList.toggle('inactive', inactive);
+
+    if(inactive){
+      ref.usageEl.className = 'usage off';
+      ref.usageEl.innerHTML = `<span class="pwr">⏻</span> escalado a 0 · sin demanda · cap ${n.capacity}`;
+      continue;
+    }
+    const active = activeInstanceCount(n);
+    const ready = readyInstanceCount(n, now);
+    // Provisioning: at least one needed instance is still booting (NotReady).
+    if(ready < active){
+      const booting = active - ready;
+      ref.usageEl.className = 'usage prov';
+      ref.usageEl.innerHTML = `<span class="dot"></span> provisionando ${booting} ` +
+        `réplica${booting>1?'s':''}… · ${ready}/${active} lista${ready===1?'':'s'} (NotReady)`;
+      continue;
+    }
+    if(u === 0 && !demand){
+      const since = S.nodeIdleSince[n.id];
+      const remain = since ? Math.max(0, Math.ceil((SCALE_TO_ZERO_MS - (now - since)) / 1000))
+                           : Math.ceil(SCALE_TO_ZERO_MS / 1000);
+      ref.usageEl.className = 'usage cooldown';
+      ref.usageEl.innerHTML = `<span class="dot"></span> sin demanda · escalando a 0 en ${remain}s…`;
+      continue;
+    }
+    const prov = active * n.capacity;          // CPU currently provisioned across running instances
+    const ratio = prov ? u / prov : 0;
+    ref.usageEl.className = 'usage ' + (ratio>=1?'full':(ratio>=0.7?'warn':''));
+    const repTxt = active === 1 ? '1 réplica' : `${active} réplicas`;
+    const atMax = active >= maxReplicas(n) ? ` · máx ${maxReplicas(n)}` : '';
+    ref.usageEl.innerHTML = `<span class="dot"></span> activo · ${repTxt} · usado ${u}/${prov}${atMax}`;
+  }
+}
+
+// Why can't this queued pod be scheduled on ANY node? (kubectl-style reason)
+// Returns null when it can be placed now (possibly by scaling a node back up).
+function unschedulableInfo(pod){
+  if(S.nodes.length === 0) return 'Pending · no hay nodos en el clúster';
+  if(findBestNode(pod)) return null;                            // a Ready instance fits it now
+  if(S.nodes.some(n => canScaleOutFor(pod, n))) return null;    // autoscaler is scaling out → Pending, not Unschedulable
+  const t = getType(pod.typeId);
+  let untolerated = 0, atMax = 0, tooBig = 0;
+  for(const n of S.nodes){
+    if(!tolerates(pod, n)){ untolerated++; continue; }
+    if(t.request > n.capacity){ tooBig++; continue; }   // bigger than a single instance — never fits
+    atMax++;                                            // tolerated & fits an instance, but group at máx réplicas
+  }
+  const parts = [];
+  if(untolerated)  parts.push(`${untolerated} con taint no tolerado`);
+  if(atMax)        parts.push(`${atMax} al máximo de réplicas`);
+  if(tooBig)       parts.push(`${tooBig} con capacidad insuficiente`);
+  return `Pending · 0/${S.nodes.length} nodos disponibles: ${parts.join(', ')}`;
+}
+
+function updateAutoBtn(){
+  const autoBtn = $('#autoBtn');
+  autoBtn.classList.toggle('on', S.autoScheduler);
+  autoBtn.classList.toggle('off', !S.autoScheduler);
+  autoBtn.textContent = 'Auto-scheduler: ' + (S.autoScheduler?'ON':'OFF');
+}
+
+function buildDaySelector(){
+  const seg = $('#daySeg');
+  seg.innerHTML = '';
+  for(let i=0;i<7;i++){
+    const el = document.createElement('div');
+    el.className = 'day' + (i===S.day?' active':'') + (i>=5?' weekend':'');
+    el.textContent = DAYS_SHORT[i];
+    el.title = DAYS_FULL[i];
+    el.addEventListener('click', () => setDay(i));
+    seg.appendChild(el);
+  }
+  const parts = S.podTypes.map(t => `${t.name}: ${desiredReplicas(t)}`).join('  ·  ');
+  $('#dayCurrent').innerHTML =
+    `${DAYS_FULL[S.day]}<span class="sub">réplicas deseadas → ${parts || '—'}</span>`;
+}
+
+// ---------- FLIP animation: pods physically glide between queue and nodes ----------
+// The real chip already sits at its destination; we fly a CLONE in #flyLayer (a
+// fixed, top-most, non-clipping layer) from the old position to the new one, so the
+// movement is always rendered above every column/section and never hidden behind them.
+function getFlyLayer(){
+  let layer = document.getElementById('flyLayer');
+  if(!layer){
+    layer = document.createElement('div');
+    layer.id = 'flyLayer';
+    document.body.appendChild(layer);
+  }
+  return layer;
+}
+function capturePodRects(){
+  const map = new Map();
+  document.querySelectorAll('.pod[data-pod-id]').forEach(el => {
+    map.set(el.dataset.podId, el.getBoundingClientRect());
+  });
+  return map;
+}
+function playFlip(firstRects){
+  const layer = getFlyLayer();
+  document.querySelectorAll('.pod[data-pod-id]').forEach(el => {
+    const first = firstRects.get(el.dataset.podId);
+    if(!first) return;                       // brand-new pod -> CSS entrance, no flight
+    const last = el.getBoundingClientRect();
+    const dx = first.left - last.left;
+    const dy = first.top - last.top;
+    if(Math.abs(dx) < 1 && Math.abs(dy) < 1 &&
+       Math.abs(first.width - last.width) < 1) return;   // didn't really move
+
+    // If this chip is already mid-flight (destination changed quickly), drop the old
+    // clone but keep the chip hidden — the new flight below takes over its visibility.
+    if(el._flyClone){ el._flyClone.remove(); el._flyClone = null; }
+
+    // Build a floating clone that starts where the chip used to be (old pos + old size)
+    const clone = el.cloneNode(true);
+    clone.classList.add('pod-fly');
+    clone.classList.remove('pod-enter','dragging','unschedulable');
+    clone.removeAttribute('data-pod-id');
+    clone.style.left = last.left + 'px';
+    clone.style.top = last.top + 'px';
+    clone.style.width = first.width + 'px';
+    clone.style.height = first.height + 'px';
+    clone.style.transition = 'none';
+    clone.style.transform = `translate(${dx}px, ${dy}px)`;
+    layer.appendChild(clone);
+    el._flyClone = clone;
+    el.style.visibility = 'hidden';          // hide the real chip until the clone lands
+    void clone.offsetWidth;                  // force reflow so the invert sticks
+
+    // Cleanup is scheduled OUTSIDE requestAnimationFrame: rAF can be throttled or
+    // never fire (backgrounded tab / headless preview), and we must NEVER leave the
+    // real chip stuck invisible. The timer guarantees visibility is always restored.
+    let done = false;
+    const finish = () => {
+      if(done) return; done = true;
+      if(el._flyClone === clone){            // only the latest flight controls the chip
+        el._flyClone = null;
+        el.style.visibility = '';
+      }
+      clone.remove();
+    };
+    const safety = setTimeout(finish, 620);  // hard guarantee, independent of rAF
+    clone.addEventListener('transitionend', e => {
+      if(e.propertyName === 'transform'){ clearTimeout(safety); finish(); }
+    });
+
+    requestAnimationFrame(() => {
+      const t = 'transform .45s cubic-bezier(.22,.7,.18,1), width .45s ease, height .45s ease';
+      clone.style.transition = t;
+      clone.style.transform = 'translate(0,0)';
+      clone.style.width = last.width + 'px';   // morph to the destination size too
+      clone.style.height = last.height + 'px';
+    });
+  });
+}
+
+function renderSubtitle(){
+  const taintedNode = S.nodes.find(n => n.taints.some(t => t.effect !== 'PreferNoSchedule'));
+  const dayName = DAYS_FULL[S.day];
+  const sub = document.getElementById('subtitle');
+  if(taintedNode){
+    const tnt = taintedNode.taints.find(t => t.effect !== 'PreferNoSchedule');
+    sub.innerHTML = `Día <b>${dayName}</b>. KEDA fija las réplicas por día. El taint ` +
+      `<span class="em">${escapeHtml(tnt.key)}=${escapeHtml(tnt.value)}:${tnt.effect}</span> de ` +
+      `<b>${escapeHtml(taintedNode.name)}</b> repele los Pods que no lo toleran (sólo <span class="em">gpu-job</span> lo tolera). ` +
+      `Avanza al fin de semana: las réplicas bajan, el nodo se queda sin demanda y escala a 0.`;
+  } else {
+    sub.innerHTML = `Día <b>${dayName}</b>. KEDA fija las réplicas por día. ` +
+      `Programa los Pods en los nodos; un nodo sin demanda escala a 0 tras unos segundos.`;
+  }
+}
+
+function renderPodTypes(){
+  const cont = $('#podTypesList');
+  cont.innerHTML = '';
+  for(const t of S.podTypes){
+    const card = document.createElement('div');
+    card.className = 'pod-card';
+    const want = desiredReplicas(t);
+
+    const head = document.createElement('div');
+    head.className = 'row';
+    head.innerHTML = `
+      <span class="badge-color" style="background:${t.color}" title="cambiar color"></span>
+      <input class="name-input" value="${escapeAttr(t.name)}" />
+      <button class="close-x" title="eliminar tipo">✕</button>
+    `;
+    head.querySelector('.badge-color').addEventListener('click', () => cycleColor(t));
+    const nameInput = head.querySelector('.name-input');
+    nameInput.addEventListener('input', e => {           // typing: model only → keep focus, no flicker
+      t.name = e.target.value;
+      placePods();                                       // live-update chip labels without rebuilding cards
+    });
+    nameInput.addEventListener('change', e => {          // blur/enter: normalise + full refresh
+      t.name = e.target.value.trim() || 'pod';
+      reconcile();
+    });
+    head.querySelector('.close-x').addEventListener('click', () => {
+      S.podTypes = S.podTypes.filter(x => x.id !== t.id);
+      S.pods = S.pods.filter(p => p.typeId !== t.id);
+      reconcile();
+    });
+    card.appendChild(head);
+
+    const r1 = document.createElement('div');
+    r1.className = 'row';
+    r1.innerHTML = `<span class="label">réplicas</span>`;
+    if(t.kedaEnabled){
+      const v = document.createElement('span'); v.className='label'; v.style.fontWeight='700'; v.textContent = want;
+      const pill = document.createElement('span'); pill.className='pill'; pill.textContent = `auto · ${DAYS_SHORT[S.day]}`;
+      r1.appendChild(v); r1.appendChild(pill);
+    } else {
+      const numRep = makeNum(t.replicas, 1, val => {
+        t.replicas = val; syncPodsToReplicas(); autoIfEnabled(); reconcile();
+      }, {min:0, step:1});
+      r1.appendChild(numRep);
+      const man = document.createElement('span'); man.className='small'; man.textContent='(manual)';
+      r1.appendChild(man);
+    }
+    card.appendChild(r1);
+
+    const r2 = document.createElement('div');
+    r2.className = 'row';
+    r2.innerHTML = `<span class="label">request</span>`;
+    const numReq = makeNum(t.request, 2, v => {
+      t.request = v; enforceNodeCapacity(); autoIfEnabled(); reconcile();
+    }, {min:2, step:2});
+    r2.appendChild(numReq);
+    const m = document.createElement('span'); m.className='small'; m.textContent='(múlt. 2)';
+    r2.appendChild(m);
+    card.appendChild(r2);
+
+    const r3 = document.createElement('label');
+    r3.className = 'check';
+    r3.innerHTML = `<input type="checkbox" ${t.kedaEnabled?'checked':''}/> escalado KEDA por día`;
+    r3.querySelector('input').addEventListener('change', e => {
+      t.kedaEnabled = e.target.checked;
+      syncPodsToReplicas();
+      autoIfEnabled();
+      reconcile();
+    });
+    card.appendChild(r3);
+
+    if(t.kedaEnabled){
+      const grid = document.createElement('div');
+      grid.className = 'days-grid';
+      for(let i=0;i<7;i++){
+        const cell = document.createElement('div'); cell.className='day-cell';
+        cell.innerHTML = `<div class="lbl${i===S.day?' today':''}">${DAYS_SHORT[i]}</div>`;
+        const inp = document.createElement('input');
+        inp.type = 'number'; inp.min = '0'; inp.value = t.replicasByDay[i];
+        if(i===S.day) inp.classList.add('today');
+        inp.addEventListener('change', () => {
+          const v = Math.max(0, Math.round(+inp.value || 0));
+          t.replicasByDay[i] = v;
+          inp.value = v;
+          syncPodsToReplicas();
+          autoIfEnabled();
+          reconcile();
+        });
+        cell.appendChild(inp);
+        grid.appendChild(cell);
+      }
+      card.appendChild(grid);
+    }
+
+    const tolHead = document.createElement('div');
+    tolHead.className = 'small-head';
+    tolHead.textContent = 'tolerations';
+    card.appendChild(tolHead);
+
+    const tolBox = document.createElement('div'); tolBox.className='tolerations';
+    t.tolerations.forEach((tol, idx) => {
+      const row = document.createElement('div'); row.className='kv-row';
+      row.innerHTML = `
+        <input value="${escapeAttr(tol.key)}" placeholder="key" />
+        <input value="${escapeAttr(tol.value)}" placeholder="value" />
+        <select>
+          <option value="NoSchedule"${tol.effect==='NoSchedule'?' selected':''}>NoSchedule</option>
+          <option value="NoExecute"${tol.effect==='NoExecute'?' selected':''}>NoExecute</option>
+          <option value="PreferNoSchedule"${tol.effect==='PreferNoSchedule'?' selected':''}>PreferNoSchedule</option>
+          <option value=""${tol.effect===''?' selected':''}>(any)</option>
+        </select>
+        <button class="x" title="eliminar">✕</button>
+      `;
+      const [kIn, vIn, eSel] = row.querySelectorAll('input,select');
+      kIn.addEventListener('input', e => { tol.key = e.target.value; });      // typing: model only
+      vIn.addEventListener('input', e => { tol.value = e.target.value; });
+      kIn.addEventListener('change', () => tolerationsChanged());             // blur/enter: re-evaluate
+      vIn.addEventListener('change', () => tolerationsChanged());
+      eSel.addEventListener('change', e => { tol.effect = e.target.value; tolerationsChanged(); });
+      row.querySelector('.x').addEventListener('click', () => {
+        t.tolerations.splice(idx,1); tolerationsChanged();
+      });
+      tolBox.appendChild(row);
+    });
+    const addTol = document.createElement('button');
+    addTol.className = 'ghost-btn'; addTol.style.alignSelf='flex-start';
+    addTol.textContent = '+ toleration';
+    addTol.addEventListener('click', () => {
+      t.tolerations.push({key:'', value:'', effect:'NoSchedule'});
+      reconcile();
+    });
+    tolBox.appendChild(addTol);
+    card.appendChild(tolBox);
+
+    cont.appendChild(card);
+  }
+}
+
+function renderNodes(){
+  const cont = $('#nodesList');
+  cont.innerHTML = '';
+  nodeRefs.clear();                       // cards are recreated → rebuild the ref map
+  for(const n of S.nodes){
+    const card = document.createElement('div');
+    card.className = 'node-card';
+    card.dataset.nodeId = n.id;
+
+    // head — node name is inline-editable (like a pod type's name)
+    const head = document.createElement('div'); head.className='node-head';
+    head.innerHTML = `
+      <input class="name-input name" value="${escapeAttr(n.name)}" title="renombrar nodo" aria-label="nombre del nodo" spellcheck="false" />
+      <button class="close-x" title="eliminar nodo" style="margin-left:auto">✕</button>
+    `;
+    const nameInput = head.querySelector('.name-input');
+    nameInput.addEventListener('input', e => {           // typing: model only → keep focus, no flicker
+      n.name = e.target.value;
+      renderSubtitle();                                  // live-update subtitle if this is the tainted node
+    });
+    nameInput.addEventListener('change', e => {          // blur/enter: normalise + full refresh
+      n.name = e.target.value.trim() || `node-${S.nodes.indexOf(n) + 1}`;
+      reconcile();
+    });
+    head.querySelector('.close-x').addEventListener('click', () => {
+      S.pods.forEach(p => { if(p.location === n.id) p.location = null; });
+      S.nodes = S.nodes.filter(x => x.id !== n.id);
+      delete S.nodeIdleSince[n.id];
+      delete S.nodeInactive[n.id];
+      delete S.nodeReadyAt[n.id];
+      reconcile();
+    });
+    card.appendChild(head);
+
+    // capacity
+    const capRow = document.createElement('div'); capRow.className='row';
+    capRow.innerHTML = `<span class="label">capacidad</span>`;
+    const numCap = makeNum(n.capacity, 2, v => {
+      n.capacity = Math.max(2, v);
+      enforceNodeCapacity();   // evict overflow if capacity was reduced
+      autoIfEnabled();         // place pending pods if capacity grew
+      reconcile();
+    }, {min:2, step:2});
+    capRow.appendChild(numCap);
+    const cm = document.createElement('span'); cm.className='small'; cm.textContent='(múlt. 2)';
+    capRow.appendChild(cm);
+    // max replicas (scale-out ceiling for this node group)
+    const mrLabel = document.createElement('span');
+    mrLabel.className='label'; mrLabel.textContent='máx réplicas'; mrLabel.style.marginLeft='4px';
+    capRow.appendChild(mrLabel);
+    const numMax = makeNum(maxReplicas(n), 1, v => {
+      n.maxReplicas = Math.max(1, v);
+      enforceNodeCapacity();   // a lower ceiling may evict overflow
+      autoIfEnabled();         // a higher ceiling may admit pending pods
+      reconcile();
+    }, {min:1, step:1});
+    capRow.appendChild(numMax);
+    card.appendChild(capRow);
+
+    // usage (text/state filled in place by updateUsages())
+    const usageEl = document.createElement('div'); usageEl.className='usage';
+    card.appendChild(usageEl);
+
+    // taints
+    const taintHead = document.createElement('div'); taintHead.className='small-head'; taintHead.textContent='taints';
+    card.appendChild(taintHead);
+    const taintBox = document.createElement('div'); taintBox.className='taints';
+    n.taints.forEach((tnt, idx) => {
+      const row = document.createElement('div'); row.className='kv-row';
+      row.innerHTML = `
+        <input value="${escapeAttr(tnt.key)}" placeholder="key" />
+        <input value="${escapeAttr(tnt.value)}" placeholder="value" />
+        <select>
+          <option value="NoSchedule"${tnt.effect==='NoSchedule'?' selected':''}>NoSchedule</option>
+          <option value="NoExecute"${tnt.effect==='NoExecute'?' selected':''}>NoExecute</option>
+          <option value="PreferNoSchedule"${tnt.effect==='PreferNoSchedule'?' selected':''}>PreferNoSchedule</option>
+        </select>
+        <button class="x" title="eliminar">✕</button>
+      `;
+      const [kIn, vIn, eSel] = row.querySelectorAll('input,select');
+      const applyTaint = () => { evictForTaints(n); autoIfEnabled(); reconcile(); };
+      kIn.addEventListener('input', e => { tnt.key = e.target.value; });    // typing: model only
+      vIn.addEventListener('input', e => { tnt.value = e.target.value; });
+      kIn.addEventListener('change', applyTaint);                           // blur/enter: apply
+      vIn.addEventListener('change', applyTaint);
+      eSel.addEventListener('change', e => { tnt.effect = e.target.value; applyTaint(); });
+      row.querySelector('.x').addEventListener('click', () => {
+        n.taints.splice(idx,1); applyTaint();
+      });
+      taintBox.appendChild(row);
+    });
+    const addTaint = document.createElement('button');
+    addTaint.className='ghost-btn'; addTaint.style.alignSelf='flex-start'; addTaint.textContent='+ taint';
+    addTaint.addEventListener('click', () => {
+      n.taints.push({key:'', value:'', effect:'NoSchedule'});
+      reconcile();
+    });
+    taintBox.appendChild(addTaint);
+    card.appendChild(taintBox);
+
+    // Instances container — left EMPTY; placePods() builds the bins and moves the
+    // persistent chips in. Each bin is one node instance, exactly capacity×CPU_UNIT
+    // tall; extra instances stack DOWNWARD as the node group scales out.
+    const binH = n.capacity * CPU_UNIT;       // matches one instance bin exactly
+    const instancesEl = document.createElement('div'); instancesEl.className='node-instances';
+    card.appendChild(instancesEl);
+
+    // shown (via CSS) only while the node is scaled to zero — same height as one
+    // instance bin so the card doesn't jump size when it powers off.
+    const off = document.createElement('div'); off.className='node-off';
+    off.style.minHeight = binH + 'px';
+    off.innerHTML = `<span class="pwr">⏻</span> Nodo apagado · 0 réplicas`;
+    card.appendChild(off);
+
+    nodeRefs.set(n.id, { card, usageEl, instancesEl });
+
+    // drop target events on the whole card
+    card.addEventListener('dragover', e => {
+      const id = window._dragPodId;
+      if(!id) return;
+      e.preventDefault();
+      const p = S.pods.find(x => x.id === id);
+      if(!p) return;
+      const ok = nodeFits(p, n) || (p.location === n.id);
+      card.classList.add(ok?'drop-target':'invalid-drop');
+    });
+    card.addEventListener('dragleave', () => {
+      card.classList.remove('drop-target','invalid-drop');
+    });
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      card.classList.remove('drop-target','invalid-drop');
+      const id = window._dragPodId;
+      const p = S.pods.find(x => x.id === id);
+      if(!p) return;
+      if(fitsInReadyInstances(p, n) && !S.nodeInactive[n.id]){
+        p.location = n.id; p.bindIntent = null;     // a Ready instance can host it right now
+        delete S.nodeIdleSince[n.id];
+        S.nodeInactive[n.id] = false;
+        placePods();                  // glide the chip into the node, refresh usage
+      } else if(nodeFits(p, n)){
+        // fits the group but every Ready instance is full → defer: the autoscaler boots a new
+        // instance on THIS node and bindIntendedPods binds the Pod once that instance is Ready.
+        p.bindIntent = n.id;
+        delete S.nodeIdleSince[n.id];
+        S.nodeInactive[n.id] = false;
+        placePods();
+      }
+    });
+
+    cont.appendChild(card);
+  }
+
+  // add node button (under list)
+  const add = document.createElement('div');
+  add.className='add-placeholder';
+  add.textContent='+ añadir nodo';
+  add.addEventListener('click', addNode);
+  cont.appendChild(add);
+}
+
+// A pod chip is created ONCE and then moved between #queue and node pod-areas
+// (that movement is what FLIP animates). Label/colour/state refresh in place.
+function makePodEl(pod){
+  const t = getType(pod.typeId);
+  const el = document.createElement('div');
+  el.className = 'pod';
+  el.draggable = true;
+  el.dataset.podId = pod.id;
+  el.innerHTML = `<span class="status" aria-hidden="true"></span><div class="pod-name">${escapeHtml(t.name)}-${pod.index}</div><div class="req">req ${t.request}</div>`;
+  el.addEventListener('dragstart', e => {
+    window._dragPodId = pod.id;
+    el.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', pod.id);
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  el.addEventListener('dragend', () => {
+    window._dragPodId = null;
+    el.classList.remove('dragging');
+  });
+  el.addEventListener('click', () => {
+    if(pod.location !== null){        // scheduled → back to the queue
+      pod.location = null; pod.bindIntent = null;
+    } else {                          // queued → bind now if a Ready instance fits…
+      const ready = findBestNode(pod);
+      if(ready){
+        pod.location = ready.id; pod.bindIntent = null;
+        delete S.nodeIdleSince[ready.id]; S.nodeInactive[ready.id] = false;
+      } else if(S.nodes.some(n => canScaleOutFor(pod, n))){
+        // …otherwise stay Pending: the cluster-autoscaler boots a new instance and
+        // bindIntendedPods commits the bind once it is Ready (never onto a booting node).
+        pod.bindIntent = 'auto';
+        S.nodes.forEach(n => { if(canScaleOutFor(pod, n)){ delete S.nodeIdleSince[n.id]; S.nodeInactive[n.id] = false; } });
+      }
+    }
+    placePods();
+  });
+  return el;
+}
+
+// queue accepts drops to "unschedule"
+function setupQueueDrop(){
+  const q = $('#queue');
+  q.addEventListener('dragover', e => {
+    if(window._dragPodId){ e.preventDefault(); q.style.outline='2px dashed var(--accent)'; }
+  });
+  q.addEventListener('dragleave', () => { q.style.outline=''; });
+  q.addEventListener('drop', e => {
+    e.preventDefault(); q.style.outline='';
+    const id = window._dragPodId;
+    const p = S.pods.find(x => x.id === id);
+    if(p){ p.location = null; p.bindIntent = null; }
+    placePods();
+  });
+}
+
+function makeNum(value, step, onChange, opts={}){
+  const min = opts.min ?? 0;
+  const wrap = document.createElement('span');
+  wrap.className = 'num';
+  wrap.innerHTML = `<button>−</button><span>${value}</span><button>+</button>`;
+  const [minus, , plus] = wrap.children;
+  const span = wrap.children[1];
+  minus.addEventListener('click', () => {
+    const v = Math.max(min, value - step);
+    if(v !== value){ value = v; span.textContent = v; onChange(v); }
+  });
+  plus.addEventListener('click', () => {
+    const v = value + step;
+    value = v; span.textContent = v; onChange(v);
+  });
+  return wrap;
+}
+
+// ---------- Actions ----------
+function setDay(i){
+  S.day = ((i%7)+7)%7;
+  syncPodsToReplicas();
+  autoIfEnabled();
+  reconcile();          // day changes replica counts + per-day highlight → structural
+}
+
+function addNode(){
+  // unique name even after deletions
+  let i = S.nodes.length + 1;
+  const names = new Set(S.nodes.map(n => n.name));
+  while(names.has(`node-${i}`)) i++;
+  S.nodes.push({ id: uid('n'), name: `node-${i}`, capacity: 4, maxReplicas: DEFAULT_MAX_REPLICAS, taints: [] });
+  autoIfEnabled();
+  reconcile();
+}
+
+function addPodType(){
+  const idx = S.podTypes.length;
+  const color = COLORS[idx % COLORS.length];
+  S.podTypes.push({
+    id: uid('t'),
+    name: `pod-${idx+1}`,
+    color, request:2, kedaEnabled:true, replicas:1,
+    replicasByDay:[1,1,1,1,1,0,0],
+    tolerations:[]
+  });
+  syncPodsToReplicas();
+  autoIfEnabled();
+  reconcile();
+}
+
+function cycleColor(t){
+  const i = COLORS.indexOf(t.color);
+  t.color = COLORS[(i+1) % COLORS.length];
+  reconcile();
+}
+
+function escapeAttr(s){ return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ---------- Wiring ----------
+function setupHeader(){
+  $('#autoBtn').addEventListener('click', () => {
+    S.autoScheduler = !S.autoScheduler;
+    autoIfEnabled();
+    updateAutoBtn();
+    placePods();                 // may auto-place pending pods → glide them in
+  });
+  $('#scheduleAllBtn').addEventListener('click', () => { scheduleAllFit(); placePods(); });
+  // kube-scheduler scoringStrategy: re-evaluate placements with the new priority.
+  const stratSel = $('#scoringStrategy');
+  stratSel.value = S.scoringStrategy;
+  stratSel.addEventListener('change', () => {
+    S.scoringStrategy = stratSel.value;
+    autoIfEnabled();             // if auto is on, let the new strategy re-place pending pods
+    placePods();
+  });
+  $('#emptyBtn').addEventListener('click', () => {
+    S.pods.forEach(p => p.location = null);
+    placePods();                 // every chip glides back to the queue
+  });
+  $('#resetBtn').addEventListener('click', () => {
+    S = initialState();
+    seedNodeReadiness();         // initial nodes start Ready (provisioned before the sim)
+    syncPodsToReplicas();
+    autoIfEnabled();
+    $('#scoringStrategy').value = S.scoringStrategy;   // reflect the reset default
+    fullRender();                // wipe persistent chips/refs, then rebuild everything
+  });
+  $('#prevDay').addEventListener('click', () => setDay(S.day-1));
+  $('#nextDay').addEventListener('click', () => setDay(S.day+1));
+  $('#addNodeBtn').addEventListener('click', addNode);
+  $('#addPodTypeBtn').addEventListener('click', addPodType);
+
+  // collapsible sections
+  $$('.section-head').forEach(h => {
+    h.addEventListener('click', e => {
+      // ignore clicks on action buttons
+      if(e.target.closest('.actions')) return;
+      h.closest('.section').classList.toggle('collapsed');
+    });
+  });
+
+  // fullscreen with F
+  window.addEventListener('keydown', e => {
+    if((e.key === 'f' || e.key === 'F') && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)){
+      e.preventDefault();
+      if(!document.fullscreenElement){
+        document.documentElement.requestFullscreen?.();
+        document.body.classList.add('fs');
+      } else {
+        document.exitFullscreen?.();
+        document.body.classList.remove('fs');
+      }
+    }
+  });
+}
+
+// Structural refresh: rebuild the cards (pod-type list + node shells) but REUSE
+// the persistent pod chips, gliding them into the rebuilt containers with FLIP.
+function reconcile(){
+  const firstRects = capturePodRects();   // measure chips before the cards are rebuilt
+  updateAutoBtn();
+  buildDaySelector();
+  renderSubtitle();
+  renderPodTypes();                        // #podTypesList (no chips inside)
+  renderNodes();                           // #nodesList shells + nodeRefs, empty pod areas
+  placePods(firstRects);                   // move chips into queue/nodes, usages, FLIP
+}
+
+// Hard reset of the view: discard every persistent chip/ref, then rebuild.
+function fullRender(){
+  podEls.forEach(el => el.remove());
+  podEls.clear();
+  nodeRefs.clear();
+  getFlyLayer().innerHTML = '';   // drop any in-flight clones
+  const q = $('#queue');
+  if(q) q.innerHTML = '';
+  queuePlaceholder = null;
+  reconcile();
+}
+
+// Back-compat alias: anything still calling renderAll() gets a safe structural refresh.
+function renderAll(){ reconcile(); }
+
+// initial
+seedNodeReadiness();         // initial nodes start Ready (provisioned before the sim)
+syncPodsToReplicas();
+setupHeader();
+setupQueueDrop();
+startScaleTimer();
+fullRender();
+
+Object.defineProperty(window, '_state', { get: () => S }); // debug (always current, even after reset)
+
+})();
+</script>
+</body>
+</html>
