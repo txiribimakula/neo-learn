@@ -283,7 +283,10 @@
     font-size:9.5px;letter-spacing:.2px;
   }
   .proc-bar{flex:1;height:5px;background:#e8edf6;border-radius:3px;overflow:hidden;min-width:30px}
-  .proc-fill{height:100%;background:currentColor;width:0%;transition:width .12s linear}
+  /* No CSS transition — we drive the width per-frame from JS. A transition
+     here would chase the value and produce a visible "rewind" when the bar
+     snaps back to 0% between messages. */
+  .proc-fill{height:100%;background:currentColor;width:0%}
   .proc-eta{
     font-size:9.5px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted);
     min-width:30px;text-align:right;
@@ -425,6 +428,12 @@ const LOG_PAD = 3;                   // .p-log padding (left+right inset)
 const MAX_PARTITIONS = 16;
 const MAX_CONSUMERS = 8;
 const STORAGE_KEY = 'kafka-sim-v1';   // localStorage slot; bump on schema break
+// A real Kafka consume is fetch → process → commit. We model that as a
+// 3-phase state machine per consumer; FETCH_MS / COMMIT_MS are the network
+// roundtrip costs. They must match the fly animation duration so the ball
+// and the phase finish together.
+const FETCH_MS  = 420;
+const COMMIT_MS = 420;
 
 // ============================================================
 // STATE
@@ -509,30 +518,57 @@ function produceMessage(producer) {
   if (!topic || topic.partitions.length === 0) return;
   const pIdx = pickPartition(producer, topic);
   if (pIdx < 0) return;
-  const partition = topic.partitions[pIdx];
-  const key = keyForProducer(producer);
-  const offset = partition.nextOffset++;
-  partition.messages.push({
-    id: newId(), offset, key,
-    producerId: producer.id, color: producer.color,
+  // Snapshot the routing decision at SEND time (key, target partition,
+  // producer colour/id) — but defer the actual write to the partition log
+  // until the produce ball lands. This matches Kafka semantics: the broker
+  // appends to the log when it receives the ProduceRequest, not when the
+  // producer constructs it. Until then, the message is "in flight" and
+  // invisible to consumers (g.offsets etc.).
+  const key       = keyForProducer(producer);
+  const colour    = producer.color;
+  const producerId= producer.id;
+  const topicId   = topic.id;
+  producer.sendCount++;   // counter advances at send time (UX feedback)
+  spawnFly(producer, topic, pIdx, () => {
+    // The topic or partition may have been deleted while the ball was in
+    // flight; re-resolve and bail if so.
+    const t = state.topics.find(x => x.id === topicId);
+    if (!t) return;
+    const partition = t.partitions[pIdx];
+    if (!partition) return;
+    const offset = partition.nextOffset++;
+    partition.messages.push({
+      id: newId(), offset, key,
+      producerId, color: colour,
+    });
+    // Ring-buffer trim — drop very old messages. Consumer groups whose
+    // committed offset falls behind earliestOffset fast-forward to it
+    // (simulating Kafka retention loss).
+    while (partition.messages.length > MAX_PARTITION_HISTORY) {
+      partition.messages.shift();
+      partition.earliestOffset++;
+    }
+    partition.flashUntil = performance.now() + 350;
   });
-  // Ring-buffer trim: very old messages drop off the visible log AND from memory.
-  // Consumer groups whose committed offset falls behind earliestOffset will fast-
-  // forward to it (simulating retention loss).
-  while (partition.messages.length > MAX_PARTITION_HISTORY) {
-    partition.messages.shift();
-    partition.earliestOffset++;
-  }
-  partition.flashUntil = performance.now() + 350;
-  producer.sendCount++;
-  spawnFly(producer, topic, pIdx);
 }
 
-// Each consumer either is BUSY (c.processing set, advancing elapsed by dt
-// each tick) or FREE (tries to pick the next message from one of its
-// assigned partitions, round-robin). The committed offset for the partition
-// only advances when the message finishes processing — so the in-flight
-// message stays visible (with a coloured ring) for processingMs.
+// Faithful Kafka consume cycle, per consumer:
+//
+//   free  ──pick──▶  fetch  ──FETCH_MS──▶  process  ──processingMs──▶  commit  ──COMMIT_MS──▶  free
+//                       ↑                       ↑                          ↑
+//                    spawnFetchFly        progress bar fills         spawnCommitFly
+//                    (partition→consumer)                            (consumer→partition)
+//
+// The committed offset advances ONLY when the commit phase finishes (the
+// ball lands back on the partition). Until then the message is in-flight
+// from the broker's POV — same as real Kafka with at-least-once delivery.
+function phaseDuration(c, phase) {
+  if (phase === 'fetch')   return FETCH_MS;
+  if (phase === 'process') return c.processingMs || 1;
+  if (phase === 'commit')  return COMMIT_MS;
+  return 1;
+}
+
 function consumeForGroup(g, dt) {
   const topic = state.topics.find(t => t.id === g.topicId);
   if (!topic || g.consumers.length === 0) return;
@@ -541,25 +577,39 @@ function consumeForGroup(g, dt) {
     let remaining = dt;
     let safety = 200;
     while (remaining > 0 && safety-- > 0) {
-      // (1) Drive the in-flight message forward, finishing it if elapsed
-      //     reaches processingMs.
+      // (1) Drive the current phase forward; advance to the next phase or
+      //     back to FREE when it completes.
       if (c.processing) {
-        const need = (c.processingMs || 1) - c.processing.elapsed;
+        const phaseLen = phaseDuration(c, c.processing.phase);
+        const need = phaseLen - c.processing.elapsed;
         if (need > remaining) {
           c.processing.elapsed += remaining;
           remaining = 0;
         } else {
-          c.processing.elapsed = c.processingMs || 1;
-          const pi = c.processing.partition;
-          const committed = c.processing.offset + 1;
-          if ((g.offsets[pi] ?? 0) < committed) g.offsets[pi] = committed;
-          c.lastActive = now;
-          c.processing = null;
+          c.processing.elapsed = phaseLen;
           remaining -= need;
+          const pi = c.processing.partition;
+          if (c.processing.phase === 'fetch') {
+            // Ball just landed at the consumer — start the work.
+            c.processing.phase = 'process';
+            c.processing.elapsed = 0;
+          } else if (c.processing.phase === 'process') {
+            // Work done — send the commit acknowledgement back.
+            spawnCommitFly(g, pi, c);
+            c.processing.phase = 'commit';
+            c.processing.elapsed = 0;
+          } else if (c.processing.phase === 'commit') {
+            // Commit landed — NOW the offset officially advances.
+            const committed = c.processing.offset + 1;
+            if ((g.offsets[pi] ?? 0) < committed) g.offsets[pi] = committed;
+            c.lastActive = now;
+            c.processing = null;
+          }
         }
       }
       // (2) If free, try to pick the next unconsumed message from one of
-      //     this consumer's assigned partitions (round-robin).
+      //     this consumer's assigned partitions (round-robin). A pick
+      //     spawns the fetch ball and enters the 'fetch' phase.
       if (!c.processing) {
         const partitions = g.assignments[c.id] || [];
         if (partitions.length === 0) break;
@@ -581,8 +631,12 @@ function consumeForGroup(g, dt) {
           }
         }
         if (!picked) break;
-        c.processing = { partition: picked.pi, offset: picked.off, elapsed: 0 };
+        c.processing = {
+          partition: picked.pi, offset: picked.off,
+          phase: 'fetch', elapsed: 0,
+        };
         c.rrIdx = (c.rrIdx + picked.idx + 1) % partitions.length;
+        spawnFetchFly(g, picked.pi, c);
       }
     }
   }
@@ -678,25 +732,115 @@ function pickColor() {
 }
 
 // ============================================================
-// FLY ANIMATION (producer badge → partition top)
+// FLY ANIMATIONS — balls follow the SAME bezier curve as the connector
+// line, so produce/consume look like packets travelling down the wire.
+//
+//   produce: producer right-edge → partition left-edge (producer's colour)
+//   consume: partition right-edge → consumer left-edge (consumer's colour)
+//
+// Control points match addLink() exactly so the ball traces the visible
+// connector with no drift.
 // ============================================================
-function spawnFly(producer, topic, partitionIdx) {
-  const fromEl = document.querySelector(`[data-producer-id="${producer.id}"] .badge-color`);
-  const toEl = document.querySelector(`[data-topic-id="${topic.id}"] .partition[data-partition-idx="${partitionIdx}"] .p-log`);
+function cubicBezier(t, p0, p1, p2, p3) {
+  const u = 1 - t;
+  const uu = u * u, uuu = uu * u;
+  const tt = t * t, ttt = tt * t;
+  return {
+    x: uuu*p0.x + 3*uu*t*p1.x + 3*u*tt*p2.x + ttt*p3.x,
+    y: uuu*p0.y + 3*uu*t*p1.y + 3*u*tt*p2.y + ttt*p3.y,
+  };
+}
+
+function flyAlong(p0, p3, color, durationMs, onArrival) {
+  // dx is SIGNED — it follows the direction of travel. That way the same
+  // formula traces the SAME visible connector in both directions (forward
+  // partition→consumer and reverse consumer→partition). With an unsigned
+  // dx the reverse curve would bulge outward and miss the connector.
+  const span = p3.x - p0.x;
+  const sign = span >= 0 ? 1 : -1;
+  const dx   = Math.max(36, Math.abs(span) * 0.45) * sign;
+  const p1 = { x: p0.x + dx, y: p0.y };
+  const p2 = { x: p3.x - dx, y: p3.y };
+
+  const ball = document.createElement('div');
+  ball.className = 'fly-msg';
+  ball.style.background = color;
+  document.getElementById('flyLayer').appendChild(ball);
+
+  const start = performance.now();
+  function step(now) {
+    const raw = Math.min(1, (now - start) / durationMs);
+    // Slight ease-out so the ball "lands" rather than slams into the target.
+    const t = 1 - Math.pow(1 - raw, 2.2);
+    const pt = cubicBezier(t, p0, p1, p2, p3);
+    ball.style.transform = `translate(${pt.x - 6.5}px, ${pt.y - 6.5}px)`;
+    if (raw < 1) requestAnimationFrame(step);
+    else {
+      ball.remove();
+      if (onArrival) onArrival();
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+// Ball wall-clock duration must match the corresponding simulation phase
+// AT THE CURRENT SPEED, so the sequence stays tight:
+//   bolita ida lands  ⟺  fetch phase ends  ⟺  bar starts filling
+//   bar reaches 100%  ⟺  process ends      ⟺  bolita vuelta starts
+//   bolita vuelta lands ⟺ commit ends      ⟺  offset advances
+// At speed=2x the simulation runs 2x faster, so the ball must too.
+function scaled(ms) { return ms / (state.speed || 1); }
+
+function spawnFly(producer, topic, partitionIdx, onArrival) {
+  const fromEl = document.querySelector(`[data-producer-id="${producer.id}"]`);
+  const toEl = document.querySelector(
+    `[data-topic-id="${topic.id}"] .partition[data-partition-idx="${partitionIdx}"]`
+  );
+  // If the cards aren't in the DOM yet (e.g. produced during seed before
+  // render), fire the arrival callback immediately so the message still
+  // gets written to the partition.
+  if (!fromEl || !toEl) { if (onArrival) onArrival(); return; }
+  const fr = fromEl.getBoundingClientRect();
+  const tr = toEl.getBoundingClientRect();
+  const p0 = { x: fr.right, y: fr.top + fr.height / 2 };
+  const p3 = { x: tr.left,  y: tr.top + tr.height / 2 };
+  flyAlong(p0, p3, producer.color, scaled(420), onArrival);
+}
+
+// Fetch: data flows partition → consumer (consumer poll() pulling messages
+// off the broker). Coloured with the consumer's colour because it's the
+// consumer doing the pull.
+function spawnFetchFly(group, partitionIdx, consumer) {
+  const fromEl = document.querySelector(
+    `[data-topic-id="${group.topicId}"] .partition[data-partition-idx="${partitionIdx}"]`
+  );
+  const toEl = document.querySelector(
+    `[data-group-id="${group.id}"] [data-consumer-id="${consumer.id}"]`
+  );
   if (!fromEl || !toEl) return;
   const fr = fromEl.getBoundingClientRect();
   const tr = toEl.getBoundingClientRect();
-  const fly = document.createElement('div');
-  fly.className = 'fly-msg';
-  fly.style.background = producer.color;
-  fly.style.left = (fr.left + fr.width/2 - 6.5) + 'px';
-  fly.style.top  = (fr.top  + fr.height/2 - 6.5) + 'px';
-  document.getElementById('flyLayer').appendChild(fly);
-  requestAnimationFrame(() => {
-    fly.style.left = (tr.left + tr.width/2 - 6.5) + 'px';
-    fly.style.top  = (tr.top + 4) + 'px';
-  });
-  setTimeout(() => fly.remove(), 470);
+  const p0 = { x: fr.right, y: fr.top + fr.height / 2 };
+  const p3 = { x: tr.left,  y: tr.top + tr.height / 2 };
+  flyAlong(p0, p3, consumer.color, scaled(FETCH_MS));
+}
+
+// Commit: offset acknowledgement flows consumer → partition (the consumer
+// telling the broker "I'm done with offset N"). Same connector, reverse
+// direction.
+function spawnCommitFly(group, partitionIdx, consumer) {
+  const fromEl = document.querySelector(
+    `[data-group-id="${group.id}"] [data-consumer-id="${consumer.id}"]`
+  );
+  const toEl = document.querySelector(
+    `[data-topic-id="${group.topicId}"] .partition[data-partition-idx="${partitionIdx}"]`
+  );
+  if (!fromEl || !toEl) return;
+  const fr = fromEl.getBoundingClientRect();
+  const tr = toEl.getBoundingClientRect();
+  const p0 = { x: fr.left,  y: fr.top + fr.height / 2 };
+  const p3 = { x: tr.right, y: tr.top + tr.height / 2 };
+  flyAlong(p0, p3, consumer.color, scaled(COMMIT_MS));
 }
 
 // ============================================================
@@ -1284,8 +1428,14 @@ function renderLive() {
         lagEl.textContent = lag;
         lagEl.classList.toggle('ok', lag === 0);
       }
-      // Processing state — fill the progress bar and show the in-flight
-      // partition + offset. When idle, .idle dims the bar/labels.
+      // The bar represents the PROCESSING phase only (the actual work).
+      // The fetch / commit roundtrips are visualised by the connector balls,
+      // not the bar — so sequentially the user sees:
+      //   bolita ida (connector)  →  barra llena 0→100  →  bolita vuelta
+      // States:
+      //   idle / fetch  → bar at 0%   (work hasn't started)
+      //   process       → bar 0%→100% (filling at processingMs cadence)
+      //   commit        → bar at 100% (work done; awaiting ack on the wire)
       const tgt  = row.querySelector('.proc-target');
       const fill = row.querySelector('.proc-fill');
       const eta  = row.querySelector('.proc-eta');
@@ -1293,11 +1443,23 @@ function renderLive() {
       if (c.processing) {
         row.classList.remove('idle');
         row.classList.add('processing');
-        if (tgt) tgt.textContent = `P${c.processing.partition} · #${c.processing.offset}`;
-        const total = Math.max(1, c.processingMs);
-        const pct = Math.min(100, (c.processing.elapsed / total) * 100);
+        const phase = c.processing.phase;
+        const procMs = Math.max(1, c.processingMs);
+        let pct, etaMs;
+        if (phase === 'fetch') {
+          pct = 0;
+          etaMs = procMs;
+        } else if (phase === 'process') {
+          pct = Math.min(100, (c.processing.elapsed / procMs) * 100);
+          etaMs = Math.max(0, procMs - c.processing.elapsed);
+        } else { // commit
+          pct = 100;
+          etaMs = 0;
+        }
+        const tag = phase === 'fetch' ? '↓' : phase === 'commit' ? '↑' : '·';
+        if (tgt) tgt.textContent = `${tag} P${c.processing.partition} · #${c.processing.offset}`;
         if (fill) fill.style.width = pct.toFixed(1) + '%';
-        if (eta) eta.textContent = fmtS(Math.max(0, total - c.processing.elapsed));
+        if (eta) eta.textContent = fmtS(etaMs);
       } else {
         row.classList.add('idle');
         row.classList.remove('processing');
@@ -1412,12 +1574,18 @@ function loadState() {
   }));
   state.groups = (parsed.groups || []).map(g => ({
     id: g.id, name: g.name, color: g.color, topicId: g.topicId,
-    consumers: (g.consumers || []).map(c => ({
-      id: c.id, name: c.name, color: c.color,
-      processingMs: c.processingMs ?? 2000,
-      processing: c.processing || null,
-      rrIdx: 0, lastActive: 0,
-    })),
+    consumers: (g.consumers || []).map(c => {
+      // Older saves stored `processing` without a phase. Default to
+      // 'process' so the work resumes mid-flight instead of disappearing.
+      let proc = c.processing || null;
+      if (proc && !proc.phase) proc = { ...proc, phase: 'process', elapsed: proc.elapsed | 0 };
+      return {
+        id: c.id, name: c.name, color: c.color,
+        processingMs: c.processingMs ?? 2000,
+        processing: proc,
+        rrIdx: 0, lastActive: 0,
+      };
+    }),
     assignments: g.assignments || {},
     offsets: g.offsets || {},
   }));

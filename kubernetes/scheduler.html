@@ -345,6 +345,111 @@
   /* Spinner shared by ContainerCreating pods and NotReady node instances */
   @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes podpulse{0%,100%{opacity:.35}50%{opacity:1}}
+  /* ---- Sim / play controls (KEDA section) ---- */
+  .sim{display:flex;flex-direction:column;gap:8px}
+  .sim-clock{
+    text-align:center;font-size:21px;font-weight:800;letter-spacing:.4px;color:var(--ink);
+    font-variant-numeric:tabular-nums;
+  }
+  .sim-clock .slot{color:var(--accent)}
+  .sim-clock.wknd .slot{color:#d8821a}
+  .sim-clock.settling .slot{animation:clockpulse 1s ease-in-out infinite}
+  .sim-clock.settling::after{content:'⏳ reajustando…';display:block;font-size:10.5px;font-weight:600;color:var(--muted2);letter-spacing:0;margin-top:-1px}
+  @keyframes clockpulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .sim-row{display:flex;align-items:center;gap:6px}
+  .play-btn{
+    background:var(--accent);border:1px solid var(--accent);color:#fff;border-radius:7px;
+    width:36px;height:30px;cursor:pointer;font-size:13px;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;transition:background .12s;
+  }
+  .play-btn:hover{background:#2c46bb}
+  .play-btn.playing{background:#d8821a;border-color:#d8821a}
+  .play-btn.playing:hover{background:#bd7016}
+  .sim-speed{
+    background:#fff;border:1px solid var(--card-border);border-radius:6px;font-size:12px;
+    padding:5px 4px;color:var(--ink);cursor:pointer;flex:0 0 auto;
+  }
+  .scrub-wrap{display:flex;flex-direction:column;gap:3px}
+  .scrub{
+    -webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:4px;
+    background:#dfe6f5;outline:none;cursor:pointer;margin:0;
+  }
+  .scrub::-webkit-slider-thumb{
+    -webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--accent);
+    border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:pointer;
+  }
+  .scrub::-moz-range-thumb{
+    width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid #fff;cursor:pointer;
+  }
+  .scrub-axis{display:grid;grid-template-columns:repeat(7,1fr);font-size:9px;color:var(--muted2);text-align:center}
+  .scrub-axis span.wknd{color:#c08a4a;font-weight:600}
+  /* ---- Hourly KEDA editor (per pod card) ---- */
+  .hourly{display:flex;flex-direction:column;gap:5px}
+  .hourly-head{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;color:var(--muted)}
+  .hourly-head b{color:var(--ink);font-weight:700}
+  .hourly-bars{
+    display:grid;grid-template-columns:repeat(24,1fr);gap:1px;height:58px;align-items:end;
+    background:#f4f7ff;border:1px solid var(--card-border);border-radius:6px;padding:3px;
+    touch-action:none;user-select:none;cursor:ns-resize;
+  }
+  .hbar{position:relative;height:100%;display:flex;align-items:flex-end;border-radius:2px}
+  .hbar.night{background:rgba(40,55,90,.06)}
+  .hbar.now{box-shadow:inset 0 0 0 1px var(--accent);background:rgba(57,86,211,.12)}
+  .hbar-fill{width:100%;border-radius:2px 2px 0 0;min-height:0;transition:height .08s}
+  .hourly-qf{display:flex;gap:4px;flex-wrap:wrap}
+  .mini{
+    background:#fff;border:1px solid var(--card-border);color:var(--muted);
+    padding:2px 7px;border-radius:5px;font-size:10.5px;cursor:pointer;
+  }
+  .mini:hover{color:var(--ink);border-color:#9fb1d4;background:#f4f7ff}
+  .hourly-tip{font-size:10.5px;color:var(--muted);min-height:13px;text-align:center}
+  /* node price row */
+  .price-in{
+    width:60px;text-align:right;font-size:12px;border:1px solid var(--card-border);border-radius:5px;
+    padding:3px 6px;background:#fff;color:var(--ink);outline:none;
+  }
+  .price-in:focus{border-color:var(--accent)}
+  /* ---- Modal overlay (cost report + scenarios) ---- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(20,26,40,.45);
+    display:flex;align-items:center;justify-content:center;z-index:50;padding:24px;
+  }
+  .overlay[hidden]{display:none}
+  .modal{
+    position:relative;background:var(--bg);border:1px solid var(--card-border);border-radius:12px;
+    box-shadow:0 18px 50px rgba(0,0,0,.3);width:min(700px,96vw);max-height:88vh;overflow:auto;padding:18px 20px;
+  }
+  .modal h2{margin:0 0 4px;font-size:17px}
+  .modal .modal-sub{color:var(--muted);font-size:12px;margin-bottom:14px}
+  .modal-x{position:absolute;top:12px;right:14px;background:none;border:none;font-size:18px;color:var(--muted2);cursor:pointer;line-height:1}
+  .modal-x:hover{color:var(--ink)}
+  .kpi-row{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 14px}
+  .kpi{flex:1 1 120px;background:#fff;border:1px solid var(--card-border);border-radius:9px;padding:10px 12px}
+  .kpi .k-label{font-size:11px;color:var(--muted)}
+  .kpi .k-val{font-size:20px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
+  .kpi .k-val.accent{color:var(--accent)}
+  table.report{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.report th,table.report td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+  table.report th{color:var(--muted);font-weight:600;font-size:11px}
+  table.report td.num,table.report th.num{text-align:right;font-variant-numeric:tabular-nums}
+  table.report tr.total td{font-weight:800;border-top:2px solid var(--card-border)}
+  table.report tr.best td{background:#e8f5ec}
+  .daybars{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:8px;align-items:end;height:96px}
+  .daybars .db{display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;justify-content:flex-end}
+  .daybars .db .bar{width:68%;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px}
+  .daybars .db.wknd .bar{background:#d8821a}
+  .daybars .db .lbl{font-size:10px;color:var(--muted)}
+  .daybars .db .amt{font-size:9.5px;color:var(--muted2)}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+  .scn-list{display:flex;flex-direction:column;gap:8px;margin:8px 0}
+  .scn-empty{color:var(--muted);font-size:12.5px;text-align:center;padding:18px}
+  .scn-item{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--card-border);border-radius:8px;padding:8px 10px}
+  .scn-item .scn-name{font-weight:700;font-size:13px}
+  .scn-item .scn-meta{font-size:11px;color:var(--muted)}
+  .scn-item .spacer{flex:1}
+  .field{display:flex;gap:6px;align-items:center}
+  .field input{flex:1;background:#fff;border:1px solid var(--card-border);border-radius:6px;padding:6px 8px;font-size:13px;color:var(--ink);outline:none}
+  .field input:focus{border-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -356,6 +461,8 @@
       <button class="btn toggle off" id="autoBtn">Auto-scheduler: OFF</button>
       <button class="btn" id="scheduleAllBtn">Programar todos</button>
       <button class="btn" id="emptyBtn">Vaciar nodos</button>
+      <button class="btn" id="costBtn">💶 Informe de coste</button>
+      <button class="btn" id="scnBtn">💾 Escenarios</button>
       <button class="btn danger" id="resetBtn">Reset</button>
     </div>
   </header>
@@ -366,16 +473,23 @@
     <!-- LEFT COLUMN -->
     <div class="col">
       <section class="section" id="kedaSection">
-        <header class="section-head"><div class="title"><span class="caret">▼</span>KEDA · Día de la semana</div></header>
+        <header class="section-head"><div class="title"><span class="caret">▼</span>Reloj · KEDA · Simulación</div></header>
         <div class="section-body">
-          <div class="keda-wrap">
-            <div class="day-selector">
+          <div class="sim">
+            <div class="sim-clock" id="simClock">Lun 09:00</div>
+            <div class="sim-row">
+              <button class="play-btn" id="playBtn" title="reproducir / pausar la semana">▶</button>
+              <select class="sim-speed" id="simSpeed" title="velocidad de simulación"></select>
               <button class="day-arrow" id="prevDay" title="día anterior">◄</button>
               <div class="seg" id="daySeg"></div>
               <button class="day-arrow" id="nextDay" title="día siguiente">►</button>
             </div>
+            <div class="scrub-wrap">
+              <input type="range" class="scrub" id="weekScrub" min="0" max="167" step="1" value="9" />
+              <div class="scrub-axis" id="scrubAxis"></div>
+            </div>
             <div class="day-current" id="dayCurrent"></div>
-            <div class="help">Selecciona el día (o usa ◄ ►). Las réplicas de cada Pod con KEDA activo se ajustan a su valor del día.</div>
+            <div class="help">▶ simula la semana hora a hora. Pinta la curva horaria de cada Pod (KEDA) abajo; el reloj fija el día y la hora que editas.</div>
           </div>
         </div>
       </section>
@@ -422,7 +536,7 @@
   </main>
 
   <footer class="bottom">
-    KEDA escala réplicas según el día (gira la rueda) · click o arrastra un Pod para programarlo · cabeceras para colapsar secciones · los nodos sin demanda se escalan a 0 tras 10 s · F pantalla completa
+    Pinta la curva KEDA por hora · ▶ simula la semana (ajusta la velocidad) · 💶 informe de coste semanal/mensual · 💾 guarda y compara escenarios · click o arrastra un Pod para programarlo · F pantalla completa
   </footer>
 </div>
 
@@ -452,24 +566,51 @@ const NODE_BOOT_MS = 4500;
 const POD_TERMINATE_MS = 3000;
 const COLORS = ['#3956d3','#7c4dff','#27a36b','#d8821a','#c0397f','#1e90b8','#7a5fbf','#b85c5c'];
 
+// ---------- Time / cost model ----------
+const HOURS_PER_DAY = 24;
+const HOURS_PER_WEEK = 7 * 24;                 // 168 hourly slots in a week
+const WEEKS_PER_MONTH = 52 / 12;               // ≈4.3333 — average weeks in a month
+const CURRENCY = '€';
+// Wall-clock ms per simulated hour for each play speed (lower = faster fast-forward).
+const SIM_SPEEDS = [
+  { label:'0.5×', ms:1200 },
+  { label:'1×',   ms:600  },
+  { label:'2×',   ms:300  },
+  { label:'4×',   ms:150  },
+];
+const SCENARIOS_KEY = 'k8s_sched_scenarios_v1';
+
+// Derive a realistic diurnal curve from a per-day peak: busy 08:00–20:00, low at night.
+function buildHourly(byDay){
+  return byDay.map(peak => {
+    const floor = Math.max(0, Math.round(peak / 3));
+    const arr = [];
+    for(let h = 0; h < 24; h++) arr.push(h >= 8 && h < 20 ? peak : floor);
+    return arr;
+  });
+}
+
 // ---------- Initial state ----------
 function initialState(){
   return {
     day: 0,
+    hour: 9,                 // start mid-morning so the diurnal KEDA curve is visible
+    playing: false,
+    simHrMs: 600,            // wall-clock ms per simulated hour while playing (1× speed)
     autoScheduler: false,
     // kube-scheduler NodeResourcesFit scoringStrategy: 'MostAllocated' bin-packs
     // (cost-efficient, pairs with scale-to-zero); 'LeastAllocated' spreads (upstream default).
     scoringStrategy: 'MostAllocated',
     podTypes: [
       { id: uid('t'), name:'web',     color:'#3956d3', request:2, kedaEnabled:true, replicas:3,
-        replicasByDay:[3,3,3,3,3,1,1], tolerations:[] },
+        replicasByDay:[3,3,3,3,3,1,1], hourly:buildHourly([3,3,3,3,3,1,1]), tolerations:[] },
       { id: uid('t'), name:'gpu-job', color:'#7c4dff', request:2, kedaEnabled:true, replicas:2,
-        replicasByDay:[2,2,2,2,2,0,0],
+        replicasByDay:[2,2,2,2,2,0,0], hourly:buildHourly([2,2,2,2,2,0,0]),
         tolerations:[{key:'gpu', value:'true', effect:'NoSchedule'}] },
     ],
     nodes: [
-      { id: uid('n'), name:'node-1', capacity:6, maxReplicas:3, taints:[] },
-      { id: uid('n'), name:'node-2', capacity:4, maxReplicas:3, taints:[{key:'gpu', value:'true', effect:'NoSchedule'}] },
+      { id: uid('n'), name:'node-1', capacity:6, maxReplicas:3, taints:[], pricePerHour:0.20 },
+      { id: uid('n'), name:'node-2', capacity:4, maxReplicas:3, taints:[{key:'gpu', value:'true', effect:'NoSchedule'}], pricePerHour:0.90 },
     ],
     // pods: {id, typeId, index, location:null|nodeId}
     pods: [],
@@ -490,10 +631,22 @@ function uid(prefix='id'){ return prefix + '_' + Math.random().toString(36).slic
 function getType(typeId){ return S.podTypes.find(t => t.id === typeId); }
 function getNode(nodeId){ return S.nodes.find(n => n.id === nodeId); }
 
-function desiredReplicas(t, day=S.day){
-  // KEDA on -> replicas driven by the day's metric; KEDA off -> fixed manual replica count
-  return t.kedaEnabled ? (t.replicasByDay[day] | 0) : (t.replicas | 0);
+function desiredReplicas(t, day=S.day, hour=S.hour){
+  // KEDA on -> replicas driven by the (day, hour) metric curve; off -> fixed manual count.
+  if(!t.kedaEnabled) return t.replicas | 0;
+  if(t.hourly && t.hourly[day]) return t.hourly[day][hour] | 0;
+  return t.replicasByDay ? (t.replicasByDay[day] | 0) : 0;   // back-compat for older data
 }
+// Ensure a pod type has a full hourly[7][24] curve (migrate legacy per-day data in place).
+function ensureHourly(t){
+  if(!t.hourly || t.hourly.length !== 7 || !Array.isArray(t.hourly[0]) || t.hourly[0].length !== 24){
+    t.hourly = buildHourly(t.replicasByDay || [0,0,0,0,0,0,0]);
+  }
+  return t.hourly;
+}
+// Hourly clock helpers
+function fmtClock(day, hour){ return `${DAYS_SHORT[day]} ${String(hour).padStart(2,'0')}:00`; }
+function weekSlot(day=S.day, hour=S.hour){ return day * 24 + hour; }
 
 function usage(nodeId){
   let used = 0;
@@ -1273,18 +1426,32 @@ function updateAutoBtn(){
 
 function buildDaySelector(){
   const seg = $('#daySeg');
-  seg.innerHTML = '';
-  for(let i=0;i<7;i++){
-    const el = document.createElement('div');
-    el.className = 'day' + (i===S.day?' active':'') + (i>=5?' weekend':'');
-    el.textContent = DAYS_SHORT[i];
-    el.title = DAYS_FULL[i];
-    el.addEventListener('click', () => setDay(i));
-    seg.appendChild(el);
+  if(seg){
+    seg.innerHTML = '';
+    for(let i=0;i<7;i++){
+      const el = document.createElement('div');
+      el.className = 'day' + (i===S.day?' active':'') + (i>=5?' weekend':'');
+      el.textContent = DAYS_SHORT[i];
+      el.title = DAYS_FULL[i];
+      el.addEventListener('click', () => setDay(i));
+      seg.appendChild(el);
+    }
   }
-  const parts = S.podTypes.map(t => `${t.name}: ${desiredReplicas(t)}`).join('  ·  ');
-  $('#dayCurrent').innerHTML =
-    `${DAYS_FULL[S.day]}<span class="sub">réplicas deseadas → ${parts || '—'}</span>`;
+  // clock readout
+  const clock = $('#simClock');
+  if(clock){
+    clock.classList.toggle('wknd', S.day >= 5);
+    clock.innerHTML = `${DAYS_SHORT[S.day]} <span class="slot">${String(S.hour).padStart(2,'0')}:00</span>`;
+  }
+  // week scrubber position (don't fight the user while they drag it)
+  const scrub = $('#weekScrub');
+  if(scrub && document.activeElement !== scrub) scrub.value = weekSlot();
+  // desired-replicas readout for the current (day, hour)
+  const dc = $('#dayCurrent');
+  if(dc){
+    const parts = S.podTypes.map(t => `${t.name}: ${desiredReplicas(t)}`).join('  ·  ');
+    dc.innerHTML = `${DAYS_FULL[S.day]} · ${String(S.hour).padStart(2,'0')}:00<span class="sub">réplicas deseadas → ${parts || '—'}</span>`;
+  }
 }
 
 // ---------- FLIP animation: pods physically glide between queue and nodes ----------
@@ -1371,14 +1538,79 @@ function renderSubtitle(){
   const sub = document.getElementById('subtitle');
   if(taintedNode){
     const tnt = taintedNode.taints.find(t => t.effect !== 'PreferNoSchedule');
-    sub.innerHTML = `Día <b>${dayName}</b>. KEDA fija las réplicas por día. El taint ` +
+    sub.innerHTML = `<b>${dayName} · ${String(S.hour).padStart(2,'0')}:00</b>. KEDA fija las réplicas por hora del día (▶ simula la semana). El taint ` +
       `<span class="em">${escapeHtml(tnt.key)}=${escapeHtml(tnt.value)}:${tnt.effect}</span> de ` +
       `<b>${escapeHtml(taintedNode.name)}</b> repele los Pods que no lo toleran (sólo <span class="em">gpu-job</span> lo tolera). ` +
-      `Avanza al fin de semana: las réplicas bajan, el nodo se queda sin demanda y escala a 0.`;
+      `Por la noche y el fin de semana la demanda baja, los nodos se quedan sin carga y escalan a 0 → menos coste.`;
   } else {
-    sub.innerHTML = `Día <b>${dayName}</b>. KEDA fija las réplicas por día. ` +
+    sub.innerHTML = `<b>${dayName} · ${String(S.hour).padStart(2,'0')}:00</b>. KEDA fija las réplicas por hora del día (▶ simula la semana). ` +
       `Programa los Pods en los nodos; un nodo sin demanda escala a 0 tras unos segundos.`;
   }
+}
+
+// Per-pod-type hourly KEDA editor: a 24-bar drag-to-paint curve for the SELECTED day.
+// Bars = hours 0–23; height ∝ desired replicas; the current hour is highlighted. Quick-fills
+// copy the day's profile to the whole week / weekdays / weekend.
+const PAINT_SCALE = 8;              // bar full height = this many replicas (paintable ceiling)
+function makeHourlyEditor(t){
+  ensureHourly(t);
+  const wrap = document.createElement('div'); wrap.className = 'hourly';
+  const head = document.createElement('div'); head.className = 'hourly-head';
+  head.innerHTML = `<span>réplicas/hora · <b>${DAYS_FULL[S.day]}</b></span><span>arrastra ↕ para pintar</span>`;
+  wrap.appendChild(head);
+
+  const bars = document.createElement('div'); bars.className = 'hourly-bars';
+  let scale = Math.max(PAINT_SCALE, ...t.hourly.flat());
+  for(let h=0; h<24; h++){
+    const col = document.createElement('div');
+    col.className = 'hbar ' + (h>=8 && h<20 ? 'day' : 'night') + (h===S.hour ? ' now' : '');
+    const fill = document.createElement('div'); fill.className='hbar-fill'; fill.style.background = t.color;
+    col.appendChild(fill);
+    bars.appendChild(col);
+  }
+  const drawBar = h => {
+    const v = t.hourly[S.day][h];
+    bars.children[h].firstChild.style.height = (scale ? Math.min(100, v/scale*100) : 0) + '%';
+    bars.children[h].title = `${fmtClock(S.day,h)} → ${v} réplicas`;
+  };
+  const redraw = () => { scale = Math.max(PAINT_SCALE, ...t.hourly.flat()); for(let h=0;h<24;h++) drawBar(h); };
+  redraw();
+  wrap.appendChild(bars);
+
+  const tip = document.createElement('div'); tip.className='hourly-tip';
+  let painting = false;
+  const apply = e => {
+    const r = bars.getBoundingClientRect();
+    const h = Math.max(0, Math.min(23, Math.floor((e.clientX - r.left) / r.width * 24)));
+    const v = Math.max(0, Math.min(scale, Math.round((1 - (e.clientY - r.top) / r.height) * scale)));
+    if(t.hourly[S.day][h] !== v){ t.hourly[S.day][h] = v; drawBar(h); }
+    tip.textContent = `${fmtClock(S.day,h)} → ${t.hourly[S.day][h]} réplicas`;
+  };
+  bars.addEventListener('pointerdown', e => { painting = true; try{ bars.setPointerCapture(e.pointerId); }catch(_){} apply(e); });
+  bars.addEventListener('pointermove', e => { if(painting) apply(e); });
+  const stop = () => { if(painting){ painting = false; commitHourly(); } };
+  bars.addEventListener('pointerup', stop);
+  bars.addEventListener('pointercancel', stop);
+
+  const qf = document.createElement('div'); qf.className='hourly-qf';
+  const mk = (label, title, fn) => {
+    const b = document.createElement('button'); b.className='mini'; b.textContent = label; b.title = title;
+    b.addEventListener('click', () => { fn(); commitHourly(); });
+    return b;
+  };
+  qf.appendChild(mk('▦ semana', 'copiar el perfil de este día a los 7 días', () => { for(let d=0;d<7;d++) if(d!==S.day) t.hourly[d] = t.hourly[S.day].slice(); }));
+  qf.appendChild(mk('L–V', 'copiar a lunes–viernes', () => { for(let d=0;d<5;d++) if(d!==S.day) t.hourly[d] = t.hourly[S.day].slice(); }));
+  qf.appendChild(mk('S–D', 'copiar a sábado y domingo', () => { for(let d=5;d<7;d++) if(d!==S.day) t.hourly[d] = t.hourly[S.day].slice(); }));
+  qf.appendChild(mk('cero', 'poner a 0 todas las horas de este día', () => { t.hourly[S.day] = new Array(24).fill(0); }));
+  wrap.appendChild(qf);
+  wrap.appendChild(tip);
+  return wrap;
+}
+// A painted curve changes desired replicas → resync pods and do a structural refresh.
+function commitHourly(){
+  syncPodsToReplicas();
+  autoIfEnabled();
+  reconcile();
 }
 
 function renderPodTypes(){
@@ -1387,6 +1619,7 @@ function renderPodTypes(){
   for(const t of S.podTypes){
     const card = document.createElement('div');
     card.className = 'pod-card';
+    card.dataset.typeId = t.id;
     const want = desiredReplicas(t);
 
     const head = document.createElement('div');
@@ -1417,8 +1650,8 @@ function renderPodTypes(){
     r1.className = 'row';
     r1.innerHTML = `<span class="label">réplicas</span>`;
     if(t.kedaEnabled){
-      const v = document.createElement('span'); v.className='label'; v.style.fontWeight='700'; v.textContent = want;
-      const pill = document.createElement('span'); pill.className='pill'; pill.textContent = `auto · ${DAYS_SHORT[S.day]}`;
+      const v = document.createElement('span'); v.className='label want'; v.style.fontWeight='700'; v.textContent = want;
+      const pill = document.createElement('span'); pill.className='pill'; pill.textContent = `auto · ${fmtClock(S.day,S.hour)}`;
       r1.appendChild(v); r1.appendChild(pill);
     } else {
       const numRep = makeNum(t.replicas, 1, val => {
@@ -1453,26 +1686,7 @@ function renderPodTypes(){
     card.appendChild(r3);
 
     if(t.kedaEnabled){
-      const grid = document.createElement('div');
-      grid.className = 'days-grid';
-      for(let i=0;i<7;i++){
-        const cell = document.createElement('div'); cell.className='day-cell';
-        cell.innerHTML = `<div class="lbl${i===S.day?' today':''}">${DAYS_SHORT[i]}</div>`;
-        const inp = document.createElement('input');
-        inp.type = 'number'; inp.min = '0'; inp.value = t.replicasByDay[i];
-        if(i===S.day) inp.classList.add('today');
-        inp.addEventListener('change', () => {
-          const v = Math.max(0, Math.round(+inp.value || 0));
-          t.replicasByDay[i] = v;
-          inp.value = v;
-          syncPodsToReplicas();
-          autoIfEnabled();
-          reconcile();
-        });
-        cell.appendChild(inp);
-        grid.appendChild(cell);
-      }
-      card.appendChild(grid);
+      card.appendChild(makeHourlyEditor(t));
     }
 
     const tolHead = document.createElement('div');
@@ -1577,6 +1791,21 @@ function renderNodes(){
     }, {min:1, step:1});
     capRow.appendChild(numMax);
     card.appendChild(capRow);
+
+    // hourly price (drives the cost report)
+    const priceRow = document.createElement('div'); priceRow.className = 'row';
+    priceRow.innerHTML = `<span class="label">precio</span>`;
+    const priceIn = document.createElement('input');
+    priceIn.className = 'price-in'; priceIn.type = 'number'; priceIn.min = '0'; priceIn.step = '0.05';
+    priceIn.value = (n.pricePerHour ?? 0.10);
+    priceIn.addEventListener('change', () => {
+      n.pricePerHour = Math.max(0, +priceIn.value || 0);
+      priceIn.value = n.pricePerHour;
+    });
+    priceRow.appendChild(priceIn);
+    const pu = document.createElement('span'); pu.className = 'small'; pu.textContent = CURRENCY + '/hora';
+    priceRow.appendChild(pu);
+    card.appendChild(priceRow);
 
     // usage (text/state filled in place by updateUsages())
     const usageEl = document.createElement('div'); usageEl.className='usage';
@@ -1755,10 +1984,81 @@ function makeNum(value, step, onChange, opts={}){
 
 // ---------- Actions ----------
 function setDay(i){
-  S.day = ((i%7)+7)%7;
+  stopSim();
+  S.day = ((i % 7) + 7) % 7;
+  applyTimeChange();    // day changes replica counts + highlight → structural
+}
+
+// ---------- Week clock / play (simulate the whole week hour by hour) ----------
+// Advancing the clock is STABILITY-GATED: after each hour the sim pauses while the cluster
+// reconciles (Pods scheduling/ContainerCreating, instances booting, Pods terminating, idle
+// nodes scaling to 0) and only steps to the next hour once nothing will change anymore.
+// Hours with no change fly past; the clock dwells exactly on the scaling moments. A safety
+// cap stops a stuck state from hanging the loop forever.
+let simNextTimer = null, _timeRaf = 0, _settleStart = 0;
+const MAX_SETTLE_MS = 16000;
+// One structural refresh after the clock moves: new (day,hour) → new desired replicas.
+function applyTimeChange(){
   syncPodsToReplicas();
   autoIfEnabled();
-  reconcile();          // day changes replica counts + per-day highlight → structural
+  reconcile();
+}
+function scheduleTimeChange(){            // coalesce rapid scrubber input into one rebuild/frame
+  if(_timeRaf) return;
+  _timeRaf = requestAnimationFrame(() => { _timeRaf = 0; applyTimeChange(); });
+}
+function setTimeSlot(slot, throttle){
+  slot = ((slot % HOURS_PER_WEEK) + HOURS_PER_WEEK) % HOURS_PER_WEEK;
+  S.day = Math.floor(slot / 24);
+  S.hour = slot % 24;
+  if(throttle) scheduleTimeChange(); else applyTimeChange();
+}
+// Is the cluster still reacting to the latest change (so the clock should stay paused)?
+function isSettling(now){
+  if(hasPendingTransitions(now)) return true;          // ContainerCreating / NotReady / Terminating
+  for(const p of S.pods){
+    if(p.location !== null || p.terminatingAt) continue;
+    if(p.bindIntent) return true;                        // a deferred bind is pending
+    if(S.autoScheduler && !unschedulableInfo(p)) return true;   // scheduler/autoscaler will still place it
+  }
+  for(const n of S.nodes){
+    if(S.nodeIdleSince[n.id] && !S.nodeInactive[n.id]) return true;   // node mid scale-to-zero countdown
+  }
+  return false;
+}
+function setSettling(on){ const c = $('#simClock'); if(c) c.classList.toggle('settling', !!on); }
+// Step to the next hour, then wait for the cluster to settle before stepping again.
+function simAdvance(){
+  if(!S.playing) return;
+  setTimeSlot(weekSlot() + 1, false);
+  _settleStart = Date.now();
+  simSettleThenNext();
+}
+function simSettleThenNext(){
+  if(!S.playing) return;
+  const stable = !isSettling(Date.now()) || (Date.now() - _settleStart > MAX_SETTLE_MS);
+  setSettling(!stable);
+  simNextTimer = setTimeout(stable ? simAdvance : simSettleThenNext, stable ? S.simHrMs : 180);
+}
+function startSim(){
+  if(simNextTimer){ clearTimeout(simNextTimer); simNextTimer = null; }
+  if(!S.autoScheduler){ S.autoScheduler = true; updateAutoBtn(); }   // let the scheduler run the week
+  autoIfEnabled();
+  S.playing = true; updatePlayBtn();
+  _settleStart = Date.now();
+  simSettleThenNext();        // settle the current state first, then start advancing
+}
+function stopSim(){
+  if(simNextTimer){ clearTimeout(simNextTimer); simNextTimer = null; }
+  setSettling(false);
+  if(S.playing){ S.playing = false; updatePlayBtn(); }
+}
+function togglePlay(){ S.playing ? stopSim() : startSim(); }
+function updatePlayBtn(){
+  const b = $('#playBtn'); if(!b) return;
+  b.textContent = S.playing ? '⏸' : '▶';
+  b.classList.toggle('playing', S.playing);
+  b.title = S.playing ? 'pausar' : 'reproducir la semana';
 }
 
 function addNode(){
@@ -1766,7 +2066,7 @@ function addNode(){
   let i = S.nodes.length + 1;
   const names = new Set(S.nodes.map(n => n.name));
   while(names.has(`node-${i}`)) i++;
-  S.nodes.push({ id: uid('n'), name: `node-${i}`, capacity: 4, maxReplicas: DEFAULT_MAX_REPLICAS, taints: [] });
+  S.nodes.push({ id: uid('n'), name: `node-${i}`, capacity: 4, maxReplicas: DEFAULT_MAX_REPLICAS, taints: [], pricePerHour: 0.10 });
   autoIfEnabled();
   reconcile();
 }
@@ -1778,7 +2078,7 @@ function addPodType(){
     id: uid('t'),
     name: `pod-${idx+1}`,
     color, request:2, kedaEnabled:true, replicas:1,
-    replicasByDay:[1,1,1,1,1,0,0],
+    replicasByDay:[1,1,1,1,1,0,0], hourly:buildHourly([1,1,1,1,1,0,0]),
     tolerations:[]
   });
   syncPodsToReplicas();
@@ -1796,6 +2096,255 @@ function escapeAttr(s){ return String(s).replace(/"/g,'&quot;').replace(/</g,'&l
 function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ---------- Wiring ----------
+// ===================================================================
+//  Cost model — analytic, deterministic over the whole week (168 hourly
+//  slots). For each (day,hour) we project the desired replicas onto node
+//  instances exactly as the cluster-autoscaler would (tight bin-packing,
+//  respecting taints/tolerations, capacity and máx réplicas). Hours with no
+//  demand provision 0 instances (scale-to-zero) → 0 €. Cost = Σ instances ×
+//  €/hour. This does NOT depend on watching the sim run.
+// ===================================================================
+function money(v){ return CURRENCY + (Math.round((v||0) * 100) / 100).toFixed(2); }
+
+// Instances each node group runs to host the desired replicas at one (day,hour) slot.
+function planInstancesAt(day, hour){
+  const pods = [];
+  for(const t of S.podTypes){
+    const n = desiredReplicas(t, day, hour);
+    for(let i = 0; i < n; i++) pods.push({ tid: t.id, req: t.request });
+  }
+  pods.sort((a, b) => b.req - a.req);                 // first-fit-decreasing
+  const bins = {};
+  S.nodes.forEach(nd => bins[nd.id] = []);
+  for(const p of pods){
+    const eligible = S.nodes.filter(nd => tolerates({ typeId: p.tid }, nd) && p.req <= nd.capacity);
+    // tightest existing instance
+    let host = null, idx = -1, waste = Infinity;
+    for(const nd of eligible){
+      bins[nd.id].forEach((b, i) => {
+        if(b.used + p.req <= nd.capacity && (nd.capacity - b.used - p.req) < waste){
+          waste = nd.capacity - b.used - p.req; host = nd; idx = i;
+        }
+      });
+    }
+    if(host){ bins[host.id][idx].used += p.req; continue; }
+    // grow least-wasteful eligible group (≤ máx réplicas)
+    const grow = eligible
+      .filter(nd => bins[nd.id].length < maxReplicas(nd))
+      .sort((a, b) => (a.capacity - p.req) - (b.capacity - p.req)
+                   || bins[a.id].length - bins[b.id].length
+                   || S.nodes.indexOf(a) - S.nodes.indexOf(b))[0];
+    if(grow) bins[grow.id].push({ used: p.req });
+    // else: unschedulable this hour → no instance added
+  }
+  const counts = {};
+  S.nodes.forEach(nd => counts[nd.id] = bins[nd.id].length);
+  return counts;
+}
+
+function computeWeekCost(){
+  const perNode = {}, perNodeIH = {};
+  S.nodes.forEach(nd => { perNode[nd.id] = 0; perNodeIH[nd.id] = 0; });
+  const perDay = new Array(7).fill(0);
+  let instanceHours = 0;
+  for(let d = 0; d < 7; d++){
+    for(let h = 0; h < 24; h++){
+      const counts = planInstancesAt(d, h);
+      for(const nd of S.nodes){
+        const c = counts[nd.id] || 0;
+        const cost = c * (nd.pricePerHour || 0);
+        perNode[nd.id] += cost; perNodeIH[nd.id] += c;
+        perDay[d] += cost; instanceHours += c;
+      }
+    }
+  }
+  const total = S.nodes.reduce((a, nd) => a + perNode[nd.id], 0);
+  return { perNode, perNodeIH, perDay, total, instanceHours };
+}
+
+// ---------- Modal helper ----------
+let _overlayEl = null;
+function _escClose(e){ if(e.key === 'Escape') closeModal(); }
+function closeModal(){
+  if(_overlayEl){ _overlayEl.remove(); _overlayEl = null; document.removeEventListener('keydown', _escClose); }
+}
+function openModal(build){
+  closeModal();
+  const ov = document.createElement('div'); ov.className = 'overlay';
+  const m = document.createElement('div'); m.className = 'modal';
+  const x = document.createElement('button'); x.className = 'modal-x'; x.innerHTML = '✕'; x.title = 'cerrar (Esc)';
+  x.addEventListener('click', closeModal);
+  m.appendChild(x);
+  build(m);
+  ov.appendChild(m);
+  ov.addEventListener('click', e => { if(e.target === ov) closeModal(); });
+  document.body.appendChild(ov);
+  document.addEventListener('keydown', _escClose);
+  _overlayEl = ov;
+}
+
+// ---------- Cost report ----------
+function openCostReport(){
+  const c = computeWeekCost();
+  const monthly = c.total * WEEKS_PER_MONTH;
+  openModal(m => {
+    m.insertAdjacentHTML('beforeend',
+      `<h2>💶 Informe de coste</h2><div class="modal-sub">Coste de los nodos provisionados por el cluster-autoscaler durante la semana completa (168 h). Las horas sin demanda escalan a 0 → ${money(0)}.</div>`);
+    const kpis = document.createElement('div'); kpis.className = 'kpi-row';
+    kpis.innerHTML =
+      `<div class="kpi"><div class="k-label">Coste semanal</div><div class="k-val accent">${money(c.total)}</div></div>
+       <div class="kpi"><div class="k-label">Coste mensual (≈)</div><div class="k-val">${money(monthly)}</div></div>
+       <div class="kpi"><div class="k-label">Instancia·hora / sem</div><div class="k-val">${c.instanceHours}</div></div>`;
+    m.appendChild(kpis);
+
+    const tbl = document.createElement('table'); tbl.className = 'report';
+    let rows = `<tr><th>Nodo</th><th class="num">${CURRENCY}/h</th><th class="num">inst·h/sem</th><th class="num">${CURRENCY}/sem</th><th class="num">${CURRENCY}/mes</th></tr>`;
+    for(const nd of S.nodes){
+      rows += `<tr><td>${escapeHtml(nd.name)}</td><td class="num">${money(nd.pricePerHour)}</td><td class="num">${c.perNodeIH[nd.id]}</td><td class="num">${money(c.perNode[nd.id])}</td><td class="num">${money(c.perNode[nd.id] * WEEKS_PER_MONTH)}</td></tr>`;
+    }
+    rows += `<tr class="total"><td>Total</td><td class="num"></td><td class="num">${c.instanceHours}</td><td class="num">${money(c.total)}</td><td class="num">${money(monthly)}</td></tr>`;
+    tbl.innerHTML = rows;
+    m.appendChild(tbl);
+
+    const ch = document.createElement('div'); ch.className = 'small-head'; ch.style.marginTop = '14px'; ch.textContent = 'Coste por día';
+    m.appendChild(ch);
+    const chart = document.createElement('div'); chart.className = 'daybars';
+    const maxDay = Math.max(0.01, ...c.perDay);
+    for(let d = 0; d < 7; d++){
+      const db = document.createElement('div'); db.className = 'db' + (d >= 5 ? ' wknd' : '');
+      db.innerHTML = `<div class="amt">${money(c.perDay[d])}</div><div class="bar" style="height:${c.perDay[d] / maxDay * 100}%"></div><div class="lbl">${DAYS_SHORT[d]}</div>`;
+      chart.appendChild(db);
+    }
+    m.appendChild(chart);
+
+    const act = document.createElement('div'); act.className = 'modal-actions';
+    const save = document.createElement('button'); save.className = 'btn toggle on'; save.textContent = '💾 Guardar como escenario';
+    save.addEventListener('click', () => { closeModal(); saveScenarioPrompt(); });
+    const close = document.createElement('button'); close.className = 'btn'; close.textContent = 'Cerrar'; close.addEventListener('click', closeModal);
+    act.appendChild(save); act.appendChild(close);
+    m.appendChild(act);
+  });
+}
+
+// ===================================================================
+//  Scenarios — save the current config + its cost to localStorage, reload
+//  it later, and compare combinations side by side.
+// ===================================================================
+function loadScenarios(){
+  try{ return JSON.parse(localStorage.getItem(SCENARIOS_KEY)) || []; }catch(_){ return []; }
+}
+function persistScenarios(arr){
+  try{ localStorage.setItem(SCENARIOS_KEY, JSON.stringify(arr)); }catch(_){}
+}
+function snapshotConfig(){
+  return JSON.parse(JSON.stringify({
+    podTypes: S.podTypes, nodes: S.nodes,
+    scoringStrategy: S.scoringStrategy, autoScheduler: S.autoScheduler
+  }));
+}
+function applyConfig(cfg){
+  stopSim();
+  S.podTypes = JSON.parse(JSON.stringify(cfg.podTypes || []));
+  S.podTypes.forEach(ensureHourly);
+  S.nodes = JSON.parse(JSON.stringify(cfg.nodes || []));
+  S.nodes.forEach(n => { if(typeof n.pricePerHour !== 'number') n.pricePerHour = 0.10; });
+  S.scoringStrategy = cfg.scoringStrategy || 'MostAllocated';
+  S.autoScheduler = !!cfg.autoScheduler;
+  S.pods = []; S.nodeIdleSince = {}; S.nodeInactive = {}; S.nodeReadyAt = {};
+  seedNodeReadiness();
+  syncPodsToReplicas();
+  autoIfEnabled();
+  const sp = $('#scoringStrategy'); if(sp) sp.value = S.scoringStrategy;
+  updateAutoBtn(); updatePlayBtn();
+  fullRender();
+}
+function saveScenario(name){
+  const arr = loadScenarios();
+  const c = computeWeekCost();
+  arr.push({
+    id: uid('scn'), name: name || ('Escenario ' + (arr.length + 1)), savedAt: Date.now(),
+    config: snapshotConfig(),
+    cost: { total: c.total, monthly: c.total * WEEKS_PER_MONTH, instanceHours: c.instanceHours }
+  });
+  persistScenarios(arr);
+  return arr;
+}
+function deleteScenario(id){ persistScenarios(loadScenarios().filter(s => s.id !== id)); }
+
+function saveScenarioPrompt(){
+  openModal(m => {
+    const def = 'Escenario ' + (loadScenarios().length + 1);
+    m.insertAdjacentHTML('beforeend',
+      `<h2>💾 Guardar escenario</h2><div class="modal-sub">Guarda la configuración actual (pods, curva KEDA por hora, nodos y precios) junto a su coste para compararla luego.</div>`);
+    const field = document.createElement('div'); field.className = 'field';
+    const inp = document.createElement('input'); inp.value = def; inp.placeholder = 'nombre del escenario';
+    field.appendChild(inp); m.appendChild(field);
+    const act = document.createElement('div'); act.className = 'modal-actions';
+    const ok = document.createElement('button'); ok.className = 'btn toggle on'; ok.textContent = 'Guardar';
+    ok.addEventListener('click', () => { saveScenario(inp.value.trim() || def); closeModal(); openScenarios(); });
+    const cancel = document.createElement('button'); cancel.className = 'btn'; cancel.textContent = 'Cancelar'; cancel.addEventListener('click', closeModal);
+    act.appendChild(cancel); act.appendChild(ok); m.appendChild(act);
+    inp.focus(); inp.select();
+    inp.addEventListener('keydown', e => { if(e.key === 'Enter') ok.click(); });
+  });
+}
+function openScenarios(){
+  const arr = loadScenarios();
+  openModal(m => {
+    m.insertAdjacentHTML('beforeend',
+      `<h2>💾 Escenarios</h2><div class="modal-sub">Guarda combinaciones de clúster y vuelve a cargarlas para comparar su coste.</div>`);
+    const top = document.createElement('div'); top.className = 'modal-actions'; top.style.justifyContent = 'flex-start'; top.style.marginTop = '0';
+    const saveCur = document.createElement('button'); saveCur.className = 'btn toggle on'; saveCur.textContent = '＋ Guardar escenario actual';
+    saveCur.addEventListener('click', () => { closeModal(); saveScenarioPrompt(); });
+    top.appendChild(saveCur);
+    if(arr.length >= 2){
+      const cmp = document.createElement('button'); cmp.className = 'btn'; cmp.textContent = '⚖ Comparar';
+      cmp.addEventListener('click', () => { closeModal(); compareScenarios(); });
+      top.appendChild(cmp);
+    }
+    m.appendChild(top);
+    const list = document.createElement('div'); list.className = 'scn-list';
+    if(!arr.length){
+      list.innerHTML = `<div class="scn-empty">Aún no has guardado escenarios.<br>Configura el clúster y pulsa «Guardar escenario actual».</div>`;
+    }
+    arr.slice().reverse().forEach(s => {
+      const it = document.createElement('div'); it.className = 'scn-item';
+      const info = document.createElement('div');
+      info.innerHTML = `<div class="scn-name">${escapeHtml(s.name)}</div><div class="scn-meta">${money(s.cost.total)}/sem · ${money(s.cost.monthly)}/mes · ${(s.config.nodes||[]).length} nodos · ${(s.config.podTypes||[]).length} tipos</div>`;
+      it.appendChild(info);
+      const sp = document.createElement('div'); sp.className = 'spacer'; it.appendChild(sp);
+      const load = document.createElement('button'); load.className = 'btn'; load.textContent = 'Cargar';
+      load.addEventListener('click', () => { applyConfig(s.config); closeModal(); });
+      it.appendChild(load);
+      const del = document.createElement('button'); del.className = 'btn danger'; del.textContent = '✕'; del.title = 'eliminar';
+      del.addEventListener('click', () => { deleteScenario(s.id); openScenarios(); });
+      it.appendChild(del);
+      list.appendChild(it);
+    });
+    m.appendChild(list);
+  });
+}
+function compareScenarios(){
+  const arr = loadScenarios();
+  if(arr.length < 2){ openScenarios(); return; }
+  openModal(m => {
+    m.insertAdjacentHTML('beforeend',
+      `<h2>⚖ Comparar escenarios</h2><div class="modal-sub">Coste semanal y mensual de cada combinación guardada. El más barato resaltado.</div>`);
+    const minWeekly = Math.min(...arr.map(s => s.cost.total));
+    const tbl = document.createElement('table'); tbl.className = 'report';
+    let rows = `<tr><th>Escenario</th><th class="num">nodos</th><th class="num">tipos</th><th class="num">inst·h</th><th class="num">${CURRENCY}/sem</th><th class="num">${CURRENCY}/mes</th></tr>`;
+    arr.slice().sort((a, b) => a.cost.total - b.cost.total).forEach(s => {
+      const best = s.cost.total === minWeekly;
+      rows += `<tr class="${best ? 'best' : ''}"><td>${escapeHtml(s.name)}${best ? ' ✓' : ''}</td><td class="num">${(s.config.nodes||[]).length}</td><td class="num">${(s.config.podTypes||[]).length}</td><td class="num">${s.cost.instanceHours}</td><td class="num">${money(s.cost.total)}</td><td class="num">${money(s.cost.monthly)}</td></tr>`;
+    });
+    tbl.innerHTML = rows; m.appendChild(tbl);
+    const act = document.createElement('div'); act.className = 'modal-actions';
+    const back = document.createElement('button'); back.className = 'btn'; back.textContent = '← Escenarios';
+    back.addEventListener('click', () => { closeModal(); openScenarios(); });
+    act.appendChild(back); m.appendChild(act);
+  });
+}
+
 function setupHeader(){
   $('#autoBtn').addEventListener('click', () => {
     S.autoScheduler = !S.autoScheduler;
@@ -1817,17 +2366,38 @@ function setupHeader(){
     placePods();                 // every chip glides back to the queue
   });
   $('#resetBtn').addEventListener('click', () => {
+    stopSim();
     S = initialState();
     seedNodeReadiness();         // initial nodes start Ready (provisioned before the sim)
     syncPodsToReplicas();
     autoIfEnabled();
     $('#scoringStrategy').value = S.scoringStrategy;   // reflect the reset default
+    const sp = $('#simSpeed'); if(sp) sp.value = S.simHrMs;
+    updatePlayBtn();
     fullRender();                // wipe persistent chips/refs, then rebuild everything
   });
   $('#prevDay').addEventListener('click', () => setDay(S.day-1));
   $('#nextDay').addEventListener('click', () => setDay(S.day+1));
   $('#addNodeBtn').addEventListener('click', addNode);
   $('#addPodTypeBtn').addEventListener('click', addPodType);
+
+  // play / speed / week scrubber
+  const speedSel = $('#simSpeed');
+  if(speedSel){
+    SIM_SPEEDS.forEach(s => { const o=document.createElement('option'); o.value=s.ms; o.textContent=s.label; speedSel.appendChild(o); });
+    speedSel.value = S.simHrMs;
+    speedSel.addEventListener('change', () => { S.simHrMs = +speedSel.value; });
+  }
+  $('#playBtn')?.addEventListener('click', togglePlay);
+  const scrub = $('#weekScrub');
+  if(scrub) scrub.addEventListener('input', () => { stopSim(); setTimeSlot(+scrub.value, true); });
+  const axis = $('#scrubAxis');
+  if(axis){ const L=['L','M','X','J','V','S','D']; axis.innerHTML=''; for(let d=0; d<7; d++){ const s=document.createElement('span'); s.textContent=L[d]; if(d>=5) s.className='wknd'; axis.appendChild(s); } }
+  updatePlayBtn();
+
+  // cost report + scenarios
+  $('#costBtn')?.addEventListener('click', openCostReport);
+  $('#scnBtn')?.addEventListener('click', openScenarios);
 
   // collapsible sections
   $$('.section-head').forEach(h => {
