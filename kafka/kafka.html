@@ -167,6 +167,64 @@
   .mini-btn.tgl-on:hover{background:#dbedca;border-color:#5fa376}
   .mini-btn.tgl-off{background:#fdecec;border-color:#d49a9a;color:#9c2a2a}
   .mini-btn.tgl-off:hover{background:#fdd9d9;border-color:#c08585}
+  /* Send icon button + adjacent N-input. The button shows a paper-plane
+     glyph (inline SVG) so it's instantly recognisable as "send", not
+     "play". Compact even when the producer card is collapsed. */
+  .mini-btn.icon-only{
+    padding:3px 7px;line-height:0;min-width:26px;
+    display:inline-flex;align-items:center;justify-content:center;
+  }
+  .mini-btn.icon-only svg{display:block;width:13px;height:13px}
+  .send-count{
+    width:40px;font-size:12px;text-align:center;border:1px solid var(--card-border);
+    border-radius:5px;padding:2px 4px;background:#fff;color:var(--ink);font-weight:700;
+    outline:none;font-variant-numeric:tabular-nums;height:22px;
+  }
+  .send-count:focus{border-color:var(--accent)}
+  .send-count::-webkit-inner-spin-button,
+  .send-count::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+  .send-count{-moz-appearance:textfield}
+
+  /* Collapse/expand toggle — producer cards only. Consumer rows are
+     already compact enough that an extra toggle would be more noise than
+     signal, so they stay always expanded. */
+  .trailing-actions{margin-left:auto;display:inline-flex;gap:4px;align-items:center}
+  .trailing-actions .close-x{margin-left:0}
+  .toggle-collapse{
+    background:#fff;border:1px solid var(--card-border);color:var(--muted);
+    cursor:pointer;font-size:12px;padding:2px 6px;border-radius:4px;line-height:1;
+    font-weight:800;font-family:inherit;
+  }
+  .toggle-collapse:hover{background:#eef2ff;border-color:var(--accent);color:var(--accent)}
+  .pcard.collapsed .expanded-only,
+  .group-card.collapsed .expanded-only{display:none !important}
+  .pcard:not(.collapsed) .collapsed-only,
+  .group-card:not(.collapsed) .collapsed-only{display:none !important}
+  /* Compact "at-a-glance" string inside the collapsed producer header. */
+  .prod-mini{
+    font-size:10.5px;color:var(--muted);font-weight:700;letter-spacing:.2px;
+    font-variant-numeric:tabular-nums;white-space:nowrap;
+  }
+  .prod-mini .auto-on{color:#2e7d4f}
+  .prod-mini .auto-off{color:#9c2a2a}
+
+  /* Drag-and-drop reordering — each card / row has a small grip on its
+     leading edge. The handle is what's draggable (not the whole card)
+     so inputs / dropdowns inside the card keep working normally. */
+  .drag-handle{
+    cursor:grab;color:var(--muted2);font-size:13px;line-height:1;
+    padding:2px 3px;border-radius:3px;user-select:none;
+    flex:0 0 auto;letter-spacing:-3px;font-weight:900;
+  }
+  .drag-handle:hover{background:#eef2ff;color:var(--accent)}
+  .drag-handle:active{cursor:grabbing}
+  .dragging{opacity:.35!important}
+  .drop-target{outline:2px solid var(--accent);outline-offset:-1px}
+  .empty-hint{
+    color:var(--muted);font-size:12px;text-align:center;line-height:1.5;
+    padding:14px 10px;font-style:italic;
+    border:1.5px dashed var(--card-border);border-radius:8px;background:#fafbfe;
+  }
   .grid-row{display:grid;grid-template-columns:auto 1fr;gap:6px 8px;align-items:center;font-size:11.5px}
   .grid-row .row{justify-content:flex-start}
 
@@ -354,6 +412,9 @@
         <b id="speedVal">1×</b>
       </label>
       <button class="btn" id="tickBtn" title="produce un segundo de simulación de golpe">Tick 1s</button>
+      <button class="btn" id="exportBtn" title="descargar el estado actual como JSON">Export</button>
+      <button class="btn" id="importBtn" title="cargar un JSON previamente exportado">Import</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
       <button class="btn danger" id="resetBtn">Reset</button>
     </div>
   </header>
@@ -373,7 +434,10 @@
       <section class="section flex">
         <header class="section-head">
           <div class="title">Producers</div>
-          <div class="actions"><button class="ghost-btn" id="addProducerBtn">+ producer</button></div>
+          <div class="actions">
+            <button class="ghost-btn" id="collapseAllProducers" title="colapsar / expandir todos">▲</button>
+            <button class="ghost-btn" id="addProducerBtn">+ producer</button>
+          </div>
         </header>
         <div class="section-body" id="producersList"></div>
       </section>
@@ -403,7 +467,7 @@
   </main>
 
   <footer class="bottom">
-    <i>Send 1</i> / <i>Send 10</i> / <i>Auto</i> en cada producer · cada consumer tarda su <b>tiempo de procesamiento</b> (anillo en el mensaje en vuelo, barra de progreso) — el offset solo se confirma al terminar · cambia particiones o consumers para forzar <b>rebalanceo</b>
+    <i>N</i> + <i>▶</i> envía N mensajes a mano · <i>Auto</i> emite a <i>rate</i> msg/s · cada consumer tarda su <b>tiempo de procesamiento</b> (anillo en el mensaje en vuelo, barra de progreso) — el offset solo se confirma al terminar · cambia particiones o consumers para forzar <b>rebalanceo</b>
   </footer>
 </div>
 <div id="flyLayer"></div>
@@ -448,6 +512,7 @@ const state = {
   producers: [],  // { id, name, color, topicId, mode, stickyPart, keyPool, rate, accum, sendCount }
   groups: [],     // { id, name, color, topicId, consumers:[{id,name,color,rate,accum,rrIdx,lastActive}],
                   //   assignments:{cid:[pIdx]}, offsets:{pIdx:committed} }
+  producersCollapsed: false,   // section-level collapse for ALL producers at once
 };
 
 // ============================================================
@@ -701,7 +766,7 @@ function makeProducer(name, color, topicId) {
     id: newId(), name, color, topicId,
     mode: 'rr', stickyPart: 0, keyPool: 4,
     rate: 2, accum: 0, sendCount: 0,
-    auto: false,   // producers default to MANUAL — click "Send 1" to inject,
+    auto: false,   // producers default to MANUAL — click ▶ to inject,
                    // or toggle Auto to make them fire at `rate` msg/s.
   };
 }
@@ -709,6 +774,7 @@ function makeGroup(name, color, topicId) {
   return {
     id: newId(), name, color, topicId,
     consumers: [], assignments: {}, offsets: {},
+    collapsed: false,
   };
 }
 function makeConsumer(name, color) {
@@ -718,7 +784,7 @@ function makeConsumer(name, color) {
     // offset only advances when processing finishes — so a slow consumer
     // visibly drags behind on its partition log.
     processingMs: 2000,
-    processing: null,    // { partition, offset, elapsed } while busy
+    processing: null,    // { partition, offset, phase, elapsed } while busy
     rrIdx: 0, lastActive: 0,
   };
 }
@@ -969,37 +1035,67 @@ function render() {
 function renderProducers() {
   els.prodList.innerHTML = '';
   for (const p of state.producers) els.prodList.appendChild(producerCard(p));
-  if (state.topics.length > 0) {
-    const add = document.createElement('button');
-    add.className = 'add-mini';
-    add.textContent = '+ producer';
-    add.onclick = () => {
-      const color = pickColor();
-      const tid = state.topics[0].id;
-      state.producers.push(makeProducer(`p${state.producers.length+1}`, color, tid));
-      render();
-    };
-    els.prodList.appendChild(add);
+  if (state.topics.length === 0) {
+    const hint = document.createElement('div');
+    hint.className = 'empty-hint';
+    hint.innerHTML = 'Crea primero un <b>topic</b> para poder<br>añadir producers.';
+    els.prodList.appendChild(hint);
+    return;
   }
+  if (state.producers.length === 0) {
+    const hint = document.createElement('div');
+    hint.className = 'empty-hint';
+    hint.textContent = 'Sin producers.';
+    els.prodList.appendChild(hint);
+  }
+  const add = document.createElement('button');
+  add.className = 'add-mini';
+  add.textContent = '+ producer';
+  add.onclick = () => {
+    const color = pickColor();
+    const tid = state.topics[0].id;
+    state.producers.push(makeProducer(`p${state.producers.length+1}`, color, tid));
+    render();
+  };
+  els.prodList.appendChild(add);
+}
+
+function producerMiniHtml(p) {
+  const modeText =
+    p.mode === 'rr'     ? 'rr' :
+    p.mode === 'random' ? 'random' :
+    p.mode === 'sticky' ? `sticky·P${p.stickyPart}` :
+    `key·${p.keyPool}`;
+  // Rate is shown ONLY when Auto is on — its presence vs. absence is the
+  // signal for which mode the producer is in. No explicit "manual"/"auto"
+  // label needed.
+  return p.auto ? `${modeText} · ${p.rate}/s` : modeText;
 }
 
 function producerCard(p) {
   const card = document.createElement('div');
-  card.className = 'pcard prod-card accented';
+  card.className = 'pcard prod-card accented' + (state.producersCollapsed ? ' collapsed' : '');
   card.dataset.producerId = p.id;
   card.style.borderLeftColor = p.color;
   const topicOpts = state.topics.map(t =>
     `<option value="${t.id}" ${t.id===p.topicId?'selected':''}>${escapeHtml(t.name)}</option>`
   ).join('');
   const stickyMax = (state.topics.find(t => t.id === p.topicId)?.partitions.length || 1) - 1;
+  const sendIconSvg = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>';
   card.innerHTML = `
     <div class="row tight">
+      <span class="drag-handle" draggable="true" data-drag-type="producer" title="arrastrar para reordenar">⋮⋮</span>
       <span class="badge-color" style="background:${p.color}" title="cambiar color"></span>
       <input class="name-input pname" value="${escapeHtml(p.name)}" spellcheck="false">
-      <span class="sent" title="mensajes enviados">▴ ${p.sendCount}</span>
-      <button class="close-x" title="quitar producer">✕</button>
+      <span class="sent expanded-only" title="mensajes enviados">▴ ${p.sendCount}</span>
+      <span class="prod-mini collapsed-only">${producerMiniHtml(p)}</span>
+      <span class="trailing-actions">
+        <input type="number" class="send-count expanded-only" min="1" max="500" value="1" title="cuántos mensajes enviar al pulsar enviar">
+        <button class="mini-btn primary icon-only send-one" title="enviar N mensajes">${sendIconSvg}</button>
+        <button class="close-x" title="quitar producer">✕</button>
+      </span>
     </div>
-    <div class="grid-row">
+    <div class="grid-row expanded-only">
       <span class="lbl">topic</span>
       <select class="sel topic-sel">${topicOpts}</select>
       <span class="lbl">modo</span>
@@ -1027,10 +1123,8 @@ function producerCard(p) {
         <span class="small">msg/s</span>
       </div>
     </div>
-    <div class="row">
-      <button class="mini-btn primary send-one">Send 1</button>
-      <button class="mini-btn send-ten">Send 10</button>
-      <button class="mini-btn auto-tgl ${p.auto?'tgl-on':'tgl-off'}" title="cuando está en ON el producer emite a 'rate' msg/s; en OFF solo envía con Send">Auto: ${p.auto?'ON':'OFF'}</button>
+    <div class="row expanded-only">
+      <button class="mini-btn auto-tgl ${p.auto?'tgl-on':'tgl-off'}" title="cuando está en ON el producer emite a 'rate' msg/s; en OFF solo envía con ▶">Auto: ${p.auto?'ON':'OFF'}</button>
     </div>
   `;
   // Wire up
@@ -1042,25 +1136,48 @@ function producerCard(p) {
   card.querySelector('.pname').onchange = e => { p.name = (e.target.value || p.name).trim() || p.name; };
   card.querySelector('.topic-sel').onchange = e => { p.topicId = +e.target.value; render(); };
   card.querySelector('.mode-sel').onchange = e => { p.mode = e.target.value; render(); };
-  card.querySelector('.send-one').onclick = () => produceMessage(p);
-  card.querySelector('.send-ten').onclick = () => {
-    for (let i = 0; i < 10; i++) produceMessage(p);
+  // ▶ button: send N messages where N comes from the adjacent <input>.
+  // Clamped to [1, 500] so a fat-fingered "1000000" doesn't lock the tab.
+  const countInput = card.querySelector('.send-count');
+  card.querySelector('.send-one').onclick = () => {
+    let n = parseInt(countInput?.value || '1', 10);
+    if (!Number.isFinite(n) || n < 1) n = 1;
+    if (n > 500) n = 500;
+    for (let i = 0; i < n; i++) produceMessage(p);
   };
+  // Prevent the textbox from accidentally starting a drag on the card.
+  if (countInput) {
+    countInput.addEventListener('dragstart', e => e.preventDefault());
+  }
   const autoBtn = card.querySelector('.auto-tgl');
+  const miniEl = card.querySelector('.prod-mini');
   autoBtn.onclick = () => {
     p.auto = !p.auto;
     autoBtn.classList.toggle('tgl-on', p.auto);
     autoBtn.classList.toggle('tgl-off', !p.auto);
     autoBtn.textContent = `Auto: ${p.auto?'ON':'OFF'}`;
     if (p.auto) p.accum = 0;
+    if (miniEl) miniEl.innerHTML = producerMiniHtml(p);
   };
   const rv = card.querySelector('.rval');
-  card.querySelector('.rdec').onclick = () => { p.rate = Math.max(0, p.rate - 1); rv.textContent = p.rate; };
-  card.querySelector('.rinc').onclick = () => { p.rate = Math.min(40, p.rate + 1); rv.textContent = p.rate; };
+  card.querySelector('.rdec').onclick = () => {
+    p.rate = Math.max(0, p.rate - 1); rv.textContent = p.rate;
+    if (miniEl) miniEl.innerHTML = producerMiniHtml(p);
+  };
+  card.querySelector('.rinc').onclick = () => {
+    p.rate = Math.min(40, p.rate + 1); rv.textContent = p.rate;
+    if (miniEl) miniEl.innerHTML = producerMiniHtml(p);
+  };
   if (p.mode === 'sticky') {
     const sv = card.querySelector('.sval');
-    card.querySelector('.sdec').onclick = () => { p.stickyPart = Math.max(0, p.stickyPart - 1); sv.textContent = p.stickyPart; };
-    card.querySelector('.sinc').onclick = () => { p.stickyPart = Math.min(stickyMax, p.stickyPart + 1); sv.textContent = p.stickyPart; };
+    card.querySelector('.sdec').onclick = () => {
+      p.stickyPart = Math.max(0, p.stickyPart - 1); sv.textContent = p.stickyPart;
+      if (miniEl) miniEl.innerHTML = producerMiniHtml(p);
+    };
+    card.querySelector('.sinc').onclick = () => {
+      p.stickyPart = Math.min(stickyMax, p.stickyPart + 1); sv.textContent = p.stickyPart;
+      if (miniEl) miniEl.innerHTML = producerMiniHtml(p);
+    };
   }
   if (p.mode === 'key') {
     card.querySelector('.kdec').onclick = () => { p.keyPool = Math.max(1, p.keyPool - 1); render(); };
@@ -1073,11 +1190,19 @@ function producerCard(p) {
 function renderTopics() {
   els.topicList.innerHTML = '';
   for (const t of state.topics) els.topicList.appendChild(topicCard(t));
+  if (state.topics.length === 0) {
+    const hint = document.createElement('div');
+    hint.className = 'empty-hint';
+    hint.innerHTML = 'Empieza aquí — crea un <b>topic</b> con<br>el botón de abajo.';
+    els.topicList.appendChild(hint);
+  }
   const add = document.createElement('button');
   add.className = 'add-mini';
   add.textContent = '+ topic';
   add.onclick = () => {
-    state.topics.push(makeTopic(`topic-${state.topics.length+1}`, 3));
+    // New topics start with a SINGLE partition — minimal default; the user
+    // bumps it with the +/- stepper in the topic head when they want more.
+    state.topics.push(makeTopic(`topic-${state.topics.length+1}`, 1));
     render();
   };
   els.topicList.appendChild(add);
@@ -1089,7 +1214,8 @@ function topicCard(t) {
   card.dataset.topicId = t.id;
   card.innerHTML = `
     <div class="topic-head">
-      <input class="name-input tname" value="${escapeHtml(t.name)}" style="max-width:160px">
+      <span class="drag-handle" draggable="true" data-drag-type="topic" title="arrastrar para reordenar">⋮⋮</span>
+      <input class="name-input tname" value="${escapeHtml(t.name)}" style="max-width:140px">
       <span class="pill">${t.partitions.length} part.</span>
       <span class="topic-meta">total: <b id="tot-${t.id}" style="color:var(--ink);font-variant-numeric:tabular-nums">0</b></span>
       <span style="flex:1"></span>
@@ -1155,25 +1281,36 @@ function partitionCell(topic, partition, idx) {
 function renderGroups() {
   els.groupList.innerHTML = '';
   for (const g of state.groups) els.groupList.appendChild(groupCard(g));
-  if (state.topics.length > 0) {
-    const add = document.createElement('button');
-    add.className = 'add-mini';
-    add.textContent = '+ consumer group';
-    add.onclick = () => {
-      const color = pickColor();
-      const g = makeGroup(`group-${state.groups.length+1}`, color, state.topics[0].id);
-      g.consumers.push(makeConsumer('c1', color));
-      reassign(g);
-      state.groups.push(g);
-      render();
-    };
-    els.groupList.appendChild(add);
+  if (state.topics.length === 0) {
+    const hint = document.createElement('div');
+    hint.className = 'empty-hint';
+    hint.innerHTML = 'Crea primero un <b>topic</b> para poder<br>añadir consumer groups.';
+    els.groupList.appendChild(hint);
+    return;
   }
+  if (state.groups.length === 0) {
+    const hint = document.createElement('div');
+    hint.className = 'empty-hint';
+    hint.textContent = 'Sin consumer groups.';
+    els.groupList.appendChild(hint);
+  }
+  const add = document.createElement('button');
+  add.className = 'add-mini';
+  add.textContent = '+ consumer group';
+  add.onclick = () => {
+    const color = pickColor();
+    const g = makeGroup(`group-${state.groups.length+1}`, color, state.topics[0].id);
+    g.consumers.push(makeConsumer('c1', color));
+    reassign(g);
+    state.groups.push(g);
+    render();
+  };
+  els.groupList.appendChild(add);
 }
 
 function groupCard(g) {
   const card = document.createElement('div');
-  card.className = 'group-card';
+  card.className = 'group-card' + (g.collapsed ? ' collapsed' : '');
   card.dataset.groupId = g.id;
   card.style.color = g.color;
   const topic = state.topics.find(t => t.id === g.topicId);
@@ -1182,11 +1319,15 @@ function groupCard(g) {
   ).join('');
   card.innerHTML = `
     <div class="ghead">
+      <span class="drag-handle" draggable="true" data-drag-type="group" title="arrastrar para reordenar">⋮⋮</span>
       <span class="badge-color" style="background:${g.color}" title="cambiar color"></span>
       <input class="name-input gname" value="${escapeHtml(g.name)}" spellcheck="false">
-      <button class="close-x">✕</button>
+      <span class="trailing-actions">
+        <button class="toggle-collapse" title="${g.collapsed?'expandir':'colapsar'}">${g.collapsed?'▼':'▲'}</button>
+        <button class="close-x">✕</button>
+      </span>
     </div>
-    <div class="grid-row">
+    <div class="grid-row expanded-only">
       <span class="lbl">topic</span>
       <select class="sel topic-sel">${topicOpts}</select>
       <span class="lbl">consumers</span>
@@ -1195,7 +1336,7 @@ function groupCard(g) {
       </div>
     </div>
     <div class="consumers"></div>
-    <button class="add-mini add-consumer">+ consumer</button>
+    <button class="add-mini add-consumer expanded-only">+ consumer</button>
   `;
   const consDiv = card.querySelector('.consumers');
   for (const c of g.consumers) consDiv.appendChild(consumerRow(g, c, topic));
@@ -1203,6 +1344,14 @@ function groupCard(g) {
   card.querySelector('.close-x').onclick = () => {
     state.groups = state.groups.filter(x => x.id !== g.id);
     render();
+  };
+  const gToggle = card.querySelector('.toggle-collapse');
+  gToggle.onclick = () => {
+    g.collapsed = !g.collapsed;
+    card.classList.toggle('collapsed', g.collapsed);
+    gToggle.textContent = g.collapsed ? '▼' : '▲';
+    gToggle.title = g.collapsed ? 'expandir' : 'colapsar';
+    scheduleSave();
   };
   card.querySelector('.badge-color').onclick = () => {
     g.color = pickColor();
@@ -1231,9 +1380,10 @@ function consumerRow(g, c, topic) {
   row.dataset.consumerId = c.id;
   row.style.color = c.color;
   const parts = g.assignments[c.id] || [];
-  const fmtSecs = ms => (ms/1000).toFixed(ms < 1000 ? 1 : 1) + 's';
+  const fmtSecs = ms => (ms/1000).toFixed(1) + 's';
   row.innerHTML = `
     <div class="crow">
+      <span class="drag-handle expanded-only" draggable="true" data-drag-type="consumer" title="arrastrar para reordenar">⋮⋮</span>
       <span class="dot" style="background:${c.color}"></span>
       <span class="cname">${escapeHtml(c.name)}</span>
       <span class="parts">${
@@ -1242,10 +1392,10 @@ function consumerRow(g, c, topic) {
           : '<span class="part-badge idle">idle</span>'
       }</span>
       <span class="lagn ok" title="lag (mensajes pendientes para este consumer)">0</span>
-      <span class="num" title="tiempo de procesamiento por mensaje">
+      <span class="num expanded-only" title="tiempo de procesamiento por mensaje">
         <button class="cdec">−</button><span class="cval">${fmtSecs(c.processingMs)}</span><button class="cinc">+</button>
       </span>
-      <button class="x" title="quitar consumer">✕</button>
+      <button class="x expanded-only" title="quitar consumer">✕</button>
     </div>
     <div class="proc-info">
       <span class="proc-target" title="partición · offset que está procesando ahora">—</span>
@@ -1264,7 +1414,7 @@ function consumerRow(g, c, topic) {
     cv.textContent = fmtSecs(c.processingMs);
   };
   row.querySelector('.cinc').onclick = () => {
-    c.processingMs = Math.min(15000, c.processingMs + 500);
+    c.processingMs = c.processingMs + 500;
     cv.textContent = fmtSecs(c.processingMs);
   };
   return row;
@@ -1524,6 +1674,7 @@ function serializeState() {
       mode: p.mode, stickyPart: p.stickyPart, keyPool: p.keyPool,
       rate: p.rate, sendCount: p.sendCount, auto: !!p.auto,
     })),
+    producersCollapsed: !!state.producersCollapsed,
     groups: state.groups.map(g => ({
       id: g.id, name: g.name, color: g.color, topicId: g.topicId,
       consumers: g.consumers.map(c => ({
@@ -1533,20 +1684,15 @@ function serializeState() {
       })),
       assignments: g.assignments,
       offsets: g.offsets,
+      collapsed: !!g.collapsed,
     })),
   });
 }
 
-// Returns true if we successfully hydrated from localStorage; false means
-// "no saved state or corrupt" → caller should seed() instead.
-function loadState() {
-  let raw;
-  try { raw = localStorage.getItem(STORAGE_KEY); }
-  catch (e) { return false; }
-  if (!raw) return false;
-  let parsed;
-  try { parsed = JSON.parse(raw); }
-  catch (e) { return false; }
+// Core hydration: takes a parsed JSON object and replaces the live state
+// with it (with defensive defaults). Shared by loadState (localStorage)
+// and importState (file upload).
+function hydrateFromParsed(parsed) {
   if (!parsed || !Array.isArray(parsed.topics)) return false;
 
   nextId = Math.max(1, parsed.nextId | 0);
@@ -1572,6 +1718,11 @@ function loadState() {
     sendCount: p.sendCount | 0,
     auto: !!p.auto,
   }));
+  // Backward-compat: derive section-level collapse from either the explicit
+  // flag, or "all producers were collapsed" in an older per-producer save.
+  state.producersCollapsed = !!parsed.producersCollapsed
+    || (Array.isArray(parsed.producers) && parsed.producers.length > 0
+        && parsed.producers.every(p => !!p.collapsed));
   state.groups = (parsed.groups || []).map(g => ({
     id: g.id, name: g.name, color: g.color, topicId: g.topicId,
     consumers: (g.consumers || []).map(c => {
@@ -1588,11 +1739,70 @@ function loadState() {
     }),
     assignments: g.assignments || {},
     offsets: g.offsets || {},
+    collapsed: !!g.collapsed,
   }));
+  // Make sure every newly-loaded group has at least default offsets +
+  // assignments for the partitions it sees now.
+  for (const g of state.groups) reassign(g);
   return true;
 }
 
-// Mirror state.running / state.speed onto the toolbar after a load.
+// Returns true if we successfully hydrated from localStorage; false means
+// "no saved state or corrupt" → caller should seed() instead.
+function loadState() {
+  let raw;
+  try { raw = localStorage.getItem(STORAGE_KEY); }
+  catch (e) { return false; }
+  if (!raw) return false;
+  let parsed;
+  try { parsed = JSON.parse(raw); }
+  catch (e) { return false; }
+  return hydrateFromParsed(parsed);
+}
+
+// Trigger a download of the current state as a pretty-printed JSON file.
+// The filename is timestamped so successive exports don't overwrite each
+// other in the user's Downloads folder.
+function exportState() {
+  const pretty = JSON.stringify(JSON.parse(serializeState()), null, 2);
+  const blob = new Blob([pretty], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+  a.download = `kafka-sim-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Read an uploaded JSON file and hydrate the simulator from it. On
+// success the toolbar + full DOM are re-rendered to reflect the new state
+// and the value gets persisted to localStorage too.
+function importState(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    let parsed;
+    try { parsed = JSON.parse(e.target.result); }
+    catch (err) {
+      alert('No es un JSON válido: ' + err.message);
+      return;
+    }
+    if (!hydrateFromParsed(parsed)) {
+      alert('El archivo no parece un export válido de Kafka simulator.');
+      return;
+    }
+    syncToolbar();
+    render();
+    scheduleSave();
+  };
+  reader.onerror = () => alert('No se pudo leer el archivo.');
+  reader.readAsText(file);
+}
+
+// Mirror toolbar / section-header buttons onto the loaded state. Called
+// after init, after a localStorage load, and after a JSON import.
 function syncToolbar() {
   const playBtn = document.getElementById('playBtn');
   if (playBtn) {
@@ -1604,6 +1814,11 @@ function syncToolbar() {
   if (sp) sp.value = state.speed;
   const spv = document.getElementById('speedVal');
   if (spv) spv.textContent = state.speed + '×';
+  const collBtn = document.getElementById('collapseAllProducers');
+  if (collBtn) {
+    collBtn.textContent = state.producersCollapsed ? '▼' : '▲';
+    collBtn.title = state.producersCollapsed ? 'expandir todos' : 'colapsar todos';
+  }
 }
 
 // ============================================================
@@ -1644,6 +1859,129 @@ function seed() {
 }
 
 // ============================================================
+// DRAG-AND-DROP REORDERING
+// One delegated set of listeners per list container. The container persists
+// across re-renders; only its cards get rebuilt. A card's `.drag-handle` is
+// the only element marked draggable, so inputs/dropdowns inside the card
+// keep working normally. For consumers (nested inside group cards) we
+// restrict drops to within the SAME group's .consumers list — drags across
+// groups are ignored.
+// ============================================================
+function reorderInArray(arr, draggedId, targetId, insertAfter) {
+  const di = arr.findIndex(x => x.id === draggedId);
+  if (di < 0) return false;
+  const [item] = arr.splice(di, 1);
+  let ti = arr.findIndex(x => x.id === targetId);
+  if (ti < 0) { arr.push(item); return true; }
+  arr.splice(insertAfter ? ti + 1 : ti, 0, item);
+  return true;
+}
+
+function insertAfterCursor(targetEl, ev) {
+  const r = targetEl.getBoundingClientRect();
+  return ev.clientY > r.top + r.height / 2;
+}
+
+function clearDragVisuals(scope) {
+  scope.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
+  scope.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+}
+
+function setupDragHandlers() {
+  // Shared state across all containers — only one drag at a time anyway.
+  let dragInfo = null;    // { type, id, groupId? }
+
+  function selectorFor(type) {
+    return type === 'producer' ? '.pcard.prod-card'
+         : type === 'topic'    ? '.pcard.topic-card'
+         : type === 'group'    ? '.group-card'
+         :                       '.consumer-row';
+  }
+
+  function attach(container) {
+    container.addEventListener('dragstart', e => {
+      const handle = e.target.closest('.drag-handle');
+      if (!handle || !container.contains(handle)) return;
+      const type = handle.dataset.dragType;
+      const card = handle.closest(selectorFor(type));
+      if (!card) return;
+      const idAttr =
+        type === 'producer' ? 'producerId' :
+        type === 'topic'    ? 'topicId'    :
+        type === 'group'    ? 'groupId'    : 'consumerId';
+      dragInfo = { type, id: +card.dataset[idAttr] };
+      if (type === 'consumer') {
+        const gCard = handle.closest('.group-card');
+        if (!gCard) { dragInfo = null; return; }
+        dragInfo.groupId = +gCard.dataset.groupId;
+      }
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(dragInfo.id));
+      e.dataTransfer.setDragImage(card, 12, 12);
+      // Defer to next frame so the drag image is captured BEFORE the card
+      // gets dimmed by .dragging (otherwise the ghost is also dim).
+      requestAnimationFrame(() => card.classList.add('dragging'));
+    });
+
+    container.addEventListener('dragover', e => {
+      if (!dragInfo) return;
+      const target = e.target.closest(selectorFor(dragInfo.type));
+      if (!target) return;
+      // For consumers, restrict to the same group's row.
+      if (dragInfo.type === 'consumer') {
+        const tgCard = target.closest('.group-card');
+        if (!tgCard || +tgCard.dataset.groupId !== dragInfo.groupId) return;
+      }
+      e.preventDefault();             // allow drop
+      e.dataTransfer.dropEffect = 'move';
+      // Repaint indicator only on the current hovered card.
+      container.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+      if (!target.classList.contains('dragging')) {
+        target.classList.add('drop-target');
+      }
+    });
+
+    container.addEventListener('drop', e => {
+      if (!dragInfo) { clearDragVisuals(container); return; }
+      const target = e.target.closest(selectorFor(dragInfo.type));
+      if (!target) { clearDragVisuals(container); dragInfo = null; return; }
+      e.preventDefault();
+      const idAttr =
+        dragInfo.type === 'producer' ? 'producerId' :
+        dragInfo.type === 'topic'    ? 'topicId'    :
+        dragInfo.type === 'group'    ? 'groupId'    : 'consumerId';
+      const targetId = +target.dataset[idAttr];
+      const after = insertAfterCursor(target, e);
+      let arr = null;
+      if (dragInfo.type === 'producer') arr = state.producers;
+      else if (dragInfo.type === 'topic') arr = state.topics;
+      else if (dragInfo.type === 'group') arr = state.groups;
+      else if (dragInfo.type === 'consumer') {
+        const tgCard = target.closest('.group-card');
+        if (!tgCard || +tgCard.dataset.groupId !== dragInfo.groupId) {
+          clearDragVisuals(container); dragInfo = null; return;
+        }
+        const g = state.groups.find(x => x.id === dragInfo.groupId);
+        if (g) arr = g.consumers;
+      }
+      if (arr) reorderInArray(arr, dragInfo.id, targetId, after);
+      clearDragVisuals(container);
+      dragInfo = null;
+      render();
+    });
+
+    container.addEventListener('dragend', () => {
+      clearDragVisuals(container);
+      dragInfo = null;
+    });
+  }
+
+  attach(els.prodList);
+  attach(els.topicList);
+  attach(els.groupList);   // handles BOTH group cards and inner consumer rows
+}
+
+// ============================================================
 // TOP-LEVEL WIRING
 // ============================================================
 document.getElementById('playBtn').onclick = e => {
@@ -1673,17 +2011,33 @@ document.getElementById('resetBtn').onclick = () => {
   try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
   state.topics = []; state.producers = []; state.groups = [];
   nextId = 1;
-  seed();
+  state.running = true;
+  state.speed = 1;
   syncToolbar();
   render();
+};
+document.getElementById('exportBtn').onclick = exportState;
+document.getElementById('importBtn').onclick = () => {
+  document.getElementById('importFile').click();
+};
+document.getElementById('importFile').onchange = e => {
+  const file = e.target.files && e.target.files[0];
+  if (file) importState(file);
+  e.target.value = '';   // allow re-selecting the same file later
 };
 document.getElementById('addProducerBtn').onclick = () => {
   if (state.topics.length === 0) return;
   state.producers.push(makeProducer(`p${state.producers.length+1}`, pickColor(), state.topics[0].id));
   render();
 };
+document.getElementById('collapseAllProducers').onclick = () => {
+  state.producersCollapsed = !state.producersCollapsed;
+  syncToolbar();
+  scheduleSave();
+  render();
+};
 document.getElementById('addTopicBtn').onclick = () => {
-  state.topics.push(makeTopic(`topic-${state.topics.length+1}`, 3));
+  state.topics.push(makeTopic(`topic-${state.topics.length+1}`, 1));
   render();
 };
 document.getElementById('addGroupBtn').onclick = () => {
@@ -1696,12 +2050,16 @@ document.getElementById('addGroupBtn').onclick = () => {
   render();
 };
 
-// Hydrate from localStorage if a previous session left state behind; fall
-// back to the demo seed otherwise. The toolbar is then re-synced so the
-// Play button + speed slider reflect the loaded values, not the defaults.
-if (!loadState()) seed();
+// Hydrate from localStorage if a previous session left state behind.
+// Otherwise we start COMPLETELY EMPTY — the user creates their first topic
+// from the "+ topic" button, which then unlocks "+ producer" and
+// "+ consumer group". Anything they build gets persisted on the next save
+// tick. `seed()` stays available for manual testing but isn't called
+// automatically anymore.
+loadState();
 syncToolbar();
 render();
+setupDragHandlers();
 loop();
 })();
 </script>

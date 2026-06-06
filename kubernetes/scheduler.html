@@ -57,6 +57,7 @@
     transition:background .12s, border-color .12s, color .12s;
   }
   .btn:hover{background:#f4f7ff;border-color:#9fb1d4}
+  .btn:disabled{opacity:.45;cursor:not-allowed;background:#fff;border-color:var(--card-border)}
   .btn.toggle.on{background:#e8f5ec;border-color:#7cb88f;color:#2e7d4f}
   .btn.toggle.off{background:#fdecec;border-color:#d49a9a;color:#9c2a2a}
   .btn.danger{color:#7a1f1f}
@@ -383,6 +384,31 @@
   }
   .scrub-axis{display:grid;grid-template-columns:repeat(7,1fr);font-size:9px;color:var(--muted2);text-align:center}
   .scrub-axis span.wknd{color:#c08a4a;font-weight:600}
+  /* KEDA integration info icon (header) with hover tooltip */
+  .info-ic{cursor:help;font-size:13px;line-height:1;opacity:.7;position:relative;user-select:none}
+  .info-ic:hover{opacity:1}
+  .info-ic:hover::after{
+    content:attr(data-tip);position:absolute;top:170%;right:-4px;width:228px;z-index:40;
+    background:var(--ink);color:#fff;font-size:11px;line-height:1.45;font-weight:400;
+    padding:8px 10px;border-radius:7px;box-shadow:0 8px 20px rgba(0,0,0,.28);
+    white-space:normal;text-align:left;pointer-events:none;text-transform:none;letter-spacing:0;
+  }
+  .info-ic:hover::before{
+    content:"";position:absolute;top:125%;right:5px;border:5px solid transparent;border-bottom-color:var(--ink);z-index:40;
+  }
+  /* Per-card collapse (pod & node cards): expanded = full controls, collapsed = status only */
+  .card-toggle{
+    background:none;border:none;cursor:pointer;color:var(--muted2);font-size:10px;
+    padding:0 3px 0 0;flex:0 0 auto;line-height:1;
+  }
+  .card-toggle:hover{color:var(--ink)}
+  .card-mini{display:none}
+  .pod-card.collapsed .card-mini{
+    display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--muted);
+  }
+  .pod-card.collapsed .card-mini .mini-n{font-weight:800;color:var(--ink)}
+  .pod-card.collapsed .detail,.node-card.collapsed .detail{display:none}
+  .pod-card.collapsed,.node-card.collapsed{gap:6px}
   /* ---- Hourly KEDA editor (per pod card) ---- */
   .hourly{display:flex;flex-direction:column;gap:5px}
   .hourly-head{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;color:var(--muted)}
@@ -429,10 +455,12 @@
   .kpi .k-val{font-size:20px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
   .kpi .k-val.accent{color:var(--accent)}
   table.report{width:100%;border-collapse:collapse;font-size:12.5px}
-  table.report th,table.report td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
-  table.report th{color:var(--muted);font-weight:600;font-size:11px}
-  table.report td.num,table.report th.num{text-align:right;font-variant-numeric:tabular-nums}
-  table.report tr.total td{font-weight:800;border-top:2px solid var(--card-border)}
+  table.report th,table.report td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+  table.report th{color:var(--muted);font-weight:600;font-size:11px;white-space:nowrap}
+  table.report td:first-child{font-weight:600}
+  table.report td.r-num,table.report th.r-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  table.report tr:nth-child(even) td{background:rgba(57,86,211,.04)}
+  table.report tr.total td{font-weight:800;border-top:2px solid var(--card-border);background:transparent}
   table.report tr.best td{background:#e8f5ec}
   .daybars{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:8px;align-items:end;height:96px}
   .daybars .db{display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;justify-content:flex-end}
@@ -473,7 +501,10 @@
     <!-- LEFT COLUMN -->
     <div class="col">
       <section class="section" id="kedaSection">
-        <header class="section-head"><div class="title"><span class="caret">▼</span>Reloj · KEDA · Simulación</div></header>
+        <header class="section-head">
+          <div class="title"><span class="caret">▼</span>Reloj · KEDA · Simulación</div>
+          <div class="actions"><span class="info-ic" data-tip="KEDA escala las réplicas de cada Pod según su curva horaria. ▶ simula la semana hora a hora; el reloj fija el día y la hora que editas en las curvas de abajo.">🔌</span></div>
+        </header>
         <div class="section-body">
           <div class="sim">
             <div class="sim-clock" id="simClock">Lun 09:00</div>
@@ -489,7 +520,6 @@
               <div class="scrub-axis" id="scrubAxis"></div>
             </div>
             <div class="day-current" id="dayCurrent"></div>
-            <div class="help">▶ simula la semana hora a hora. Pinta la curva horaria de cada Pod (KEDA) abajo; el reloj fija el día y la hora que editas.</div>
           </div>
         </div>
       </section>
@@ -497,7 +527,10 @@
       <section class="section flex" id="podsSection">
         <header class="section-head">
           <div class="title"><span class="caret">▼</span>Definición de pods</div>
-          <div class="actions"><button class="ghost-btn" id="addPodTypeBtn">+ tipo</button></div>
+          <div class="actions">
+            <button class="ghost-btn" id="collapsePodsBtn" title="colapsar / expandir todas las tarjetas">todo ▾</button>
+            <button class="ghost-btn" id="addPodTypeBtn">+ tipo</button>
+          </div>
         </header>
         <div class="section-body" id="podTypesList"></div>
       </section>
@@ -528,7 +561,10 @@
       <section class="section flex" id="nodesSection">
         <header class="section-head">
           <div class="title"><span class="caret">▼</span>Nodos del clúster</div>
-          <div class="actions"><button class="ghost-btn" id="addNodeBtn">+ Node</button></div>
+          <div class="actions">
+            <button class="ghost-btn" id="collapseNodesBtn" title="colapsar / expandir todas las tarjetas">todo ▾</button>
+            <button class="ghost-btn" id="addNodeBtn">+ Node</button>
+          </div>
         </header>
         <div class="section-body" id="nodesList"></div>
       </section>
@@ -1450,7 +1486,7 @@ function buildDaySelector(){
   const dc = $('#dayCurrent');
   if(dc){
     const parts = S.podTypes.map(t => `${t.name}: ${desiredReplicas(t)}`).join('  ·  ');
-    dc.innerHTML = `${DAYS_FULL[S.day]} · ${String(S.hour).padStart(2,'0')}:00<span class="sub">réplicas deseadas → ${parts || '—'}</span>`;
+    dc.innerHTML = `<span class="sub" style="margin-top:0">réplicas deseadas ahora → ${parts || '—'}</span>`;
   }
 }
 
@@ -1618,13 +1654,14 @@ function renderPodTypes(){
   cont.innerHTML = '';
   for(const t of S.podTypes){
     const card = document.createElement('div');
-    card.className = 'pod-card';
+    card.className = 'pod-card' + (t.collapsed ? ' collapsed' : '');
     card.dataset.typeId = t.id;
     const want = desiredReplicas(t);
 
     const head = document.createElement('div');
     head.className = 'row';
     head.innerHTML = `
+      <button class="card-toggle" title="expandir / colapsar">${t.collapsed ? '▸' : '▾'}</button>
       <span class="badge-color" style="background:${t.color}" title="cambiar color"></span>
       <input class="name-input" value="${escapeAttr(t.name)}" />
       <button class="close-x" title="eliminar tipo">✕</button>
@@ -1644,10 +1681,22 @@ function renderPodTypes(){
       S.pods = S.pods.filter(p => p.typeId !== t.id);
       reconcile();
     });
+    head.querySelector('.card-toggle').addEventListener('click', () => {
+      t.collapsed = !t.collapsed;
+      card.classList.toggle('collapsed', t.collapsed);
+      head.querySelector('.card-toggle').textContent = t.collapsed ? '▸' : '▾';
+      updateCollapseAllBtns();
+    });
     card.appendChild(head);
 
+    // collapsed-only compact status (the indispensable info)
+    const mini = document.createElement('div'); mini.className = 'card-mini';
+    mini.innerHTML = `<span class="mini-n">${want}</span> réplicas · req ${t.request} · ` +
+      `<span class="pill">${t.kedaEnabled ? 'KEDA' : 'manual'}</span>`;
+    card.appendChild(mini);
+
     const r1 = document.createElement('div');
-    r1.className = 'row';
+    r1.className = 'row detail';
     r1.innerHTML = `<span class="label">réplicas</span>`;
     if(t.kedaEnabled){
       const v = document.createElement('span'); v.className='label want'; v.style.fontWeight='700'; v.textContent = want;
@@ -1664,7 +1713,7 @@ function renderPodTypes(){
     card.appendChild(r1);
 
     const r2 = document.createElement('div');
-    r2.className = 'row';
+    r2.className = 'row detail';
     r2.innerHTML = `<span class="label">request</span>`;
     const numReq = makeNum(t.request, 2, v => {
       t.request = v; enforceNodeCapacity(); autoIfEnabled(); reconcile();
@@ -1675,7 +1724,7 @@ function renderPodTypes(){
     card.appendChild(r2);
 
     const r3 = document.createElement('label');
-    r3.className = 'check';
+    r3.className = 'check detail';
     r3.innerHTML = `<input type="checkbox" ${t.kedaEnabled?'checked':''}/> escalado KEDA por día`;
     r3.querySelector('input').addEventListener('change', e => {
       t.kedaEnabled = e.target.checked;
@@ -1686,15 +1735,15 @@ function renderPodTypes(){
     card.appendChild(r3);
 
     if(t.kedaEnabled){
-      card.appendChild(makeHourlyEditor(t));
+      const he = makeHourlyEditor(t); he.classList.add('detail'); card.appendChild(he);
     }
 
     const tolHead = document.createElement('div');
-    tolHead.className = 'small-head';
+    tolHead.className = 'small-head detail';
     tolHead.textContent = 'tolerations';
     card.appendChild(tolHead);
 
-    const tolBox = document.createElement('div'); tolBox.className='tolerations';
+    const tolBox = document.createElement('div'); tolBox.className='tolerations detail';
     t.tolerations.forEach((tol, idx) => {
       const row = document.createElement('div'); row.className='kv-row';
       row.innerHTML = `
@@ -1739,12 +1788,13 @@ function renderNodes(){
   nodeRefs.clear();                       // cards are recreated → rebuild the ref map
   for(const n of S.nodes){
     const card = document.createElement('div');
-    card.className = 'node-card';
+    card.className = 'node-card' + (n.collapsed ? ' collapsed' : '');
     card.dataset.nodeId = n.id;
 
     // head — node name is inline-editable (like a pod type's name)
     const head = document.createElement('div'); head.className='node-head';
     head.innerHTML = `
+      <button class="card-toggle" title="expandir / colapsar">${n.collapsed ? '▸' : '▾'}</button>
       <input class="name-input name" value="${escapeAttr(n.name)}" title="renombrar nodo" aria-label="nombre del nodo" spellcheck="false" />
       <button class="close-x" title="eliminar nodo" style="margin-left:auto">✕</button>
     `;
@@ -1765,10 +1815,16 @@ function renderNodes(){
       delete S.nodeReadyAt[n.id];
       reconcile();
     });
+    head.querySelector('.card-toggle').addEventListener('click', () => {
+      n.collapsed = !n.collapsed;
+      card.classList.toggle('collapsed', n.collapsed);
+      head.querySelector('.card-toggle').textContent = n.collapsed ? '▸' : '▾';
+      updateCollapseAllBtns();
+    });
     card.appendChild(head);
 
     // capacity
-    const capRow = document.createElement('div'); capRow.className='row';
+    const capRow = document.createElement('div'); capRow.className='row detail';
     capRow.innerHTML = `<span class="label">capacidad</span>`;
     const numCap = makeNum(n.capacity, 2, v => {
       n.capacity = Math.max(2, v);
@@ -1793,7 +1849,7 @@ function renderNodes(){
     card.appendChild(capRow);
 
     // hourly price (drives the cost report)
-    const priceRow = document.createElement('div'); priceRow.className = 'row';
+    const priceRow = document.createElement('div'); priceRow.className = 'row detail';
     priceRow.innerHTML = `<span class="label">precio</span>`;
     const priceIn = document.createElement('input');
     priceIn.className = 'price-in'; priceIn.type = 'number'; priceIn.min = '0'; priceIn.step = '0.05';
@@ -1812,9 +1868,9 @@ function renderNodes(){
     card.appendChild(usageEl);
 
     // taints
-    const taintHead = document.createElement('div'); taintHead.className='small-head'; taintHead.textContent='taints';
+    const taintHead = document.createElement('div'); taintHead.className='small-head detail'; taintHead.textContent='taints';
     card.appendChild(taintHead);
-    const taintBox = document.createElement('div'); taintBox.className='taints';
+    const taintBox = document.createElement('div'); taintBox.className='taints detail';
     n.taints.forEach((tnt, idx) => {
       const row = document.createElement('div'); row.className='kv-row';
       row.innerHTML = `
@@ -2198,11 +2254,11 @@ function openCostReport(){
     m.appendChild(kpis);
 
     const tbl = document.createElement('table'); tbl.className = 'report';
-    let rows = `<tr><th>Nodo</th><th class="num">${CURRENCY}/h</th><th class="num">inst·h/sem</th><th class="num">${CURRENCY}/sem</th><th class="num">${CURRENCY}/mes</th></tr>`;
+    let rows = `<tr><th>Nodo</th><th class="r-num">${CURRENCY}/h</th><th class="r-num">inst·h/sem</th><th class="r-num">${CURRENCY}/sem</th><th class="r-num">${CURRENCY}/mes</th></tr>`;
     for(const nd of S.nodes){
-      rows += `<tr><td>${escapeHtml(nd.name)}</td><td class="num">${money(nd.pricePerHour)}</td><td class="num">${c.perNodeIH[nd.id]}</td><td class="num">${money(c.perNode[nd.id])}</td><td class="num">${money(c.perNode[nd.id] * WEEKS_PER_MONTH)}</td></tr>`;
+      rows += `<tr><td>${escapeHtml(nd.name)}</td><td class="r-num">${money(nd.pricePerHour)}</td><td class="r-num">${c.perNodeIH[nd.id]}</td><td class="r-num">${money(c.perNode[nd.id])}</td><td class="r-num">${money(c.perNode[nd.id] * WEEKS_PER_MONTH)}</td></tr>`;
     }
-    rows += `<tr class="total"><td>Total</td><td class="num"></td><td class="num">${c.instanceHours}</td><td class="num">${money(c.total)}</td><td class="num">${money(monthly)}</td></tr>`;
+    rows += `<tr class="total"><td>Total</td><td class="r-num"></td><td class="r-num">${c.instanceHours}</td><td class="r-num">${money(c.total)}</td><td class="r-num">${money(monthly)}</td></tr>`;
     tbl.innerHTML = rows;
     m.appendChild(tbl);
 
@@ -2245,9 +2301,19 @@ function snapshotConfig(){
 function applyConfig(cfg){
   stopSim();
   S.podTypes = JSON.parse(JSON.stringify(cfg.podTypes || []));
-  S.podTypes.forEach(ensureHourly);
+  S.podTypes.forEach(t => {                              // tolerate partial / hand-edited JSON
+    if(!t.id) t.id = uid('t');
+    if(!Array.isArray(t.tolerations)) t.tolerations = [];
+    if(typeof t.request !== 'number') t.request = 2;
+    ensureHourly(t);
+  });
   S.nodes = JSON.parse(JSON.stringify(cfg.nodes || []));
-  S.nodes.forEach(n => { if(typeof n.pricePerHour !== 'number') n.pricePerHour = 0.10; });
+  S.nodes.forEach(n => {
+    if(!n.id) n.id = uid('n');
+    if(!Array.isArray(n.taints)) n.taints = [];
+    if(typeof n.capacity !== 'number') n.capacity = 4;
+    if(typeof n.pricePerHour !== 'number') n.pricePerHour = 0.10;
+  });
   S.scoringStrategy = cfg.scoringStrategy || 'MostAllocated';
   S.autoScheduler = !!cfg.autoScheduler;
   S.pods = []; S.nodeIdleSince = {}; S.nodeInactive = {}; S.nodeReadyAt = {};
@@ -2270,6 +2336,64 @@ function saveScenario(name){
   return arr;
 }
 function deleteScenario(id){ persistScenarios(loadScenarios().filter(s => s.id !== id)); }
+
+// Cost of an arbitrary saved config (recomputed, not trusted) — used when importing JSON
+// that may have been hand-edited or saved by another version. computeWeekCost reads the
+// live S, so we swap the relevant fields in, compute synchronously, and restore them.
+function costForConfig(cfg){
+  const savePT = S.podTypes, saveN = S.nodes;
+  try{
+    S.podTypes = (cfg.podTypes || []).map(t => { const c = JSON.parse(JSON.stringify(t)); if(!Array.isArray(c.tolerations)) c.tolerations = []; ensureHourly(c); return c; });
+    S.nodes = (cfg.nodes || []).map(n => ({ ...n, taints: Array.isArray(n.taints) ? n.taints : [], pricePerHour: typeof n.pricePerHour === 'number' ? n.pricePerHour : 0.10 }));
+    const c = computeWeekCost();
+    return { total: c.total, monthly: c.total * WEEKS_PER_MONTH, instanceHours: c.instanceHours };
+  } finally { S.podTypes = savePT; S.nodes = saveN; }
+}
+// Export ONE saved scenario as a downloadable JSON file (re-importable: same wrapper format).
+function exportScenarioJSON(s){
+  const data = { app: 'k8s-scheduler-sim', version: 1, exportedAt: new Date().toISOString(), scenarios: [s] };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const slug = String(s.name || 'escenario').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'escenario';
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `escenario-${slug}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+// Import scenarios from a user-picked JSON file. Accepts our export wrapper, a bare array,
+// or a single {config} object. Validates each entry, assigns fresh ids (no collisions) and
+// recomputes its cost. Calls done(addedCount, errorMessage).
+function importScenariosJSON(file, done){
+  const reader = new FileReader();
+  reader.onerror = () => done && done(0, 'no se pudo leer el archivo');
+  reader.onload = () => {
+    let incoming = null;
+    try{
+      const data = JSON.parse(reader.result);
+      if(Array.isArray(data)) incoming = data;
+      else if(data && Array.isArray(data.scenarios)) incoming = data.scenarios;
+      else if(data && data.config) incoming = [data];
+    }catch(_){ /* fall through to error */ }
+    if(!incoming){ done && done(0, 'JSON no válido o con un formato no reconocido'); return; }
+    const arr = loadScenarios();
+    let added = 0;
+    for(const s of incoming){
+      if(!s || !s.config || !Array.isArray(s.config.nodes) || !Array.isArray(s.config.podTypes)) continue;
+      arr.push({
+        id: uid('scn'),
+        name: String(s.name || 'Importado'),
+        savedAt: typeof s.savedAt === 'number' ? s.savedAt : Date.now(),
+        config: s.config,
+        cost: costForConfig(s.config)
+      });
+      added++;
+    }
+    persistScenarios(arr);
+    done && done(added, added ? null : 'el archivo no contenía escenarios válidos');
+  };
+  reader.readAsText(file);
+}
 
 function saveScenarioPrompt(){
   openModal(m => {
@@ -2302,6 +2426,19 @@ function openScenarios(){
       cmp.addEventListener('click', () => { closeModal(); compareScenarios(); });
       top.appendChild(cmp);
     }
+    // import JSON (export is per-scenario, on each item below)
+    const imp = document.createElement('button'); imp.className = 'btn'; imp.textContent = '⭱ Importar JSON';
+    imp.title = 'añadir escenarios desde un archivo JSON';
+    const fileIn = document.createElement('input'); fileIn.type = 'file'; fileIn.accept = 'application/json,.json'; fileIn.style.display = 'none';
+    fileIn.addEventListener('change', () => {
+      const f = fileIn.files && fileIn.files[0]; if(!f) return;
+      importScenariosJSON(f, (added, err) => {
+        if(err){ alert('No se pudo importar: ' + err); return; }
+        openScenarios();   // refresh the list with the imported scenarios
+      });
+    });
+    imp.addEventListener('click', () => fileIn.click());
+    top.appendChild(imp); top.appendChild(fileIn);
     m.appendChild(top);
     const list = document.createElement('div'); list.className = 'scn-list';
     if(!arr.length){
@@ -2316,6 +2453,10 @@ function openScenarios(){
       const load = document.createElement('button'); load.className = 'btn'; load.textContent = 'Cargar';
       load.addEventListener('click', () => { applyConfig(s.config); closeModal(); });
       it.appendChild(load);
+      const expOne = document.createElement('button'); expOne.className = 'btn'; expOne.textContent = '⭳';
+      expOne.title = 'exportar este escenario a JSON';
+      expOne.addEventListener('click', () => exportScenarioJSON(s));
+      it.appendChild(expOne);
       const del = document.createElement('button'); del.className = 'btn danger'; del.textContent = '✕'; del.title = 'eliminar';
       del.addEventListener('click', () => { deleteScenario(s.id); openScenarios(); });
       it.appendChild(del);
@@ -2332,10 +2473,10 @@ function compareScenarios(){
       `<h2>⚖ Comparar escenarios</h2><div class="modal-sub">Coste semanal y mensual de cada combinación guardada. El más barato resaltado.</div>`);
     const minWeekly = Math.min(...arr.map(s => s.cost.total));
     const tbl = document.createElement('table'); tbl.className = 'report';
-    let rows = `<tr><th>Escenario</th><th class="num">nodos</th><th class="num">tipos</th><th class="num">inst·h</th><th class="num">${CURRENCY}/sem</th><th class="num">${CURRENCY}/mes</th></tr>`;
+    let rows = `<tr><th>Escenario</th><th class="r-num">nodos</th><th class="r-num">tipos</th><th class="r-num">inst·h</th><th class="r-num">${CURRENCY}/sem</th><th class="r-num">${CURRENCY}/mes</th></tr>`;
     arr.slice().sort((a, b) => a.cost.total - b.cost.total).forEach(s => {
       const best = s.cost.total === minWeekly;
-      rows += `<tr class="${best ? 'best' : ''}"><td>${escapeHtml(s.name)}${best ? ' ✓' : ''}</td><td class="num">${(s.config.nodes||[]).length}</td><td class="num">${(s.config.podTypes||[]).length}</td><td class="num">${s.cost.instanceHours}</td><td class="num">${money(s.cost.total)}</td><td class="num">${money(s.cost.monthly)}</td></tr>`;
+      rows += `<tr class="${best ? 'best' : ''}"><td>${escapeHtml(s.name)}${best ? ' ✓' : ''}</td><td class="r-num">${(s.config.nodes||[]).length}</td><td class="r-num">${(s.config.podTypes||[]).length}</td><td class="r-num">${s.cost.instanceHours}</td><td class="r-num">${money(s.cost.total)}</td><td class="r-num">${money(s.cost.monthly)}</td></tr>`;
     });
     tbl.innerHTML = rows; m.appendChild(tbl);
     const act = document.createElement('div'); act.className = 'modal-actions';
@@ -2343,6 +2484,19 @@ function compareScenarios(){
     back.addEventListener('click', () => { closeModal(); openScenarios(); });
     act.appendChild(back); m.appendChild(act);
   });
+}
+
+// Sync the per-section "todo ▾/▸" buttons: ▾ = all expanded (click collapses all),
+// ▸ = all collapsed (click expands all). Mixed state shows ▾ (next click collapses).
+function updateCollapseAllBtns(){
+  const set = (btn, items) => {
+    if(!btn) return;
+    const allCol = items.length > 0 && items.every(x => x.collapsed);
+    btn.textContent = 'todo ' + (allCol ? '▸' : '▾');
+    btn.title = (allCol ? 'expandir' : 'colapsar') + ' todas las tarjetas';
+  };
+  set($('#collapsePodsBtn'), S.podTypes);
+  set($('#collapseNodesBtn'), S.nodes);
 }
 
 function setupHeader(){
@@ -2399,6 +2553,18 @@ function setupHeader(){
   $('#costBtn')?.addEventListener('click', openCostReport);
   $('#scnBtn')?.addEventListener('click', openScenarios);
 
+  // collapse / expand ALL cards in a section
+  $('#collapsePodsBtn')?.addEventListener('click', () => {
+    const all = S.podTypes.length > 0 && S.podTypes.every(t => t.collapsed);
+    S.podTypes.forEach(t => t.collapsed = !all);
+    reconcile();
+  });
+  $('#collapseNodesBtn')?.addEventListener('click', () => {
+    const all = S.nodes.length > 0 && S.nodes.every(n => n.collapsed);
+    S.nodes.forEach(n => n.collapsed = !all);
+    reconcile();
+  });
+
   // collapsible sections
   $$('.section-head').forEach(h => {
     h.addEventListener('click', e => {
@@ -2432,6 +2598,7 @@ function reconcile(){
   renderSubtitle();
   renderPodTypes();                        // #podTypesList (no chips inside)
   renderNodes();                           // #nodesList shells + nodeRefs, empty pod areas
+  updateCollapseAllBtns();                 // keep the section "todo ▾/▸" buttons in sync
   placePods(firstRects);                   // move chips into queue/nodes, usages, FLIP
 }
 
