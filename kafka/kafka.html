@@ -87,6 +87,11 @@
     mix-blend-mode:multiply;
   }
   .links-svg path{transition:opacity .15s;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  /* Walkthrough connector: dashed line that "marches" while a producer is
+     mid-walkthrough. Targets the TOPIC card during the metadata-consultation
+     phase, then snaps to the SPECIFIC partition once the decision is made. */
+  .links-svg .walk-link{stroke-dasharray:8 5;animation:walk-march .7s linear infinite}
+  @keyframes walk-march{to{stroke-dashoffset:-13}}
   .col{display:flex;flex-direction:column;gap:14px;min-height:0;overflow:hidden;position:relative;z-index:2}
   *::-webkit-scrollbar{width:8px;height:8px}
   *::-webkit-scrollbar-thumb{background:#d2d8e5;border-radius:4px}
@@ -184,6 +189,81 @@
   .send-count::-webkit-inner-spin-button,
   .send-count::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
   .send-count{-moz-appearance:textfield}
+
+  /* Step-by-step "what is the partitioner doing?" walkthrough that appears
+     inside the producer card when ▶ is clicked with N=1. Reveals one short
+     phase at a time; each step has a ✓ to advance, and the final ✓ actually
+     triggers the send (ball flies). Visible in both collapsed and expanded
+     mode — the whole point is to see it during a demo. */
+  .walk-log{
+    list-style:none;font-size:11.5px;color:var(--muted);
+    margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:3px;
+  }
+  .walk-log:empty{display:none}
+  .walk-log li{padding:3px 7px;border-radius:4px;line-height:1.35}
+  .walk-log li.done{
+    background:#f3f5fa;color:var(--muted);
+    text-decoration:line-through;text-decoration-color:rgba(0,0,0,.18);
+  }
+  .walk-log li.current{
+    position:relative;padding-right:34px;color:var(--ink);font-weight:700;
+    background:#fff7d6;border:1px solid #f0d58a;
+    box-shadow:0 1px 2px rgba(180,130,30,.18);
+  }
+  .walk-log li.awaiting{
+    position:relative;padding-right:34px;
+    background:#fff7d6;color:var(--muted);font-style:italic;
+    border:1px dashed #f0d58a;
+  }
+  .walk-log li.ack{
+    position:relative;padding-right:34px;
+    background:#e8f5ec;border:1px solid #7cb88f;color:#1f5b3a;font-weight:700;
+  }
+  /* The ✓ is locked to the top-right corner of the active li (which is
+     always the first child of the log), so clicking it repeatedly never
+     forces the user to move the cursor. */
+  .walk-log li.current .walk-check,
+  .walk-log li.ack .walk-check{
+    position:absolute;top:4px;right:4px;
+  }
+  /* Two-line layout inside an active step: main text + optional small note
+     stacked vertically. The ✓ button sits to the right, vertically centred. */
+  .walk-body{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
+  .walk-body .walk-main{font-weight:inherit}
+  .walk-note{
+    font-size:9.5px;color:var(--muted);font-weight:500;font-style:normal;
+    line-height:1.35;letter-spacing:0;
+  }
+  .walk-log li.awaiting .walk-note{color:var(--muted2)}
+  .walk-log li.ack .walk-note{color:#3a7a52}
+  .walk-check{
+    background:var(--accent);color:#fff;border:none;border-radius:4px;
+    cursor:pointer;font-weight:800;width:22px;height:22px;font-size:12px;
+    display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
+  }
+  .walk-check:hover{background:#2d44a9}
+  .walk-log li.ack .walk-check{background:#2e7d4f}
+  .walk-log li.ack .walk-check:hover{background:#1f5b3a}
+  /* A consumer row whose walkthrough is active gets a faint amber ring so
+     it's easy to spot among siblings at a glance. */
+  .consumer-row.walking{box-shadow:0 0 0 2px rgba(240,213,138,.55)}
+  /* Brief amber pill shown over the row right after the group rebalances,
+     explaining what THIS consumer gained/lost. Auto-hidden after a few
+     seconds via JS clearing c.rebalanceLog. */
+  .rebalance-pill{
+    font-size:10px;font-weight:700;color:#8a5a10;letter-spacing:.2px;
+    background:#fff7d6;border:1px solid #f0d58a;border-radius:4px;
+    padding:3px 7px;margin-top:3px;
+    display:flex;align-items:center;gap:6px;
+    animation:rebalance-in .3s ease-out;
+  }
+  .rebalance-pill .lbl{
+    background:#f0d58a;color:#5c3a00;font-weight:800;font-size:9px;
+    padding:1px 5px;border-radius:3px;letter-spacing:.3px;text-transform:uppercase;
+  }
+  .rebalance-pill .gained{color:#2e7d4f}
+  .rebalance-pill .lost{color:#9c2a2a}
+  @keyframes rebalance-in{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
 
   /* Collapse/expand toggle — producer cards only. Consumer rows are
      already compact enough that an extra toggle would be more noise than
@@ -411,6 +491,7 @@
         <input type="range" id="speed" min="0.25" max="3" step="0.25" value="1"/>
         <b id="speedVal">1×</b>
       </label>
+      <button class="btn toggle on" id="walkModeBtn" title="modo educativo: pausa cada producción y cada consumo y explica paso a paso. Apagado = todo corre sin interrupciones">Paso a paso: ON</button>
       <button class="btn" id="tickBtn" title="produce un segundo de simulación de golpe">Tick 1s</button>
       <button class="btn" id="exportBtn" title="descargar el estado actual como JSON">Export</button>
       <button class="btn" id="importBtn" title="cargar un JSON previamente exportado">Import</button>
@@ -513,6 +594,8 @@ const state = {
   groups: [],     // { id, name, color, topicId, consumers:[{id,name,color,rate,accum,rrIdx,lastActive}],
                   //   assignments:{cid:[pIdx]}, offsets:{pIdx:committed} }
   producersCollapsed: false,   // section-level collapse for ALL producers at once
+  walkthroughMode: true,       // step-by-step educational mode for BOTH
+                               // producers (▶ with N=1) and consumers (each cycle)
 };
 
 // ============================================================
@@ -550,29 +633,17 @@ function pickPartition(p, topic) {
   return 0;
 }
 
-// Which partitions can THIS producer reach with its current settings?
-// Used to draw the producer→partition connection lines so the user sees
-// graphically that, e.g., a sticky producer wires to just one partition
-// while a round-robin producer fans out to all of them.
+// Which partitions does this producer wire a CONNECTOR to? Only the modes
+// where the partition is fixed in advance — i.e. sticky — draw a static
+// line, because the user can predict where every send will land before
+// pressing ▶. RR, random and key all DECIDE the partition at send time
+// (counter, RNG, or hash(key) % numPartitions), so there's nothing fixed
+// to draw — the ball itself is what reveals the routing in those cases.
 function producerTargets(p) {
   const topic = state.topics.find(t => t.id === p.topicId);
-  if (!topic) return [];
-  const np = topic.partitions.length;
-  if (np === 0) return [];
-  switch (p.mode) {
-    case 'rr':
-    case 'random':
-      return Array.from({ length: np }, (_, i) => i);
-    case 'sticky':
-      return [Math.min(p.stickyPart || 0, np - 1)];
-    case 'key': {
-      const pool = Math.max(1, p.keyPool || 1);
-      const set = new Set();
-      for (let k = 0; k < pool; k++) set.add(hashKey(`k${k}`) % np);
-      return Array.from(set).sort((a, b) => a - b);
-    }
-  }
-  return [];
+  if (!topic || topic.partitions.length === 0) return [];
+  if (p.mode !== 'sticky') return [];
+  return [Math.min(p.stickyPart || 0, topic.partitions.length - 1)];
 }
 
 // ============================================================
@@ -583,38 +654,434 @@ function produceMessage(producer) {
   if (!topic || topic.partitions.length === 0) return;
   const pIdx = pickPartition(producer, topic);
   if (pIdx < 0) return;
-  // Snapshot the routing decision at SEND time (key, target partition,
-  // producer colour/id) — but defer the actual write to the partition log
-  // until the produce ball lands. This matches Kafka semantics: the broker
-  // appends to the log when it receives the ProduceRequest, not when the
-  // producer constructs it. Until then, the message is "in flight" and
-  // invisible to consumers (g.offsets etc.).
-  const key       = keyForProducer(producer);
+  const key = keyForProducer(producer);
+  producer.sendCount++;   // counter advances at send time (UX feedback)
+  deliverMessage(producer, topic, pIdx, key);
+}
+
+// Helper for the silent-mode in-flight connector: count concurrent deliveries
+// per (producer, target-partition) so the dashed line stays visible while
+// ANY ball is mid-flight to that partition. Map<pIdx, count>.
+function bumpInflight(producer, pIdx, delta) {
+  if (!producer._inflight) producer._inflight = new Map();
+  const next = (producer._inflight.get(pIdx) || 0) + delta;
+  if (next <= 0) producer._inflight.delete(pIdx);
+  else producer._inflight.set(pIdx, next);
+}
+
+// Just the "broker takes the request and writes the log" half — split out
+// so the walkthrough can drive it after the user clicks the final ✓ with
+// a pre-computed partition + key (so the displayed reasoning matches what
+// actually happens, even for RNG-based modes). `onAck` fires once the ball
+// has landed AND the partition has actually appended the record; it gets
+// the assigned offset so the walkthrough's ack step can name it.
+function deliverMessage(producer, topic, pIdx, key, onAck) {
   const colour    = producer.color;
   const producerId= producer.id;
   const topicId   = topic.id;
-  producer.sendCount++;   // counter advances at send time (UX feedback)
+  bumpInflight(producer, pIdx, +1);
   spawnFly(producer, topic, pIdx, () => {
-    // The topic or partition may have been deleted while the ball was in
-    // flight; re-resolve and bail if so.
     const t = state.topics.find(x => x.id === topicId);
-    if (!t) return;
-    const partition = t.partitions[pIdx];
-    if (!partition) return;
-    const offset = partition.nextOffset++;
-    partition.messages.push({
-      id: newId(), offset, key,
-      producerId, color: colour,
-    });
-    // Ring-buffer trim — drop very old messages. Consumer groups whose
-    // committed offset falls behind earliestOffset fast-forward to it
-    // (simulating Kafka retention loss).
-    while (partition.messages.length > MAX_PARTITION_HISTORY) {
-      partition.messages.shift();
-      partition.earliestOffset++;
+    if (t) {
+      const partition = t.partitions[pIdx];
+      if (partition) {
+        const offset = partition.nextOffset++;
+        partition.messages.push({
+          id: newId(), offset, key,
+          producerId, color: colour,
+        });
+        while (partition.messages.length > MAX_PARTITION_HISTORY) {
+          partition.messages.shift();
+          partition.earliestOffset++;
+        }
+        partition.flashUntil = performance.now() + 350;
+        if (onAck) onAck(offset);
+      }
     }
-    partition.flashUntil = performance.now() + 350;
+    bumpInflight(producer, pIdx, -1);
   });
+}
+
+// =========================================================================
+// SEND WALKTHROUGH — step-by-step explanation of HOW the producer chose a
+// partition. Triggered when the user clicks ▶ with N=1. Each phase is a
+// short message; user pressing ✓ acknowledges it and reveals the next.
+// The FINAL ✓ actually invokes deliverMessage with the partition/key that
+// the steps explained — so what the viewer reads is exactly what fires.
+// =========================================================================
+function computeDecision(producer, topic) {
+  const np = topic.partitions.length;
+  const N = producer.sendCount;          // sequence number of THIS message
+  const steps = [];
+  let pIdx, key = null;
+  // Phase A — everything local in the producer client. No broker traffic.
+  steps.push({
+    text: `send() ejecutándose en el cliente (local)`,
+    note: `todo lo que sigue hasta el ProduceRequest corre en el thread del cliente; el broker aún no sabe nada`,
+  });
+  steps.push({
+    text: `Metadata: ${np} particiones (cache del cliente, sin red)`,
+    note: `el producer asume la cache válida y la usa directamente; solo refresca si el broker rechaza (NotLeader / UnknownPartition) o si caduca el TTL (metadata.max.age.ms, 5 min por defecto)`,
+  });
+  switch (producer.mode) {
+    case 'rr':
+      steps.push({
+        text: `Partitioner: round-robin (sin key)`,
+        note: `reparte alternando entre las particiones usando un counter local; misma key NO entra en juego porque no la hay`,
+      });
+      pIdx = N % np;
+      steps.push({
+        text: `counter(${N}) mod nº particiones(${np}) = índice(${pIdx})`,
+        note: `counter = contador interno del producer que sube 1 por cada send() · nº particiones = del topic destino · índice = la partición elegida ∈ [0, nº particiones)`,
+      });
+      break;
+    case 'random':
+      steps.push({
+        text: `Partitioner: random (sin key)`,
+        note: `cada send() escoge partición al azar; sin garantía de orden ni de reparto perfecto entre mensajes`,
+      });
+      pIdx = Math.floor(Math.random() * np);
+      steps.push({
+        text: `floor(random[0..1) × nº particiones(${np})) = índice(${pIdx})`,
+        note: `random = Math.random() devuelve un float en [0, 1) · nº particiones = del topic destino · índice = la partición elegida ∈ [0, nº particiones)`,
+      });
+      break;
+    case 'sticky':
+      pIdx = Math.min(producer.stickyPart || 0, np - 1);
+      steps.push({
+        text: `Partitioner: sticky (sin key) → siempre P${pIdx}`,
+        note: `sticky en Kafka real va alternando por batches; aquí lo simplificamos a una partición fija configurada en el productor`,
+      });
+      break;
+    case 'key': {
+      const pool = Math.max(1, producer.keyPool || 1);
+      key = `k${N % pool}`;
+      steps.push({
+        text: `Partitioner: por hash de la key`,
+        note: `con key: la partición la decide hash(key) — misma key → siempre misma partición (mientras nº particiones no cambie)`,
+      });
+      steps.push({
+        text: `Key elegida: "${key}" (pool de ${pool})`,
+        note: `pool = nº de keys distintas que cicla este producer · "${key}" = la key concreta usada para ESTE mensaje`,
+      });
+      const h = hashKey(key);
+      const hex = '0x' + h.toString(16).toUpperCase().padStart(8, '0');
+      steps.push({
+        text: `hash("${key}") = ${hex}`,
+        note: `hash = murmur2 sobre los bytes serializados de la key · salida = entero uint32 (4 bytes) determinista`,
+      });
+      pIdx = h % np;
+      steps.push({
+        text: `hash(${hex}) mod nº particiones(${np}) = índice(${pIdx})`,
+        note: `hash = el uint32 calculado arriba · nº particiones = del topic destino · índice = la partición elegida ∈ [0, nº particiones)`,
+      });
+      break;
+    }
+  }
+  // Phase B — the conclusion of the local decision. From THIS step onwards
+  // the walkthrough connector appears (dashed marching ants) pointing at
+  // the chosen partition — that's where the ProduceRequest will go.
+  const decidedAtIdx = steps.length;
+  steps.push({
+    text: `Partición destino seleccionada: P${pIdx}`,
+    note: `desde este momento el cliente "sabe" a quién mandar; el conector aparece porque ya hay un destino concreto`,
+  });
+  // Phase C — actual broker conversation. Clicking ✓ on the next step
+  // fires the ProduceRequest (the ball).
+  steps.push({
+    text: `Enviar ProduceRequest al líder de P${pIdx} — ✓ envía`,
+    note: `el cliente abre (o reutiliza) conexión TCP al broker líder de P${pIdx} y manda el record dentro de un batch`,
+  });
+  return { steps, pIdx, key, decidedAtIdx };
+}
+
+function startWalkthrough(p) {
+  if (p.walk) return;   // already mid-walkthrough; ignore double-click
+  const topic = state.topics.find(t => t.id === p.topicId);
+  if (!topic || topic.partitions.length === 0) return;
+  p.walk = Object.assign(computeDecision(p, topic), {
+    topicId: topic.id, idx: 0, flightFired: false,
+  });
+  p.sendCount++;        // sequence number is consumed AT the decision moment
+  renderWalkthrough(p);
+}
+
+function advanceWalkthrough(p) {
+  if (!p.walk) return;
+  const w = p.walk;
+  // The "Listo: enviar a Px" step is the last step in the original
+  // (pre-ack) sequence. Clicking ✓ on it fires the ball but DOES NOT clear
+  // the walkthrough — we keep the dashed connector visible, switch into
+  // "awaiting ack" while the ball is in flight, then append a green
+  // confirmation step once it lands. The user's final ✓ on THAT step is
+  // what tears down the connector and collapses the log.
+  if (!w.flightFired && w.idx === w.steps.length - 1) {
+    w.flightFired = true;
+    w.idx++;          // moves past the original last step → "awaiting ack"
+    const topic = state.topics.find(t => t.id === w.topicId);
+    if (topic) {
+      deliverMessage(p, topic, w.pIdx, w.key, (offset) => {
+        if (!p.walk) return;
+        p.walk.steps.push({
+          text: `ProduceResponse: append en P${p.walk.pIdx} offset ${offset}`,
+          note: `el broker líder ha hecho fsync (o no, según acks=0/1/all), ha asignado el offset y devuelve la respuesta; el Future de send() se completa con metadata (partition + offset)`,
+        });
+        renderWalkthrough(p);
+      });
+    }
+    renderWalkthrough(p);
+    return;
+  }
+  // Ordinary advance (either between decision steps, or the final ack ✓).
+  w.idx++;
+  if (w.idx >= w.steps.length && w.flightFired) {
+    // Ack confirmed → dismantle walkthrough; connector vanishes next frame.
+    p.walk = null;
+  }
+  renderWalkthrough(p);
+}
+
+// Builds the body of a walkthrough log item: the main short text + an
+// optional smaller "note" line underneath. Done steps render compactly
+// (text only). Active states (current / ack / awaiting) include the note
+// so the user gets the inline explanation while they read.
+function walkBody(step, showNote) {
+  const body = document.createElement('div');
+  body.className = 'walk-body';
+  const main = document.createElement('span');
+  main.className = 'walk-main';
+  main.textContent = step.text;
+  body.appendChild(main);
+  if (showNote && step.note) {
+    const note = document.createElement('small');
+    note.className = 'walk-note';
+    note.textContent = step.note;
+    body.appendChild(note);
+  }
+  return body;
+}
+
+function renderWalkthrough(p) {
+  const card = document.querySelector(`[data-producer-id="${p.id}"]`);
+  if (!card) return;
+  const log = card.querySelector('.walk-log');
+  if (!log) return;
+  log.innerHTML = '';
+  if (!p.walk) return;
+  const w = p.walk;
+  // ORDER: the freshest "thing happening now" goes on TOP (with the ✓ in
+  // its fixed top-right corner so consecutive clicks don't require moving
+  // the cursor). Past steps stack below in reverse chronological order
+  // (most recently completed first under current).
+  if (w.idx < w.steps.length) {
+    const isAck = w.flightFired;
+    const li = document.createElement('li');
+    li.className = isAck ? 'ack' : 'current';
+    li.appendChild(walkBody(w.steps[w.idx], true));
+    const btn = document.createElement('button');
+    btn.className = 'walk-check';
+    btn.title = 'entendido';
+    btn.textContent = '✓';
+    btn.onclick = () => advanceWalkthrough(p);
+    li.appendChild(btn);
+    log.appendChild(li);
+  } else if (w.flightFired) {
+    // Ball in flight; no actionable step until the broker ack arrives.
+    const li = document.createElement('li');
+    li.className = 'awaiting';
+    li.appendChild(walkBody({
+      text: 'ProduceRequest en vuelo · esperando ProduceResponse…',
+      note: 'el broker recibe la request, hace append al log y devolverá un ProduceResponse con el offset asignado',
+    }, true));
+    log.appendChild(li);
+  }
+  // Done steps below — newest done first so the just-completed one sits
+  // right under the current. Compact (no note) to keep the log tidy.
+  for (let i = Math.min(w.idx, w.steps.length) - 1; i >= 0; i--) {
+    const li = document.createElement('li');
+    li.className = 'done';
+    li.appendChild(walkBody(w.steps[i], false));
+    log.appendChild(li);
+  }
+}
+
+// =========================================================================
+// CONSUMER WALKTHROUGH — analogous to the producer one but for the
+// consume cycle (poll → fetch → process → commit). Each step explains a
+// real thing that the consumer client does. Phase transitions in
+// consumeForGroup are GATED on the corresponding trigger flag below so
+// the simulation pauses at every checkpoint until the user clicks ✓.
+//
+//   Step kinds:
+//     'decision'      — explanation only; ✓ just advances idx
+//     'fetchTrigger'  — ✓ sets c.processing=fetch and spawns the fetch ball
+//     'fetchAck'      — appended when the fetch ball lands; ✓ unlocks process
+//     'commitTrigger' — appended when processing finishes; ✓ unlocks commit
+//                        (consumeForGroup will spawn the commit ball)
+//     'commitAck'     — appended when commit ball lands; ✓ finalises (offset
+//                        advances, c.processing cleared, c.walk cleared)
+// =========================================================================
+function computeConsumerDecision(c, g, topic, picked) {
+  const partsStr = (g.assignments[c.id] || []).map(p => `P${p}`).join(', ') || '∅';
+  const steps = [];
+  steps.push({
+    text: `poll() invocado por la app`,
+    note: `el consumer NO recibe push del broker — es la aplicación quien pide proactivamente`,
+    kind: 'decision',
+  });
+  steps.push({
+    text: `Round-robin entre particiones asignadas [${partsStr}] → toca P${picked.pi}`,
+    note: `rrIdx = contador local del consumer; avanza 1 por cada pickup para repartir entre las particiones que posee dentro del grupo`,
+    kind: 'decision',
+  });
+  steps.push({
+    text: `Last committed offset de P${picked.pi} (cache local): ${picked.off}`,
+    note: `cache que se rellenó con OffsetFetchRequest al coordinator en el primer poll o tras un rebalance; aquí no hay tráfico`,
+    kind: 'decision',
+  });
+  steps.push({
+    text: `Enviar FetchRequest al líder de P${picked.pi} desde offset ${picked.off} — ✓ envía`,
+    note: `el cliente abre/reutiliza conexión TCP al broker líder y pide hasta maxBytes a partir del offset; el broker responderá con un batch en un round-trip`,
+    kind: 'fetchTrigger',
+  });
+  // The partition is "revealed" at step 1 (round-robin) — that's where the
+  // dashed walk-link to that partition appears. But only after the fetch
+  // trigger does the real conversation start; we still show the line from
+  // step 1 onwards because educationally the consumer "knows" its target
+  // before sending.
+  return { steps, decidedAtIdx: 1 };
+}
+
+// Called automatically by consumeForGroup when a free consumer would pick
+// up the next message. Sets up c.walk with the precomputed picked message
+// and renders the first step. Does NOT touch c.processing — that's set
+// when the user ✓s the fetchTrigger step (advanceConsumerWalkthrough).
+function beginConsumerWalkthrough(g, c, topic, picked) {
+  if (c.walk) return;
+  const decision = computeConsumerDecision(c, g, topic, picked);
+  c.walk = Object.assign(decision, {
+    topicId: topic.id,
+    partition: picked.pi,
+    offset: picked.off,
+    idx: 0,
+    fetchTriggered: false,
+    fetchAckShown: false,
+    processTriggered: false,
+    processAckShown: false,
+    commitTriggered: false,
+    commitAckShown: false,
+  });
+  renderConsumerWalkthrough(g, c);
+}
+
+function advanceConsumerWalkthrough(g, c) {
+  if (!c.walk) return;
+  const w = c.walk;
+  const cur = w.steps[w.idx];
+  if (!cur) return;
+  switch (cur.kind) {
+    case 'decision':
+      w.idx++;
+      break;
+    case 'fetchTrigger':
+      w.fetchTriggered = true;
+      // Set up c.processing manually so consumeForGroup drives fetch.elapsed.
+      c.processing = {
+        partition: w.partition, offset: w.offset,
+        phase: 'fetch', elapsed: 0,
+      };
+      spawnFetchFly(g, w.partition, c);
+      w.idx++;
+      break;
+    case 'fetchAck':
+      w.processTriggered = true;
+      w.idx++;
+      break;
+    case 'commitTrigger':
+      w.commitTriggered = true;
+      w.idx++;
+      break;
+    case 'commitAck': {
+      // Final ✓ — commit officially, clear processing, end walkthrough.
+      const pi = c.processing?.partition;
+      if (pi !== undefined && c.processing) {
+        const committed = c.processing.offset + 1;
+        if ((g.offsets[pi] ?? 0) < committed) g.offsets[pi] = committed;
+      }
+      c.processing = null;
+      c.lastActive = performance.now();
+      c.walk = null;
+      break;
+    }
+  }
+  renderConsumerWalkthrough(g, c);
+}
+
+function consumerAwaitingMessage(w) {
+  // What's currently in flight? Each in-flight phase has its own little
+  // narration so the user knows what the simulator is waiting on.
+  if (w.fetchTriggered && !w.fetchAckShown) {
+    return {
+      text: 'FetchRequest en vuelo · esperando FetchResponse…',
+      note: 'el broker líder lee del log a partir del offset pedido y prepara un batch con los siguientes mensajes',
+    };
+  }
+  if (w.processTriggered && !w.processAckShown) {
+    return {
+      text: 'Procesando mensaje localmente…',
+      note: 'el offset aún NO está comiteado; si el consumer crashea aquí, el grupo redelivera el mensaje al próximo poll (semántica at-least-once)',
+    };
+  }
+  if (w.commitTriggered && !w.commitAckShown) {
+    return {
+      text: 'OffsetCommitRequest en vuelo · esperando OffsetCommitResponse…',
+      note: 'el coordinator del grupo escribirá el offset en el topic interno __consumer_offsets y devolverá la confirmación',
+    };
+  }
+  return null;
+}
+
+function renderConsumerWalkthrough(g, c) {
+  const row = document.querySelector(
+    `[data-group-id="${g.id}"] [data-consumer-id="${c.id}"]`
+  );
+  if (!row) return;
+  row.classList.toggle('walking', !!c.walk);
+  const log = row.querySelector('.walk-log');
+  if (!log) return;
+  log.innerHTML = '';
+  if (!c.walk) return;
+  const w = c.walk;
+  // TOP: current step (with ✓) OR awaiting placeholder
+  if (w.idx < w.steps.length) {
+    const cur = w.steps[w.idx];
+    const isAck = cur.kind === 'commitAck' || cur.kind === 'fetchAck';
+    const li = document.createElement('li');
+    li.className = isAck ? 'ack' : 'current';
+    li.appendChild(walkBody(cur, true));
+    const btn = document.createElement('button');
+    btn.className = 'walk-check';
+    btn.title = 'entendido';
+    btn.textContent = '✓';
+    btn.onclick = () => advanceConsumerWalkthrough(g, c);
+    li.appendChild(btn);
+    log.appendChild(li);
+  } else {
+    const await_ = consumerAwaitingMessage(w);
+    if (await_) {
+      const li = document.createElement('li');
+      li.className = 'awaiting';
+      li.appendChild(walkBody(await_, true));
+      log.appendChild(li);
+    }
+  }
+  // Done steps below, newest first.
+  for (let i = Math.min(w.idx, w.steps.length) - 1; i >= 0; i--) {
+    const li = document.createElement('li');
+    li.className = 'done';
+    li.appendChild(walkBody(w.steps[i], false));
+    log.appendChild(li);
+  }
 }
 
 // Faithful Kafka consume cycle, per consumer:
@@ -655,15 +1122,62 @@ function consumeForGroup(g, dt) {
           remaining -= need;
           const pi = c.processing.partition;
           if (c.processing.phase === 'fetch') {
+            // WALKTHROUGH GATE: hold at end-of-fetch until the user ✓ on
+            // the FetchResponse step. We append that step the first time
+            // we hit this gate so the user has something to click.
+            if (c.walk && !c.walk.processTriggered) {
+              if (!c.walk.fetchAckShown) {
+                c.walk.fetchAckShown = true;
+                c.walk.steps.push({
+                  text: `FetchResponse: 1 mensaje (P${pi} offset ${c.walk.offset}) — ✓ procesa`,
+                  note: `el consumer recibe el batch; entrega el mensaje a la app y empieza el procesado; el offset aún NO está comiteado`,
+                  kind: 'fetchAck',
+                });
+                renderConsumerWalkthrough(g, c);
+              }
+              remaining = 0;
+              break;
+            }
             // Ball just landed at the consumer — start the work.
             c.processing.phase = 'process';
             c.processing.elapsed = 0;
           } else if (c.processing.phase === 'process') {
+            // WALKTHROUGH GATE: hold at end-of-process until user ✓ on the
+            // commit-trigger step.
+            if (c.walk && !c.walk.commitTriggered) {
+              if (!c.walk.processAckShown) {
+                c.walk.processAckShown = true;
+                c.walk.steps.push({
+                  text: `Trabajo terminado · enviar OffsetCommitRequest al coordinator — offset ${c.walk.offset + 1} — ✓ envía`,
+                  note: `offset+1 porque commitea "la próxima posición a leer"; va al group coordinator (un broker concreto del cluster), no al líder de la partición`,
+                  kind: 'commitTrigger',
+                });
+                renderConsumerWalkthrough(g, c);
+              }
+              remaining = 0;
+              break;
+            }
             // Work done — send the commit acknowledgement back.
             spawnCommitFly(g, pi, c);
             c.processing.phase = 'commit';
             c.processing.elapsed = 0;
           } else if (c.processing.phase === 'commit') {
+            // WALKTHROUGH GATE: hold at end-of-commit until user ✓ on the
+            // OffsetCommitResponse step (which is the one that closes the
+            // walkthrough; advanceConsumerWalkthrough finalises offset).
+            if (c.walk) {
+              if (!c.walk.commitAckShown) {
+                c.walk.commitAckShown = true;
+                c.walk.steps.push({
+                  text: `OffsetCommitResponse: offset ${c.walk.offset + 1} confirmado — ✓ cierra`,
+                  note: `ahora oficial; tras un rebalance o crash, el grupo reanuda desde aquí (no se reentrega este mensaje)`,
+                  kind: 'commitAck',
+                });
+                renderConsumerWalkthrough(g, c);
+              }
+              remaining = 0;
+              break;
+            }
             // Commit landed — NOW the offset officially advances.
             const committed = c.processing.offset + 1;
             if ((g.offsets[pi] ?? 0) < committed) g.offsets[pi] = committed;
@@ -672,10 +1186,13 @@ function consumeForGroup(g, dt) {
           }
         }
       }
-      // (2) If free, try to pick the next unconsumed message from one of
-      //     this consumer's assigned partitions (round-robin). A pick
-      //     spawns the fetch ball and enters the 'fetch' phase.
+      // (2) If free, find the next unconsumed message and AUTOMATICALLY
+      //     start a walkthrough for that pickup. The consumer never
+      //     advances silently — every cycle gets explained step by step;
+      //     the user clicks ✓ to drive the phase transitions (fetch
+      //     trigger, fetch ack, commit trigger, commit ack).
       if (!c.processing) {
+        if (c.walk) break;
         const partitions = g.assignments[c.id] || [];
         if (partitions.length === 0) break;
         let picked = null;
@@ -696,11 +1213,17 @@ function consumeForGroup(g, dt) {
           }
         }
         if (!picked) break;
+        c.rrIdx = (c.rrIdx + picked.idx + 1) % partitions.length;
+        if (state.walkthroughMode) {
+          // Educational mode: pause for the user to ✓ each phase.
+          beginConsumerWalkthrough(g, c, topic, picked);
+          break;
+        }
+        // Silent mode: do the normal pickup — fetch ball, start fetch phase.
         c.processing = {
           partition: picked.pi, offset: picked.off,
           phase: 'fetch', elapsed: 0,
         };
-        c.rrIdx = (c.rrIdx + picked.idx + 1) % partitions.length;
         spawnFetchFly(g, picked.pi, c);
       }
     }
@@ -714,12 +1237,22 @@ function consumeForGroup(g, dt) {
 // ============================================================
 function reassign(g) {
   const topic = state.topics.find(t => t.id === g.topicId);
+  // Snapshot the OLD per-consumer assignments so we can diff after the new
+  // ones are computed and surface a "rebalance" event to the UI.
+  const oldAssignments = {};
+  for (const c of g.consumers) oldAssignments[c.id] = [...(g.assignments[c.id] || [])];
+
   g.assignments = {};
   for (const c of g.consumers) {
     g.assignments[c.id] = [];
     c.rrIdx = 0;
   }
-  if (!topic || g.consumers.length === 0) return;
+  if (!topic || g.consumers.length === 0) {
+    // Even with no consumers/topic we still flag rebalance if assignments
+    // existed before (someone went from assigned → unassigned).
+    diffAndMarkRebalance(g, oldAssignments);
+    return;
+  }
   const np = topic.partitions.length;
   const nc = g.consumers.length;
   for (let i = 0; i < nc; i++) {
@@ -736,14 +1269,36 @@ function reassign(g) {
   for (const k of Object.keys(g.offsets)) {
     if (+k >= np) delete g.offsets[k];
   }
-  // Rebalance: if a consumer's in-flight partition is no longer assigned to
-  // it (or has been deleted), drop the work. The offset never got committed,
-  // so the next owner will re-pick the same message — that's Kafka's
-  // at-least-once redelivery story.
+  // If a consumer's in-flight partition is no longer assigned to it (or has
+  // been deleted), drop the work — same rule for an active walkthrough.
+  // Kafka's at-least-once story: the offset never got committed, so the
+  // next owner will re-pick the same message.
   for (const c of g.consumers) {
     if (c.processing && !g.assignments[c.id].includes(c.processing.partition)) {
       c.processing = null;
     }
+    if (c.walk && !g.assignments[c.id].includes(c.walk.partition)) {
+      c.walk = null;
+    }
+  }
+  diffAndMarkRebalance(g, oldAssignments);
+}
+
+// Compare old vs new per-consumer assignments; for each consumer whose
+// list changed, stamp c.rebalancedAt + c.rebalanceLog (gained/lost) so
+// renderLive can show the brief pill and updateLinks can pulse the line.
+function diffAndMarkRebalance(g, oldAssignments) {
+  const now = performance.now();
+  for (const c of g.consumers) {
+    const oldArr = oldAssignments[c.id] || [];
+    const newArr = g.assignments[c.id] || [];
+    if (oldArr.join(',') === newArr.join(',')) continue;
+    const oldSet = new Set(oldArr);
+    const newSet = new Set(newArr);
+    const gained = newArr.filter(p => !oldSet.has(p));
+    const lost   = oldArr.filter(p => !newSet.has(p));
+    c.rebalancedAt = now;
+    c.rebalanceLog = { gained, lost, at: now };
   }
 }
 
@@ -932,6 +1487,24 @@ function addLink(svg, ax, ay, bx, by, color, width, opacity) {
   svg.appendChild(path);
 }
 
+// Dashed marching-ants link. Same bezier shape as addLink but with the
+// .walk-link class (CSS keyframe animates stroke-dashoffset). Used by:
+//   - producer walkthrough connector (line to the chosen partition)
+//   - producer "silent mode" in-flight connector (brief, while ball flies)
+//   - consumer line right after a rebalance
+function addDashedLink(svg, ax, ay, bx, by, color) {
+  const path = document.createElementNS(SVG_NS, 'path');
+  const span = bx - ax;
+  const sign = span >= 0 ? 1 : -1;
+  const dx = Math.max(36, Math.abs(span) * 0.45) * sign;
+  path.setAttribute('d', `M ${ax} ${ay} C ${ax + dx} ${ay}, ${bx - dx} ${by}, ${bx} ${by}`);
+  path.setAttribute('stroke', color);
+  path.setAttribute('stroke-width', 2.2);
+  path.setAttribute('stroke-opacity', 0.85);
+  path.setAttribute('class', 'walk-link');
+  svg.appendChild(path);
+}
+
 function updateLinks() {
   const svg = document.getElementById('links');
   if (!svg) return;
@@ -939,6 +1512,7 @@ function updateLinks() {
   // Defensive: if SVG not laid out yet, skip this frame.
   if (r.width === 0 || r.height === 0) return;
   svg.innerHTML = '';
+  const now = performance.now();
 
   // Helper: midpoint of an element's right edge in SVG coords.
   const rightMid = el => {
@@ -950,8 +1524,12 @@ function updateLinks() {
     return { x: b.left - r.left, y: b.top + b.height / 2 - r.top };
   };
 
-  // Producer → partition(s) it actually writes to.
+  // Producer → partition(s) it actually writes to (static, solid). Only
+  // `sticky` mode produces a fixed target visible up front. Producers
+  // mid-walkthrough are skipped here — their animated dashed connector is
+  // drawn in the walkthrough block below and would only collide.
   for (const p of state.producers) {
+    if (p.walk) continue;
     const prodEl = document.querySelector(`[data-producer-id="${p.id}"]`);
     if (!prodEl) continue;
     const a = rightMid(prodEl);
@@ -965,7 +1543,58 @@ function updateLinks() {
     }
   }
 
-  // Partition → consumer that owns it within its group.
+  // Producer silent-mode in-flight connector: when walkthroughMode is OFF
+  // (or N>1 bulk send) a producer doesn't have a p.walk, but if it just
+  // fired a deliverMessage, the ball is mid-flight. Show a dashed
+  // marching-ants line to each target partition while ANY ball is in
+  // flight, so the user still sees the route the message is taking. The
+  // sticky case already has a solid line — we skip the dashed for those.
+  for (const p of state.producers) {
+    if (p.walk) continue;
+    if (!p._inflight || p._inflight.size === 0) continue;
+    const prodEl = document.querySelector(`[data-producer-id="${p.id}"]`);
+    if (!prodEl) continue;
+    const a = rightMid(prodEl);
+    const stickyTargets = new Set(producerTargets(p));
+    for (const pi of p._inflight.keys()) {
+      if (stickyTargets.has(pi)) continue;   // already covered by the solid line
+      const partEl = document.querySelector(
+        `[data-topic-id="${p.topicId}"] .partition[data-partition-idx="${pi}"]`
+      );
+      if (!partEl) continue;
+      const b = leftMid(partEl);
+      addDashedLink(svg, a.x, a.y, b.x, b.y, p.color);
+    }
+  }
+
+  // Producer walkthrough connector. Dashed, marching-ants animated.
+  // Materialises the SINGLE broker conversation: the ProduceRequest going
+  // to the leader of the chosen partition. Until the partition is decided
+  // (the local partitioner does its work without touching the broker) no
+  // line exists at all — that's faithful to Kafka: metadata is cached, so
+  // there's no per-message metadata chat with the broker. The line first
+  // appears at the "Partición destino seleccionada" step, stays during
+  // send + ack, and is torn down when the user clicks the green ✓.
+  for (const p of state.producers) {
+    if (!p.walk) continue;
+    if (p.walk.idx < p.walk.decidedAtIdx) continue;  // still in local-only phase
+    const prodEl = document.querySelector(`[data-producer-id="${p.id}"]`);
+    if (!prodEl) continue;
+    const targetEl = document.querySelector(
+      `[data-topic-id="${p.walk.topicId}"] .partition[data-partition-idx="${p.walk.pIdx}"]`
+    );
+    if (!targetEl) continue;
+    const a = rightMid(prodEl);
+    const b = leftMid(targetEl);
+    addDashedLink(svg, a.x, a.y, b.x, b.y, p.color);
+  }
+
+  // Partition → consumer that owns it within its group. The assignment is
+  // SOLID and stable — Kafka only changes it on a rebalance, and we keep
+  // it that way visually. During the few seconds right after a rebalance,
+  // the affected consumer's lines pulse with marching ants to make the
+  // change visible; afterwards they go back to a solid line.
+  const REBALANCE_MS = 2500;
   for (const g of state.groups) {
     for (const c of g.consumers) {
       const parts = g.assignments[c.id] || [];
@@ -975,13 +1604,18 @@ function updateLinks() {
       );
       if (!consEl) continue;
       const b = leftMid(consEl);
+      const dashed = c.rebalancedAt && (now - c.rebalancedAt < REBALANCE_MS);
       for (const pi of parts) {
         const partEl = document.querySelector(
           `[data-topic-id="${g.topicId}"] .partition[data-partition-idx="${pi}"]`
         );
         if (!partEl) continue;
         const a = rightMid(partEl);
-        addLink(svg, a.x, a.y, b.x, b.y, c.color, 2, 0.55);
+        if (dashed) {
+          addDashedLink(svg, a.x, a.y, b.x, b.y, c.color);
+        } else {
+          addLink(svg, a.x, a.y, b.x, b.y, c.color, 2, 0.55);
+        }
       }
     }
   }
@@ -1035,6 +1669,8 @@ function render() {
 function renderProducers() {
   els.prodList.innerHTML = '';
   for (const p of state.producers) els.prodList.appendChild(producerCard(p));
+  // Re-paint any in-progress send walkthroughs into the freshly-built cards.
+  for (const p of state.producers) if (p.walk) renderWalkthrough(p);
   if (state.topics.length === 0) {
     const hint = document.createElement('div');
     hint.className = 'empty-hint';
@@ -1126,6 +1762,7 @@ function producerCard(p) {
     <div class="row expanded-only">
       <button class="mini-btn auto-tgl ${p.auto?'tgl-on':'tgl-off'}" title="cuando está en ON el producer emite a 'rate' msg/s; en OFF solo envía con ▶">Auto: ${p.auto?'ON':'OFF'}</button>
     </div>
+    <ol class="walk-log"></ol>
   `;
   // Wire up
   card.querySelector('.close-x').onclick = () => {
@@ -1137,13 +1774,19 @@ function producerCard(p) {
   card.querySelector('.topic-sel').onchange = e => { p.topicId = +e.target.value; render(); };
   card.querySelector('.mode-sel').onchange = e => { p.mode = e.target.value; render(); };
   // ▶ button: send N messages where N comes from the adjacent <input>.
-  // Clamped to [1, 500] so a fat-fingered "1000000" doesn't lock the tab.
+  // Clamped to [1, 500]. When N=1 we enter the step-by-step WALKTHROUGH
+  // (showing the partitioner's reasoning before the ball flies). N>1
+  // bypasses the walkthrough so bulk sending stays fast.
   const countInput = card.querySelector('.send-count');
   card.querySelector('.send-one').onclick = () => {
     let n = parseInt(countInput?.value || '1', 10);
     if (!Number.isFinite(n) || n < 1) n = 1;
     if (n > 500) n = 500;
-    for (let i = 0; i < n; i++) produceMessage(p);
+    if (n === 1 && state.walkthroughMode) {
+      startWalkthrough(p);
+    } else {
+      for (let i = 0; i < n; i++) produceMessage(p);
+    }
   };
   // Prevent the textbox from accidentally starting a drag on the card.
   if (countInput) {
@@ -1281,6 +1924,11 @@ function partitionCell(topic, partition, idx) {
 function renderGroups() {
   els.groupList.innerHTML = '';
   for (const g of state.groups) els.groupList.appendChild(groupCard(g));
+  // Re-paint any in-progress consumer walkthroughs into the freshly-built
+  // rows (same idea as renderProducers does for producer walkthroughs).
+  for (const g of state.groups) {
+    for (const c of g.consumers) if (c.walk) renderConsumerWalkthrough(g, c);
+  }
   if (state.topics.length === 0) {
     const hint = document.createElement('div');
     hint.className = 'empty-hint';
@@ -1402,6 +2050,8 @@ function consumerRow(g, c, topic) {
       <div class="proc-bar"><div class="proc-fill"></div></div>
       <span class="proc-eta" title="tiempo que falta para terminar">${fmtSecs(c.processingMs)}</span>
     </div>
+    <div class="rebalance-slot"></div>
+    <ol class="walk-log"></ol>
   `;
   row.querySelector('.x').onclick = () => {
     g.consumers = g.consumers.filter(x => x.id !== c.id);
@@ -1578,6 +2228,34 @@ function renderLive() {
         lagEl.textContent = lag;
         lagEl.classList.toggle('ok', lag === 0);
       }
+      // Rebalance pill — visible for ~4s after the consumer's assignment
+      // changed. Auto-cleared when the timer expires.
+      const slot = row.querySelector('.rebalance-slot');
+      if (slot) {
+        if (c.rebalanceLog && (now - c.rebalanceLog.at < 4000)) {
+          if (!slot.firstChild) {
+            const pill = document.createElement('div');
+            pill.className = 'rebalance-pill';
+            const lbl = document.createElement('span');
+            lbl.className = 'lbl';
+            lbl.textContent = 'rebalance';
+            pill.appendChild(lbl);
+            const detail = document.createElement('span');
+            const gained = c.rebalanceLog.gained.map(p => `P${p}`).join(',');
+            const lost   = c.rebalanceLog.lost.map(p => `P${p}`).join(',');
+            const parts = [];
+            if (gained) parts.push(`<span class="gained">+${gained}</span>`);
+            if (lost)   parts.push(`<span class="lost">−${lost}</span>`);
+            if (!parts.length) parts.push('sin cambios netos');
+            detail.innerHTML = parts.join(' · ');
+            pill.appendChild(detail);
+            slot.appendChild(pill);
+          }
+        } else if (slot.firstChild) {
+          slot.innerHTML = '';
+          if (c.rebalanceLog && now - c.rebalanceLog.at >= 4000) c.rebalanceLog = null;
+        }
+      }
       // The bar represents the PROCESSING phase only (the actual work).
       // The fetch / commit roundtrips are visualised by the connector balls,
       // not the bar — so sequentially the user sees:
@@ -1675,6 +2353,7 @@ function serializeState() {
       rate: p.rate, sendCount: p.sendCount, auto: !!p.auto,
     })),
     producersCollapsed: !!state.producersCollapsed,
+    walkthroughMode: state.walkthroughMode !== false,
     groups: state.groups.map(g => ({
       id: g.id, name: g.name, color: g.color, topicId: g.topicId,
       consumers: g.consumers.map(c => ({
@@ -1723,6 +2402,9 @@ function hydrateFromParsed(parsed) {
   state.producersCollapsed = !!parsed.producersCollapsed
     || (Array.isArray(parsed.producers) && parsed.producers.length > 0
         && parsed.producers.every(p => !!p.collapsed));
+  // Walkthrough mode defaults to ON; only OFF if explicitly saved as false.
+  // Accept the old `consumerWalkthrough` field name for backward compat.
+  state.walkthroughMode = (parsed.walkthroughMode ?? parsed.consumerWalkthrough) !== false;
   state.groups = (parsed.groups || []).map(g => ({
     id: g.id, name: g.name, color: g.color, topicId: g.topicId,
     consumers: (g.consumers || []).map(c => {
@@ -1818,6 +2500,12 @@ function syncToolbar() {
   if (collBtn) {
     collBtn.textContent = state.producersCollapsed ? '▼' : '▲';
     collBtn.title = state.producersCollapsed ? 'expandir todos' : 'colapsar todos';
+  }
+  const walkBtn = document.getElementById('walkModeBtn');
+  if (walkBtn) {
+    walkBtn.textContent = 'Paso a paso: ' + (state.walkthroughMode ? 'ON' : 'OFF');
+    walkBtn.classList.toggle('on', state.walkthroughMode);
+    walkBtn.classList.toggle('off', !state.walkthroughMode);
   }
 }
 
@@ -2035,6 +2723,11 @@ document.getElementById('collapseAllProducers').onclick = () => {
   syncToolbar();
   scheduleSave();
   render();
+};
+document.getElementById('walkModeBtn').onclick = () => {
+  state.walkthroughMode = !state.walkthroughMode;
+  syncToolbar();
+  scheduleSave();
 };
 document.getElementById('addTopicBtn').onclick = () => {
   state.topics.push(makeTopic(`topic-${state.topics.length+1}`, 1));
