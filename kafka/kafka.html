@@ -283,6 +283,31 @@
     width:100%;height:5px;background:#e8edf6;border-radius:3px;overflow:hidden;
   }
   .api-bar-fill{height:100%;background:currentColor;width:0%}
+  /* Replica boxes inside an api card. Each replica is a small panel that
+     holds one mini progress bar per in-flight request. Multiple bars = the
+     replica is serving requests in parallel; their advance rate visibly
+     drops as more pile up (concurrency penalty). */
+  .api-replicas{display:flex;flex-direction:column;gap:4px}
+  .replica{
+    display:flex;flex-direction:column;gap:3px;
+    background:#f3f5fa;border:1px solid #e2e8f5;border-radius:4px;
+    padding:4px 7px;font-size:10px;color:var(--muted);
+    transition:background .15s ease, border-color .15s ease;
+  }
+  .replica .rhead{display:flex;align-items:center;gap:8px}
+  .replica .rname{font-weight:800;letter-spacing:.3px;flex:0 0 auto}
+  .replica .rstatus{font-size:9.5px;color:var(--muted);font-style:italic;flex:1 1 auto;min-width:0}
+  .replica.busy{background:#fffbe8;border-color:#f0d58a}
+  .replica.busy .rstatus{color:#8a5a10;font-style:normal;font-weight:700}
+  .replica.contended{background:#fdecec;border-color:#d49a9a}
+  .replica.contended .rstatus{color:#9c2a2a;font-weight:800}
+  .replica .rqueue{display:flex;flex-direction:column;gap:2px}
+  .replica .rqueue:empty{display:none}
+  .req-bar{
+    height:3px;border-radius:2px;width:0%;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.1);
+    transition:width .08s linear;
+  }
   /* Brief amber pill shown over the row right after the group rebalances,
      explaining what THIS consumer gained/lost. Auto-hidden after a few
      seconds via JS clearing c.rebalanceLog. */
@@ -1062,7 +1087,7 @@ function advanceConsumerWalkthrough(g, c) {
         const committed = c.processing.offset + 1;
         if ((g.offsets[pi] ?? 0) < committed) g.offsets[pi] = committed;
       }
-      c.processing = null;
+      clearConsumerProcessing(c);
       c.lastActive = performance.now();
       c.walk = null;
       break;
@@ -1196,32 +1221,61 @@ function consumeForGroup(g, dt) {
       //     back to FREE when it completes.
       if (c.processing) {
         const phaseLen = phaseDuration(c, c.processing.phase);
-        const need = phaseLen - c.processing.elapsed;
         const oldElapsed = c.processing.elapsed;
+        // CONCURRENCY SLOWDOWN: while a REST consumer is in 'remote' on a
+        // replica that's serving N concurrent requests, its elapsed counter
+        // advances at 1/N speed. That extends the remote sub-phase
+        // proportionally and is the simulator's analogue to a real pod
+        // being saturated (CPU/IO contention).
+        let slowdown = 1;
+        if (c.processing.phase === 'process' &&
+            c.action && c.action.type === 'rest' &&
+            c.processing.replicaIdx !== undefined) {
+          const api = state.apis.find(a => a.id === c.action.apiId);
+          if (api) {
+            const t2 = (c.processingMs || 0) + LATENCY_MS;
+            const t3 = t2 + (api.processingMs || 1);
+            if (oldElapsed >= t2 && oldElapsed < t3 && api._replicaState) {
+              const st = api._replicaState[c.processing.replicaIdx];
+              slowdown = Math.max(1, st?.inflightCount || 1);
+            }
+          }
+        }
+        const need = phaseLen - c.processing.elapsed;
+        const advanceCapacity = remaining / slowdown;
         let fullyAdvanced = false;
-        if (need > remaining) {
-          c.processing.elapsed += remaining;
+        if (need > advanceCapacity) {
+          c.processing.elapsed += advanceCapacity;
           remaining = 0;
         } else {
           c.processing.elapsed = phaseLen;
-          remaining -= need;
+          remaining -= need * slowdown;   // wall-clock cost paid
           fullyAdvanced = true;
         }
-        // REST sub-phase crossings: when the elapsed counter crosses the
-        // local→requesting threshold, fire the request ball (consumer→api);
-        // when it crosses the remote→responding threshold, fire the
-        // response ball (api→consumer). Each ball is brief (LATENCY_MS).
+        // REST sub-phase crossings: spawn the request ball at
+        // local→requesting; pick a replica + start the API timer at
+        // requesting→remote; release the replica + spawn the response
+        // ball at remote→responding.
         if (c.processing.phase === 'process' &&
             c.action && c.action.type === 'rest') {
           const api = state.apis.find(a => a.id === c.action.apiId);
           if (api) {
             const t1 = c.processingMs || 0;
-            const t3 = t1 + LATENCY_MS + (api.processingMs || 1);
+            const t2 = t1 + LATENCY_MS;
+            const t3 = t2 + (api.processingMs || 1);
             const newE = c.processing.elapsed;
             if (oldElapsed < t1 && newE >= t1) {
               spawnApiRequestFly(g, c, api, scaled(LATENCY_MS));
             }
+            if (oldElapsed < t2 && newE >= t2 &&
+                c.processing.replicaIdx === undefined) {
+              c.processing.replicaIdx = pickReplica(api);
+            }
             if (oldElapsed < t3 && newE >= t3) {
+              if (c.processing.replicaIdx !== undefined) {
+                releaseReplica(api, c.processing.replicaIdx);
+                c.processing.replicaIdx = undefined;
+              }
               spawnApiResponseFly(g, c, api, scaled(LATENCY_MS));
             }
           }
@@ -1291,7 +1345,7 @@ function consumeForGroup(g, dt) {
             const committed = c.processing.offset + 1;
             if ((g.offsets[pi] ?? 0) < committed) g.offsets[pi] = committed;
             c.lastActive = now;
-            c.processing = null;
+            clearConsumerProcessing(c);
           }
         }
       }
@@ -1384,7 +1438,7 @@ function reassign(g) {
   // next owner will re-pick the same message.
   for (const c of g.consumers) {
     if (c.processing && !g.assignments[c.id].includes(c.processing.partition)) {
-      c.processing = null;
+      clearConsumerProcessing(c);
     }
     if (c.walk && !g.assignments[c.id].includes(c.walk.partition)) {
       c.walk = null;
@@ -1445,7 +1499,48 @@ function makeApi(name, color) {
   return {
     id: newId(), name, color,
     processingMs: 1500,
+    replicas: 1,   // how many backend pods sit behind this service
+    // Runtime-only fields (not persisted): _rrIdx, _replicaState[].
   };
+}
+
+// Lazy-init runtime state for the api's replicas so callers can always
+// index api._replicaState[i] safely.
+function ensureReplicaState(api) {
+  if (!api._replicaState) api._replicaState = [];
+  while (api._replicaState.length < api.replicas) {
+    api._replicaState.push({ inflightCount: 0 });
+  }
+}
+
+// Random replica pick — faithful to kube-proxy's default iptables mode,
+// where each backend has equal probability per packet (statistical
+// selection, not strict round-robin). Means two near-simultaneous calls
+// CAN land on the same replica by chance even with N>1 backends — and
+// that's exactly the contention scenario the simulator is meant to show.
+function pickReplica(api) {
+  ensureReplicaState(api);
+  const n = Math.max(1, api.replicas);
+  const idx = Math.floor(Math.random() * n);
+  api._replicaState[idx].inflightCount++;
+  return idx;
+}
+
+function releaseReplica(api, idx) {
+  if (!api._replicaState || !api._replicaState[idx]) return;
+  api._replicaState[idx].inflightCount =
+    Math.max(0, api._replicaState[idx].inflightCount - 1);
+}
+
+// Safety-net: any path that wipes c.processing should call this first so
+// the replica it was holding doesn't get stuck with a phantom inflight.
+function clearConsumerProcessing(c) {
+  if (c.processing && c.processing.replicaIdx !== undefined &&
+      c.action && c.action.type === 'rest') {
+    const api = state.apis.find(a => a.id === c.action.apiId);
+    if (api) releaseReplica(api, c.processing.replicaIdx);
+  }
+  c.processing = null;
 }
 function makeConsumer(name, color) {
   return {
@@ -2237,11 +2332,23 @@ function apiCard(api) {
       <button class="close-x" title="quitar api">✕</button>
     </div>
     <div class="api-meta">
-      <span class="lbl">tiempo de procesado</span>
+      <span class="lbl">tiempo</span>
       <span class="num">
         <button class="adec">−</button><span class="aval">${fmtSecs(api.processingMs)}</span><button class="ainc">+</button>
       </span>
+      <span class="lbl">réplicas</span>
+      <span class="num">
+        <button class="rdec">−</button><span class="rval">${api.replicas}</span><button class="rinc">+</button>
+      </span>
     </div>
+    <div class="api-replicas">${
+      Array.from({length: api.replicas}, (_, i) =>
+        `<div class="replica" data-replica-idx="${i}">
+          <div class="rhead"><span class="rname">R${i}</span><span class="rstatus">idle</span></div>
+          <div class="rqueue"></div>
+        </div>`
+      ).join('')
+    }</div>
     <div class="api-bar"><div class="api-bar-fill"></div></div>
     <div class="api-callers">${
       callers.length
@@ -2269,6 +2376,14 @@ function apiCard(api) {
   card.querySelector('.ainc').onclick = () => {
     api.processingMs = api.processingMs + 500;
     av.textContent = fmtSecs(api.processingMs);
+  };
+  card.querySelector('.rdec').onclick = () => {
+    if (api.replicas > 1) { api.replicas--; render(); }
+  };
+  card.querySelector('.rinc').onclick = () => {
+    api.replicas++;
+    ensureReplicaState(api);
+    render();
   };
   return card;
 }
@@ -2500,6 +2615,55 @@ function renderLive() {
       const p = apiProgress.get(api.id) || 0;
       barFill.style.width = (p * 100).toFixed(1) + '%';
     }
+    // Per-replica visualisation: each in-flight request gets its own mini
+    // progress bar inside the replica box, coloured by the caller. The
+    // status line names the number of parallel requests and the resulting
+    // slowdown factor ("2× lento") so the impact reads at a glance.
+    ensureReplicaState(api);
+    // Collect, per replica index, the consumers currently in the 'remote'
+    // sub-phase on it. (We also want to draw the request bar during
+    // 'requesting' and 'responding' — same replicaIdx — so the bar appears
+    // for the full duration the consumer "occupies" that replica.)
+    const perReplica = new Map();
+    for (const g of state.groups) {
+      for (const c of g.consumers) {
+        if (!c.processing || c.processing.phase !== 'process') continue;
+        if (!c.action || c.action.type !== 'rest' || c.action.apiId !== api.id) continue;
+        if (c.processing.replicaIdx === undefined) continue;
+        const arr = perReplica.get(c.processing.replicaIdx) || [];
+        const t2 = (c.processingMs || 0) + LATENCY_MS;
+        const remoteElapsed = c.processing.elapsed - t2;
+        const progress = Math.max(0, Math.min(1, remoteElapsed / (api.processingMs || 1)));
+        arr.push({ color: c.color, progress });
+        perReplica.set(c.processing.replicaIdx, arr);
+      }
+    }
+    for (let i = 0; i < api.replicas; i++) {
+      const box = card.querySelector(`.replica[data-replica-idx="${i}"]`);
+      if (!box) continue;
+      const n = api._replicaState[i]?.inflightCount || 0;
+      box.classList.toggle('busy', n > 0);
+      box.classList.toggle('contended', n > 1);
+      const status = box.querySelector('.rstatus');
+      if (status) {
+        if (n === 0)      status.textContent = 'idle';
+        else if (n === 1) status.textContent = '1 req · ritmo normal';
+        else              status.textContent = `${n} reqs en paralelo · ${n}× más lento`;
+      }
+      const queue = box.querySelector('.rqueue');
+      if (queue) {
+        const reqs = perReplica.get(i) || [];
+        // Rebuild: cheap, ≤ a handful of bars per replica.
+        queue.innerHTML = '';
+        for (const r of reqs) {
+          const bar = document.createElement('div');
+          bar.className = 'req-bar';
+          bar.style.background = r.color;
+          bar.style.width = (r.progress * 100).toFixed(1) + '%';
+          queue.appendChild(bar);
+        }
+      }
+    }
   }
 
   // Producer sent counters
@@ -2673,7 +2837,9 @@ function serializeState() {
       rate: p.rate, sendCount: p.sendCount, auto: !!p.auto,
     })),
     apis: state.apis.map(a => ({
-      id: a.id, name: a.name, color: a.color, processingMs: a.processingMs,
+      id: a.id, name: a.name, color: a.color,
+      processingMs: a.processingMs,
+      replicas: a.replicas,
     })),
     producersCollapsed: !!state.producersCollapsed,
     walkthroughMode: state.walkthroughMode !== false,
@@ -2714,6 +2880,7 @@ function hydrateFromParsed(parsed) {
   state.apis = (parsed.apis || []).map(a => ({
     id: a.id, name: a.name, color: a.color,
     processingMs: a.processingMs ?? 1500,
+    replicas: Math.max(1, a.replicas | 0 || 1),
   }));
   state.producers = (parsed.producers || []).map(p => ({
     id: p.id, name: p.name, color: p.color, topicId: p.topicId,
