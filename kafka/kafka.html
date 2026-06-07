@@ -72,8 +72,8 @@
   /* Main grid */
   main.grid{
     display:grid;
-    grid-template-columns: 304px minmax(420px,1fr) 360px;
-    gap:14px;
+    grid-template-columns: 280px minmax(360px,1fr) 320px 280px;
+    gap:12px;
     min-height:0;
     position:relative;
   }
@@ -247,6 +247,42 @@
   /* A consumer row whose walkthrough is active gets a faint amber ring so
      it's easy to spot among siblings at a glance. */
   .consumer-row.walking{box-shadow:0 0 0 2px rgba(240,213,138,.55)}
+  .action-row{display:flex;align-items:center;gap:6px;font-size:11.5px;margin-top:2px}
+  .action-row .sel{flex:1;min-width:0}
+
+  /* REST API card — standalone endpoint that can receive requests from
+     consumers (or future producers). Visually similar to a producer card
+     but with its own role marker. .busy lights up while ANY consumer is
+     mid-call to this api. */
+  .api-card{
+    background:#fff;border:1px solid var(--card-border);border-radius:8px;padding:10px;
+    display:flex;flex-direction:column;gap:8px;position:relative;
+    border-left:4px solid currentColor;
+    transition:box-shadow .2s ease;
+  }
+  .api-card.busy{box-shadow:0 0 0 2px currentColor}
+  .api-card .ahead{display:flex;align-items:center;gap:6px}
+  .api-card .aname{font-weight:700;font-size:13.5px;color:var(--ink);flex:1 1 auto}
+  .api-card .api-meta{
+    font-size:10.5px;color:var(--muted);font-weight:600;
+    display:flex;align-items:center;gap:6px;
+  }
+  .api-card .api-meta .pill{font-size:9.5px}
+  .api-card .api-callers{
+    font-size:10.5px;color:var(--muted);font-weight:600;
+    display:flex;flex-wrap:wrap;gap:3px;min-height:14px;
+  }
+  .api-card .caller-badge{
+    font-size:9.5px;font-weight:700;color:#fff;padding:1px 5px;border-radius:3px;
+    letter-spacing:.2px;
+  }
+  .api-card .caller-badge.idle{background:#bfc8de;color:#fff;font-style:italic}
+  /* API's own progress bar — fills only while a consumer is in the
+     'remote' sub-phase (api crunching the request). Stays at 0% otherwise. */
+  .api-bar{
+    width:100%;height:5px;background:#e8edf6;border-radius:3px;overflow:hidden;
+  }
+  .api-bar-fill{height:100%;background:currentColor;width:0%}
   /* Brief amber pill shown over the row right after the group rebalances,
      explaining what THIS consumer gained/lost. Auto-hidden after a few
      seconds via JS clearing c.rebalanceLog. */
@@ -545,6 +581,17 @@
         <div class="section-body" id="groupsList"></div>
       </section>
     </div>
+
+    <!-- 4TH COLUMN: REST APIs (services the consumers can call) -->
+    <div class="col">
+      <section class="section flex">
+        <header class="section-head">
+          <div class="title">REST APIs</div>
+          <div class="actions"><button class="ghost-btn" id="addApiBtn">+ api</button></div>
+        </header>
+        <div class="section-body" id="apisList"></div>
+      </section>
+    </div>
   </main>
 
   <footer class="bottom">
@@ -579,6 +626,10 @@ const STORAGE_KEY = 'kafka-sim-v1';   // localStorage slot; bump on schema break
 // and the phase finish together.
 const FETCH_MS  = 420;
 const COMMIT_MS = 420;
+// Hypothetical network latency for the REST request/response leg between
+// a consumer and an api. Kept brief so the bolitas feel like a "hop", not
+// the work itself. Real work time lives in api.processingMs.
+const LATENCY_MS = 220;
 
 // ============================================================
 // STATE
@@ -593,6 +644,9 @@ const state = {
   producers: [],  // { id, name, color, topicId, mode, stickyPart, keyPool, rate, accum, sendCount }
   groups: [],     // { id, name, color, topicId, consumers:[{id,name,color,rate,accum,rrIdx,lastActive}],
                   //   assignments:{cid:[pIdx]}, offsets:{pIdx:committed} }
+  apis: [],                    // { id, name, color, processingMs }
+                               //   REST endpoints that consumers (and later
+                               //   other elements) can call as an action.
   producersCollapsed: false,   // section-level collapse for ALL producers at once
   walkthroughMode: true,       // step-by-step educational mode for BOTH
                                // producers (▶ with N=1) and consumers (each cycle)
@@ -1096,9 +1150,38 @@ function renderConsumerWalkthrough(g, c) {
 // from the broker's POV — same as real Kafka with at-least-once delivery.
 function phaseDuration(c, phase) {
   if (phase === 'fetch')   return FETCH_MS;
-  if (phase === 'process') return c.processingMs || 1;
+  if (phase === 'process') {
+    // With a REST action the process phase is a composite:
+    //   1) local prep      → c.processingMs
+    //   2) request leg     → LATENCY_MS
+    //   3) remote work     → api.processingMs
+    //   4) response leg    → LATENCY_MS
+    // Total = sum of all four. Without action it's just c.processingMs.
+    if (c.action && c.action.type === 'rest') {
+      const api = state.apis.find(a => a.id === c.action.apiId);
+      if (api) return (c.processingMs || 0) + 2 * LATENCY_MS + (api.processingMs || 1);
+    }
+    return c.processingMs || 1;
+  }
   if (phase === 'commit')  return COMMIT_MS;
   return 1;
+}
+
+// Which sub-phase of `process` is the consumer in right now?
+// (Only meaningful when consumer.action is a REST action.)
+function consumerSubPhase(c) {
+  if (!c.processing || c.processing.phase !== 'process') return null;
+  if (!c.action || c.action.type !== 'rest') return 'local';
+  const api = state.apis.find(a => a.id === c.action.apiId);
+  if (!api) return 'local';
+  const e = c.processing.elapsed;
+  const t1 = c.processingMs || 0;
+  const t2 = t1 + LATENCY_MS;
+  const t3 = t2 + (api.processingMs || 1);
+  if (e < t1) return 'local';
+  if (e < t2) return 'requesting';
+  if (e < t3) return 'remote';
+  return 'responding';
 }
 
 function consumeForGroup(g, dt) {
@@ -1114,12 +1197,36 @@ function consumeForGroup(g, dt) {
       if (c.processing) {
         const phaseLen = phaseDuration(c, c.processing.phase);
         const need = phaseLen - c.processing.elapsed;
+        const oldElapsed = c.processing.elapsed;
+        let fullyAdvanced = false;
         if (need > remaining) {
           c.processing.elapsed += remaining;
           remaining = 0;
         } else {
           c.processing.elapsed = phaseLen;
           remaining -= need;
+          fullyAdvanced = true;
+        }
+        // REST sub-phase crossings: when the elapsed counter crosses the
+        // local→requesting threshold, fire the request ball (consumer→api);
+        // when it crosses the remote→responding threshold, fire the
+        // response ball (api→consumer). Each ball is brief (LATENCY_MS).
+        if (c.processing.phase === 'process' &&
+            c.action && c.action.type === 'rest') {
+          const api = state.apis.find(a => a.id === c.action.apiId);
+          if (api) {
+            const t1 = c.processingMs || 0;
+            const t3 = t1 + LATENCY_MS + (api.processingMs || 1);
+            const newE = c.processing.elapsed;
+            if (oldElapsed < t1 && newE >= t1) {
+              spawnApiRequestFly(g, c, api, scaled(LATENCY_MS));
+            }
+            if (oldElapsed < t3 && newE >= t3) {
+              spawnApiResponseFly(g, c, api, scaled(LATENCY_MS));
+            }
+          }
+        }
+        if (fullyAdvanced) {
           const pi = c.processing.partition;
           if (c.processing.phase === 'fetch') {
             // WALKTHROUGH GATE: hold at end-of-fetch until the user ✓ on
@@ -1138,7 +1245,9 @@ function consumeForGroup(g, dt) {
               remaining = 0;
               break;
             }
-            // Ball just landed at the consumer — start the work.
+            // Ball just landed at the consumer — start the work. The REST
+            // request/response balls (if action set) are fired by the
+            // sub-phase crossing check above, not here.
             c.processing.phase = 'process';
             c.processing.elapsed = 0;
           } else if (c.processing.phase === 'process') {
@@ -1332,6 +1441,12 @@ function makeGroup(name, color, topicId) {
     collapsed: false,
   };
 }
+function makeApi(name, color) {
+  return {
+    id: newId(), name, color,
+    processingMs: 1500,
+  };
+}
 function makeConsumer(name, color) {
   return {
     id: newId(), name, color,
@@ -1341,6 +1456,12 @@ function makeConsumer(name, color) {
     processingMs: 2000,
     processing: null,    // { partition, offset, phase, elapsed } while busy
     rrIdx: 0, lastActive: 0,
+    // Optional side-effect during the process phase. For now the only
+    // supported action is calling a REST API; when set, the process phase
+    // duration is taken from the api's processingMs instead of the
+    // consumer's, and a request/response ball pair animates over the
+    // consumer→api connector.
+    action: null,        // { type:'rest', apiId } | null
   };
 }
 function pickColor() {
@@ -1462,6 +1583,37 @@ function spawnCommitFly(group, partitionIdx, consumer) {
   const p0 = { x: fr.left,  y: fr.top + fr.height / 2 };
   const p3 = { x: tr.right, y: tr.top + tr.height / 2 };
   flyAlong(p0, p3, consumer.color, scaled(COMMIT_MS));
+}
+
+// Consumer → REST API request ball. Direction matches the static
+// connector (consumer right edge → api left edge). The half-duration of
+// the consumer's process phase carries the request out; another ball
+// then carries the response back.
+function spawnApiRequestFly(group, consumer, api, durationMs) {
+  const fromEl = document.querySelector(
+    `[data-group-id="${group.id}"] [data-consumer-id="${consumer.id}"]`
+  );
+  const toEl = document.querySelector(`[data-api-id="${api.id}"]`);
+  if (!fromEl || !toEl) return;
+  const fr = fromEl.getBoundingClientRect();
+  const tr = toEl.getBoundingClientRect();
+  const p0 = { x: fr.right, y: fr.top + fr.height / 2 };
+  const p3 = { x: tr.left,  y: tr.top + tr.height / 2 };
+  flyAlong(p0, p3, consumer.color, durationMs);
+}
+function spawnApiResponseFly(group, consumer, api, durationMs) {
+  const fromEl = document.querySelector(`[data-api-id="${api.id}"]`);
+  const toEl = document.querySelector(
+    `[data-group-id="${group.id}"] [data-consumer-id="${consumer.id}"]`
+  );
+  if (!fromEl || !toEl) return;
+  const fr = fromEl.getBoundingClientRect();
+  const tr = toEl.getBoundingClientRect();
+  // API is to the RIGHT of the consumer column; the ball travels back from
+  // API.left → consumer.right (so it traces the same connector in reverse).
+  const p0 = { x: fr.left,  y: fr.top + fr.height / 2 };
+  const p3 = { x: tr.right, y: tr.top + tr.height / 2 };
+  flyAlong(p0, p3, api.color, durationMs);
 }
 
 // ============================================================
@@ -1619,6 +1771,25 @@ function updateLinks() {
       }
     }
   }
+
+  // Consumer → REST API (solid). Drawn when the consumer's action targets
+  // an existing API; this is the wire the request/response balls travel
+  // along during the process phase.
+  for (const g of state.groups) {
+    for (const c of g.consumers) {
+      if (!c.action || c.action.type !== 'rest') continue;
+      const api = state.apis.find(a => a.id === c.action.apiId);
+      if (!api) continue;
+      const consEl = document.querySelector(
+        `[data-group-id="${g.id}"] [data-consumer-id="${c.id}"]`
+      );
+      const apiEl = document.querySelector(`[data-api-id="${api.id}"]`);
+      if (!consEl || !apiEl) continue;
+      const a = rightMid(consEl);
+      const b = leftMid(apiEl);
+      addLink(svg, a.x, a.y, b.x, b.y, api.color, 2, 0.55);
+    }
+  }
 }
 
 // ============================================================
@@ -1656,12 +1827,14 @@ const els = {
   prodList: document.getElementById('producersList'),
   topicList: document.getElementById('topicsList'),
   groupList: document.getElementById('groupsList'),
+  apiList:  document.getElementById('apisList'),
 };
 
 function render() {
   renderProducers();
   renderTopics();
   renderGroups();
+  renderApis();
   scheduleSave();   // user-driven changes hit this path
 }
 
@@ -2022,6 +2195,84 @@ function groupCard(g) {
   return card;
 }
 
+// ---------- REST APIs ----------
+function renderApis() {
+  els.apiList.innerHTML = '';
+  for (const api of state.apis) els.apiList.appendChild(apiCard(api));
+  if (state.apis.length === 0) {
+    const hint = document.createElement('div');
+    hint.className = 'empty-hint';
+    hint.innerHTML = 'Endpoints a los que los <b>consumers</b> pueden llamar como acción al procesar.';
+    els.apiList.appendChild(hint);
+  }
+  const add = document.createElement('button');
+  add.className = 'add-mini';
+  add.textContent = '+ api';
+  add.onclick = () => {
+    state.apis.push(makeApi(`api-${state.apis.length + 1}`, pickColor()));
+    render();
+  };
+  els.apiList.appendChild(add);
+}
+
+function apiCard(api) {
+  const card = document.createElement('div');
+  card.className = 'api-card';
+  card.dataset.apiId = api.id;
+  card.style.color = api.color;
+  const fmtSecs = ms => (ms / 1000).toFixed(1) + 's';
+  // Which consumers currently point their action at this api? (Computed
+  // at render time — kept in sync by renderLive's busy class update.)
+  const callers = [];
+  for (const g of state.groups) {
+    for (const c of g.consumers) {
+      if (c.action && c.action.apiId === api.id) callers.push(c);
+    }
+  }
+  card.innerHTML = `
+    <div class="ahead">
+      <span class="drag-handle" draggable="true" data-drag-type="api" title="arrastrar para reordenar">⋮⋮</span>
+      <span class="badge-color" style="background:${api.color}" title="cambiar color"></span>
+      <input class="name-input aname" value="${escapeHtml(api.name)}" spellcheck="false">
+      <button class="close-x" title="quitar api">✕</button>
+    </div>
+    <div class="api-meta">
+      <span class="lbl">tiempo de procesado</span>
+      <span class="num">
+        <button class="adec">−</button><span class="aval">${fmtSecs(api.processingMs)}</span><button class="ainc">+</button>
+      </span>
+    </div>
+    <div class="api-bar"><div class="api-bar-fill"></div></div>
+    <div class="api-callers">${
+      callers.length
+        ? callers.map(c => `<span class="caller-badge" style="background:${c.color}" title="consumer que llama">← ${escapeHtml(c.name)}</span>`).join('')
+        : '<span class="caller-badge idle">sin callers</span>'
+    }</div>
+  `;
+  card.querySelector('.close-x').onclick = () => {
+    state.apis = state.apis.filter(x => x.id !== api.id);
+    // Detach any consumer pointing here
+    for (const g of state.groups) {
+      for (const c of g.consumers) {
+        if (c.action && c.action.apiId === api.id) c.action = null;
+      }
+    }
+    render();
+  };
+  card.querySelector('.badge-color').onclick = () => { api.color = pickColor(); render(); };
+  card.querySelector('.aname').onchange = e => { api.name = (e.target.value || api.name).trim() || api.name; render(); };
+  const av = card.querySelector('.aval');
+  card.querySelector('.adec').onclick = () => {
+    api.processingMs = Math.max(100, api.processingMs - 500);
+    av.textContent = fmtSecs(api.processingMs);
+  };
+  card.querySelector('.ainc').onclick = () => {
+    api.processingMs = api.processingMs + 500;
+    av.textContent = fmtSecs(api.processingMs);
+  };
+  return card;
+}
+
 function consumerRow(g, c, topic) {
   const row = document.createElement('div');
   row.className = 'consumer-row idle';
@@ -2050,12 +2301,30 @@ function consumerRow(g, c, topic) {
       <div class="proc-bar"><div class="proc-fill"></div></div>
       <span class="proc-eta" title="tiempo que falta para terminar">${fmtSecs(c.processingMs)}</span>
     </div>
+    <div class="action-row expanded-only">
+      <span class="lbl">acción</span>
+      <select class="sel action-sel">
+        <option value="" ${!c.action?'selected':''}>(ninguna)</option>
+        ${state.apis.map(a =>
+          `<option value="rest:${a.id}" ${c.action && c.action.type==='rest' && c.action.apiId===a.id?'selected':''}>→ ${escapeHtml(a.name)}</option>`
+        ).join('')}
+      </select>
+    </div>
     <div class="rebalance-slot"></div>
     <ol class="walk-log"></ol>
   `;
   row.querySelector('.x').onclick = () => {
     g.consumers = g.consumers.filter(x => x.id !== c.id);
     reassign(g);
+    render();
+  };
+  row.querySelector('.action-sel').onchange = e => {
+    const v = e.target.value;
+    if (!v) { c.action = null; }
+    else {
+      const [type, idRaw] = v.split(':');
+      c.action = { type, apiId: +idRaw };
+    }
     render();
   };
   const cv = row.querySelector('.cval');
@@ -2198,6 +2467,41 @@ function renderLive() {
     if (tot) tot.textContent = total;
   }
 
+  // API "busy" indicator + progress bar. The bar fills only while a
+  // consumer is in the 'remote' sub-phase (api is doing the work). The
+  // .busy ring also lights up during 'requesting'/'responding' so the
+  // user sees the conversation is alive end-to-end.
+  const apiProgress = new Map();   // apiId → max remote progress [0..1]
+  const apiAlive = new Set();      // apiId → any active sub-phase
+  for (const g of state.groups) {
+    for (const c of g.consumers) {
+      if (!c.processing || c.processing.phase !== 'process') continue;
+      if (!c.action || c.action.type !== 'rest') continue;
+      const sub = consumerSubPhase(c);
+      if (sub === 'local') continue;   // not yet talking to the api
+      apiAlive.add(c.action.apiId);
+      if (sub === 'remote') {
+        const api = state.apis.find(a => a.id === c.action.apiId);
+        if (api) {
+          const t2 = (c.processingMs || 0) + LATENCY_MS;
+          const remoteElapsed = c.processing.elapsed - t2;
+          const pct = Math.max(0, Math.min(1, remoteElapsed / (api.processingMs || 1)));
+          apiProgress.set(api.id, Math.max(apiProgress.get(api.id) || 0, pct));
+        }
+      }
+    }
+  }
+  for (const api of state.apis) {
+    const card = document.querySelector(`[data-api-id="${api.id}"]`);
+    if (!card) continue;
+    card.classList.toggle('busy', apiAlive.has(api.id));
+    const barFill = card.querySelector('.api-bar-fill');
+    if (barFill) {
+      const p = apiProgress.get(api.id) || 0;
+      barFill.style.width = (p * 100).toFixed(1) + '%';
+    }
+  }
+
   // Producer sent counters
   for (const p of state.producers) {
     const sent = document.querySelector(`[data-producer-id="${p.id}"] .sent`);
@@ -2272,7 +2576,9 @@ function renderLive() {
         row.classList.remove('idle');
         row.classList.add('processing');
         const phase = c.processing.phase;
-        const procMs = Math.max(1, c.processingMs);
+        // Use phaseDuration so the bar tracks the REAL phase length —
+        // including api.processingMs when the consumer has a REST action.
+        const procMs = Math.max(1, phaseDuration(c, 'process'));
         let pct, etaMs;
         if (phase === 'fetch') {
           pct = 0;
@@ -2288,12 +2594,26 @@ function renderLive() {
         if (tgt) tgt.textContent = `${tag} P${c.processing.partition} · #${c.processing.offset}`;
         if (fill) fill.style.width = pct.toFixed(1) + '%';
         if (eta) eta.textContent = fmtS(etaMs);
+        // While the consumer is BLOCKED on the REST api (sub-phase 'remote'),
+        // tint the bar with the api's colour so the visual reads "waiting
+        // for that api". The 'requesting' and 'responding' sub-phases are
+        // brief (network hop) so we paint them the api colour too for
+        // continuity. Local prep stays the consumer's own colour.
+        if (fill) {
+          const sub = consumerSubPhase(c);
+          if (sub === 'requesting' || sub === 'remote' || sub === 'responding') {
+            const api = state.apis.find(a => a.id === c.action.apiId);
+            fill.style.background = api ? api.color : '';
+          } else {
+            fill.style.background = '';   // back to currentColor (consumer)
+          }
+        }
       } else {
         row.classList.add('idle');
         row.classList.remove('processing');
         if (tgt) tgt.textContent = '—';
-        if (fill) fill.style.width = '0%';
-        if (eta) eta.textContent = fmtS(c.processingMs);
+        if (fill) { fill.style.width = '0%'; fill.style.background = ''; }
+        if (eta) eta.textContent = fmtS(phaseDuration(c, 'process'));
       }
     }
     const gLagEl = document.querySelector(`[data-group-id="${g.id}"] .glag`);
@@ -2352,6 +2672,9 @@ function serializeState() {
       mode: p.mode, stickyPart: p.stickyPart, keyPool: p.keyPool,
       rate: p.rate, sendCount: p.sendCount, auto: !!p.auto,
     })),
+    apis: state.apis.map(a => ({
+      id: a.id, name: a.name, color: a.color, processingMs: a.processingMs,
+    })),
     producersCollapsed: !!state.producersCollapsed,
     walkthroughMode: state.walkthroughMode !== false,
     groups: state.groups.map(g => ({
@@ -2360,6 +2683,7 @@ function serializeState() {
         id: c.id, name: c.name, color: c.color,
         processingMs: c.processingMs,
         processing: c.processing,   // preserve in-flight; consumeForGroup is tolerant
+        action: c.action || null,
       })),
       assignments: g.assignments,
       offsets: g.offsets,
@@ -2386,6 +2710,10 @@ function hydrateFromParsed(parsed) {
       earliestOffset: p.earliestOffset | 0,
       flashUntil: 0,
     })),
+  }));
+  state.apis = (parsed.apis || []).map(a => ({
+    id: a.id, name: a.name, color: a.color,
+    processingMs: a.processingMs ?? 1500,
   }));
   state.producers = (parsed.producers || []).map(p => ({
     id: p.id, name: p.name, color: p.color, topicId: p.topicId,
@@ -2417,6 +2745,7 @@ function hydrateFromParsed(parsed) {
         processingMs: c.processingMs ?? 2000,
         processing: proc,
         rrIdx: 0, lastActive: 0,
+        action: c.action || null,
       };
     }),
     assignments: g.assignments || {},
@@ -2583,6 +2912,7 @@ function setupDragHandlers() {
     return type === 'producer' ? '.pcard.prod-card'
          : type === 'topic'    ? '.pcard.topic-card'
          : type === 'group'    ? '.group-card'
+         : type === 'api'      ? '.api-card'
          :                       '.consumer-row';
   }
 
@@ -2596,7 +2926,8 @@ function setupDragHandlers() {
       const idAttr =
         type === 'producer' ? 'producerId' :
         type === 'topic'    ? 'topicId'    :
-        type === 'group'    ? 'groupId'    : 'consumerId';
+        type === 'group'    ? 'groupId'    :
+        type === 'api'      ? 'apiId'      : 'consumerId';
       dragInfo = { type, id: +card.dataset[idAttr] };
       if (type === 'consumer') {
         const gCard = handle.closest('.group-card');
@@ -2637,13 +2968,15 @@ function setupDragHandlers() {
       const idAttr =
         dragInfo.type === 'producer' ? 'producerId' :
         dragInfo.type === 'topic'    ? 'topicId'    :
-        dragInfo.type === 'group'    ? 'groupId'    : 'consumerId';
+        dragInfo.type === 'group'    ? 'groupId'    :
+        dragInfo.type === 'api'      ? 'apiId'      : 'consumerId';
       const targetId = +target.dataset[idAttr];
       const after = insertAfterCursor(target, e);
       let arr = null;
       if (dragInfo.type === 'producer') arr = state.producers;
       else if (dragInfo.type === 'topic') arr = state.topics;
       else if (dragInfo.type === 'group') arr = state.groups;
+      else if (dragInfo.type === 'api') arr = state.apis;
       else if (dragInfo.type === 'consumer') {
         const tgCard = target.closest('.group-card');
         if (!tgCard || +tgCard.dataset.groupId !== dragInfo.groupId) {
@@ -2667,6 +3000,7 @@ function setupDragHandlers() {
   attach(els.prodList);
   attach(els.topicList);
   attach(els.groupList);   // handles BOTH group cards and inner consumer rows
+  attach(els.apiList);
 }
 
 // ============================================================
@@ -2697,7 +3031,7 @@ document.getElementById('tickBtn').onclick = () => {
 };
 document.getElementById('resetBtn').onclick = () => {
   try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
-  state.topics = []; state.producers = []; state.groups = [];
+  state.topics = []; state.producers = []; state.groups = []; state.apis = [];
   nextId = 1;
   state.running = true;
   state.speed = 1;
@@ -2740,6 +3074,10 @@ document.getElementById('addGroupBtn').onclick = () => {
   g.consumers.push(makeConsumer('c1', color));
   reassign(g);
   state.groups.push(g);
+  render();
+};
+document.getElementById('addApiBtn').onclick = () => {
+  state.apis.push(makeApi(`api-${state.apis.length + 1}`, pickColor()));
   render();
 };
 
