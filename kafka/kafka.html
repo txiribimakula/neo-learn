@@ -249,6 +249,34 @@
   .consumer-row.walking{box-shadow:0 0 0 2px rgba(240,213,138,.55)}
   .action-row{display:flex;align-items:center;gap:6px;font-size:11.5px;margin-top:2px}
   .action-row .sel{flex:1;min-width:0}
+  /* Group-level actions list (REST calls during process, publish after commit) */
+  .group-actions{
+    display:flex;flex-direction:column;gap:5px;margin-top:6px;
+    border-top:1px dashed #d2d8e5;padding-top:6px;
+  }
+  .group-actions .ga-head{display:flex;align-items:center;gap:6px}
+  .group-actions .ga-head .lbl{flex:1 1 auto;font-size:10.5px;letter-spacing:.2px;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .group-actions .ga-add-buttons{display:flex;gap:4px;flex:0 0 auto}
+  .group-actions .ga-add-buttons .mini-btn{padding:2px 7px;font-size:10.5px}
+  .ga-list{display:flex;flex-direction:column;gap:4px}
+  .ga-list:empty{display:none}
+  .ga-row{
+    display:flex;align-items:center;gap:6px;
+    background:#f8faff;border:1px solid #e2e8f5;border-radius:4px;
+    padding:3px 6px;
+  }
+  .ga-row .ga-tag{
+    font-size:10px;font-weight:800;letter-spacing:.3px;
+    padding:1px 6px;border-radius:3px;flex:0 0 auto;
+  }
+  .ga-row .ga-tag.rest{background:#eef2ff;color:#3956d3}
+  .ga-row .ga-tag.pub{background:#e8f5ec;color:#2e7d4f}
+  .ga-row .ga-target{flex:1;min-width:0;font-size:11px}
+  .ga-row .ga-x{
+    background:none;border:none;color:var(--muted2);cursor:pointer;
+    font-size:12px;padding:1px 4px;border-radius:3px;
+  }
+  .ga-row .ga-x:hover{color:#9c2a2a;background:#fbe9e9}
 
   /* REST API card — standalone endpoint that can receive requests from
      consumers (or future producers). Visually similar to a producer card
@@ -1081,14 +1109,9 @@ function advanceConsumerWalkthrough(g, c) {
       w.idx++;
       break;
     case 'commitAck': {
-      // Final ✓ — commit officially, clear processing, end walkthrough.
-      const pi = c.processing?.partition;
-      if (pi !== undefined && c.processing) {
-        const committed = c.processing.offset + 1;
-        if ((g.offsets[pi] ?? 0) < committed) g.offsets[pi] = committed;
-      }
-      clearConsumerProcessing(c);
-      c.lastActive = performance.now();
+      // Final ✓ — commit officially (advance offset, clear processing,
+      // fire publish actions), end walkthrough.
+      finalizeCommit(g, c);
       c.walk = null;
       break;
     }
@@ -1173,40 +1196,51 @@ function renderConsumerWalkthrough(g, c) {
 // The committed offset advances ONLY when the commit phase finishes (the
 // ball lands back on the partition). Until then the message is in-flight
 // from the broker's POV — same as real Kafka with at-least-once delivery.
-function phaseDuration(c, phase) {
+// All REST actions configured on the group, in declared order. The
+// consumer's process phase iterates through them sequentially: local prep
+// → (request → remote → response) per REST action.
+function groupRestActions(g) {
+  return (g.actions || []).filter(a => a.type === 'rest');
+}
+
+function phaseDuration(c, phase, g) {
   if (phase === 'fetch')   return FETCH_MS;
   if (phase === 'process') {
-    // With a REST action the process phase is a composite:
-    //   1) local prep      → c.processingMs
-    //   2) request leg     → LATENCY_MS
-    //   3) remote work     → api.processingMs
-    //   4) response leg    → LATENCY_MS
-    // Total = sum of all four. Without action it's just c.processingMs.
-    if (c.action && c.action.type === 'rest') {
-      const api = state.apis.find(a => a.id === c.action.apiId);
-      if (api) return (c.processingMs || 0) + 2 * LATENCY_MS + (api.processingMs || 1);
+    let total = c.processingMs || 0;
+    for (const a of groupRestActions(g || {})) {
+      const api = state.apis.find(x => x.id === a.apiId);
+      if (api) total += 2 * LATENCY_MS + (api.processingMs || 1);
     }
-    return c.processingMs || 1;
+    return Math.max(1, total);
   }
   if (phase === 'commit')  return COMMIT_MS;
   return 1;
 }
 
-// Which sub-phase of `process` is the consumer in right now?
-// (Only meaningful when consumer.action is a REST action.)
-function consumerSubPhase(c) {
+// Current sub-phase of `process`:
+//   { kind: 'local' }
+//   { kind: 'requesting' | 'remote' | 'responding', actionIdx, api }
+//   { kind: 'done' }   (past all actions, residual)
+// or null when not in process phase.
+function consumerSubPhase(c, g) {
   if (!c.processing || c.processing.phase !== 'process') return null;
-  if (!c.action || c.action.type !== 'rest') return 'local';
-  const api = state.apis.find(a => a.id === c.action.apiId);
-  if (!api) return 'local';
-  const e = c.processing.elapsed;
+  let e = c.processing.elapsed;
   const t1 = c.processingMs || 0;
-  const t2 = t1 + LATENCY_MS;
-  const t3 = t2 + (api.processingMs || 1);
-  if (e < t1) return 'local';
-  if (e < t2) return 'requesting';
-  if (e < t3) return 'remote';
-  return 'responding';
+  if (e < t1) return { kind: 'local' };
+  e -= t1;
+  const rests = groupRestActions(g || {});
+  for (let i = 0; i < rests.length; i++) {
+    const api = state.apis.find(a => a.id === rests[i].apiId);
+    if (!api) continue;
+    const remDur = api.processingMs || 1;
+    if (e < LATENCY_MS) return { kind: 'requesting', actionIdx: i, api };
+    e -= LATENCY_MS;
+    if (e < remDur)     return { kind: 'remote',     actionIdx: i, api };
+    e -= remDur;
+    if (e < LATENCY_MS) return { kind: 'responding', actionIdx: i, api };
+    e -= LATENCY_MS;
+  }
+  return { kind: 'done' };
 }
 
 function consumeForGroup(g, dt) {
@@ -1220,25 +1254,19 @@ function consumeForGroup(g, dt) {
       // (1) Drive the current phase forward; advance to the next phase or
       //     back to FREE when it completes.
       if (c.processing) {
-        const phaseLen = phaseDuration(c, c.processing.phase);
+        const phaseLen = phaseDuration(c, c.processing.phase, g);
         const oldElapsed = c.processing.elapsed;
         // CONCURRENCY SLOWDOWN: while a REST consumer is in 'remote' on a
-        // replica that's serving N concurrent requests, its elapsed counter
-        // advances at 1/N speed. That extends the remote sub-phase
-        // proportionally and is the simulator's analogue to a real pod
-        // being saturated (CPU/IO contention).
+        // replica serving N concurrent requests, elapsed advances at 1/N
+        // speed. Faithful to a real backend pod being saturated.
         let slowdown = 1;
         if (c.processing.phase === 'process' &&
-            c.action && c.action.type === 'rest' &&
-            c.processing.replicaIdx !== undefined) {
-          const api = state.apis.find(a => a.id === c.action.apiId);
-          if (api) {
-            const t2 = (c.processingMs || 0) + LATENCY_MS;
-            const t3 = t2 + (api.processingMs || 1);
-            if (oldElapsed >= t2 && oldElapsed < t3 && api._replicaState) {
-              const st = api._replicaState[c.processing.replicaIdx];
-              slowdown = Math.max(1, st?.inflightCount || 1);
-            }
+            c.processing.replicaIdx !== undefined &&
+            c.processing.currentRestApiId !== undefined) {
+          const api = state.apis.find(a => a.id === c.processing.currentRestApiId);
+          if (api && api._replicaState) {
+            const st = api._replicaState[c.processing.replicaIdx];
+            slowdown = Math.max(1, st?.inflightCount || 1);
           }
         }
         const need = phaseLen - c.processing.elapsed;
@@ -1249,32 +1277,39 @@ function consumeForGroup(g, dt) {
           remaining = 0;
         } else {
           c.processing.elapsed = phaseLen;
-          remaining -= need * slowdown;   // wall-clock cost paid
+          remaining -= need * slowdown;
           fullyAdvanced = true;
         }
-        // REST sub-phase crossings: spawn the request ball at
-        // local→requesting; pick a replica + start the API timer at
-        // requesting→remote; release the replica + spawn the response
-        // ball at remote→responding.
-        if (c.processing.phase === 'process' &&
-            c.action && c.action.type === 'rest') {
-          const api = state.apis.find(a => a.id === c.action.apiId);
-          if (api) {
-            const t1 = c.processingMs || 0;
-            const t2 = t1 + LATENCY_MS;
-            const t3 = t2 + (api.processingMs || 1);
-            const newE = c.processing.elapsed;
-            if (oldElapsed < t1 && newE >= t1) {
+        // REST sub-phase crossings: iterate every REST action in
+        // sequence; for each, detect the local→requesting / requesting→
+        // remote / remote→responding crossings and act accordingly.
+        if (c.processing.phase === 'process') {
+          const rests = groupRestActions(g);
+          let cursor = c.processingMs || 0;
+          const newE = c.processing.elapsed;
+          for (let i = 0; i < rests.length; i++) {
+            const action = rests[i];
+            const api = state.apis.find(a => a.id === action.apiId);
+            if (!api) continue;
+            const tReqStart = cursor;
+            const tRemoteStart = tReqStart + LATENCY_MS;
+            const tRespStart = tRemoteStart + (api.processingMs || 1);
+            cursor = tRespStart + LATENCY_MS;
+            // local→requesting (or response_of_prev→request_of_this)
+            if (oldElapsed < tReqStart && newE >= tReqStart) {
               spawnApiRequestFly(g, c, api, scaled(LATENCY_MS));
             }
-            if (oldElapsed < t2 && newE >= t2 &&
-                c.processing.replicaIdx === undefined) {
+            // requesting→remote: load-balancer picks a replica
+            if (oldElapsed < tRemoteStart && newE >= tRemoteStart) {
               c.processing.replicaIdx = pickReplica(api);
+              c.processing.currentRestApiId = api.id;
             }
-            if (oldElapsed < t3 && newE >= t3) {
+            // remote→responding: release the replica + response ball
+            if (oldElapsed < tRespStart && newE >= tRespStart) {
               if (c.processing.replicaIdx !== undefined) {
                 releaseReplica(api, c.processing.replicaIdx);
                 c.processing.replicaIdx = undefined;
+                c.processing.currentRestApiId = undefined;
               }
               spawnApiResponseFly(g, c, api, scaled(LATENCY_MS));
             }
@@ -1341,11 +1376,9 @@ function consumeForGroup(g, dt) {
               remaining = 0;
               break;
             }
-            // Commit landed — NOW the offset officially advances.
-            const committed = c.processing.offset + 1;
-            if ((g.offsets[pi] ?? 0) < committed) g.offsets[pi] = committed;
-            c.lastActive = now;
-            clearConsumerProcessing(c);
+            // Commit landed — finalize (advances offset, clears in-flight
+            // state, fires any 'publish' actions configured on the group).
+            finalizeCommit(g, c);
           }
         }
       }
@@ -1493,6 +1526,10 @@ function makeGroup(name, color, topicId) {
     id: newId(), name, color, topicId,
     consumers: [], assignments: {}, offsets: {},
     collapsed: false,
+    // Side-effects every consumer in the group runs alongside a message:
+    //   { type: 'rest',    apiId }   → during process phase (sequential)
+    //   { type: 'publish', topicId } → fires once commit completes
+    actions: [],
   };
 }
 function makeApi(name, color) {
@@ -1536,27 +1573,101 @@ function releaseReplica(api, idx) {
 // the replica it was holding doesn't get stuck with a phantom inflight.
 function clearConsumerProcessing(c) {
   if (c.processing && c.processing.replicaIdx !== undefined &&
-      c.action && c.action.type === 'rest') {
-    const api = state.apis.find(a => a.id === c.action.apiId);
+      c.processing.currentRestApiId !== undefined) {
+    const api = state.apis.find(a => a.id === c.processing.currentRestApiId);
     if (api) releaseReplica(api, c.processing.replicaIdx);
   }
   c.processing = null;
 }
+
+// Called when commit officially completes (offset advances). Publish
+// actions are deferred by a short delay so the commit ball clearly lands
+// FIRST, then the publish balls fire — making the "commit → publish"
+// sequence visually distinct instead of overlapping at the same instant.
+const POST_COMMIT_PUBLISH_DELAY_MS = 280;
+function finalizeCommit(g, c) {
+  if (!c.processing) return;
+  const pi = c.processing.partition;
+  const committed = c.processing.offset + 1;
+  if ((g.offsets[pi] ?? 0) < committed) g.offsets[pi] = committed;
+  c.lastActive = performance.now();
+  const groupId = g.id;
+  const consumerId = c.id;
+  clearConsumerProcessing(c);
+  const pubSnapshot = (g.actions || []).filter(a => a.type === 'publish').map(a => a.id);
+  if (pubSnapshot.length === 0) return;
+  setTimeout(() => {
+    // Re-resolve so we don't fire against deleted state.
+    const gNow = state.groups.find(x => x.id === groupId);
+    if (!gNow) return;
+    const cNow = gNow.consumers.find(x => x.id === consumerId);
+    if (!cNow) return;
+    for (const aid of pubSnapshot) {
+      const action = (gNow.actions || []).find(a => a.id === aid);
+      if (!action || action.type !== 'publish') continue;
+      const tt = state.topics.find(t => t.id === action.topicId);
+      if (!tt || tt.partitions.length === 0) continue;
+      gNow._pubIdx = ((gNow._pubIdx | 0) + 1) % tt.partitions.length;
+      spawnConsumerPublishFly(cNow, gNow, tt, gNow._pubIdx);
+    }
+  }, scaled(POST_COMMIT_PUBLISH_DELAY_MS));
+}
+
+// Ball for a 'publish' action. Originates at the CONSUMER that just
+// committed — each consumer fires its own publishes so it visually reads
+// as "this consumer is doing it", not as a group-level event. The
+// consumer is acting as a producer: no persistent connector, only a
+// brief dashed line during flight tracked on c._publishInflight.
+function spawnConsumerPublishFly(consumer, group, topic, partitionIdx) {
+  const fromEl = document.querySelector(
+    `[data-group-id="${group.id}"] [data-consumer-id="${consumer.id}"]`
+  );
+  const toEl = document.querySelector(
+    `[data-topic-id="${topic.id}"] .partition[data-partition-idx="${partitionIdx}"]`
+  );
+  const topicId = topic.id;
+  const colour = consumer.color;
+  if (!consumer._publishInflight) consumer._publishInflight = [];
+  const inflight = { topicId, partitionIdx };
+  consumer._publishInflight.push(inflight);
+  const onArrival = () => {
+    const idx = consumer._publishInflight.indexOf(inflight);
+    if (idx >= 0) consumer._publishInflight.splice(idx, 1);
+    const t = state.topics.find(x => x.id === topicId);
+    if (!t) return;
+    const partition = t.partitions[partitionIdx];
+    if (!partition) return;
+    const offset = partition.nextOffset++;
+    partition.messages.push({
+      id: newId(), offset, key: null,
+      producerId: -consumer.id,   // negative id signals "consumer-as-producer"
+      color: colour,
+    });
+    while (partition.messages.length > MAX_PARTITION_HISTORY) {
+      partition.messages.shift();
+      partition.earliestOffset++;
+    }
+    partition.flashUntil = performance.now() + 350;
+  };
+  if (!fromEl || !toEl) { onArrival(); return; }
+  const fr = fromEl.getBoundingClientRect();
+  const tr = toEl.getBoundingClientRect();
+  // Consumer (col 3) → topic partition (col 2): ball exits the consumer's
+  // LEFT edge and enters the partition's RIGHT edge.
+  const p0 = { x: fr.left,  y: fr.top + fr.height / 2 };
+  const p3 = { x: tr.right, y: tr.top + tr.height / 2 };
+  flyAlong(p0, p3, colour, scaled(420), onArrival);
+}
 function makeConsumer(name, color) {
   return {
     id: newId(), name, color,
-    // Time it takes this consumer to process ONE message. The committed
-    // offset only advances when processing finishes — so a slow consumer
-    // visibly drags behind on its partition log.
+    // Time it takes this consumer to process ONE message LOCALLY (before
+    // any REST action). The committed offset only advances when the full
+    // process phase finishes — so a slow consumer visibly drags behind on
+    // its partition log. Group-level actions add their own time on top.
     processingMs: 2000,
     processing: null,    // { partition, offset, phase, elapsed } while busy
     rrIdx: 0, lastActive: 0,
-    // Optional side-effect during the process phase. For now the only
-    // supported action is calling a REST API; when set, the process phase
-    // duration is taken from the api's processingMs instead of the
-    // consumer's, and a request/response ball pair animates over the
-    // consumer→api connector.
-    action: null,        // { type:'rest', apiId } | null
   };
 }
 function pickColor() {
@@ -1867,22 +1978,53 @@ function updateLinks() {
     }
   }
 
-  // Consumer → REST API (solid). Drawn when the consumer's action targets
-  // an existing API; this is the wire the request/response balls travel
-  // along during the process phase.
+  // Consumer → REST API (solid). One line per (consumer, REST action) so
+  // a group with multiple REST actions shows multiple wires to different
+  // APIs leaving each consumer.
   for (const g of state.groups) {
+    const rests = groupRestActions(g);
     for (const c of g.consumers) {
-      if (!c.action || c.action.type !== 'rest') continue;
-      const api = state.apis.find(a => a.id === c.action.apiId);
-      if (!api) continue;
+      if (rests.length === 0) continue;
       const consEl = document.querySelector(
         `[data-group-id="${g.id}"] [data-consumer-id="${c.id}"]`
       );
-      const apiEl = document.querySelector(`[data-api-id="${api.id}"]`);
-      if (!consEl || !apiEl) continue;
+      if (!consEl) continue;
       const a = rightMid(consEl);
-      const b = leftMid(apiEl);
-      addLink(svg, a.x, a.y, b.x, b.y, api.color, 2, 0.55);
+      for (const action of rests) {
+        const api = state.apis.find(x => x.id === action.apiId);
+        if (!api) continue;
+        const apiEl = document.querySelector(`[data-api-id="${api.id}"]`);
+        if (!apiEl) continue;
+        const b = leftMid(apiEl);
+        addLink(svg, a.x, a.y, b.x, b.y, api.color, 2, 0.55);
+      }
+    }
+  }
+
+  // Publish in-flight connector: each consumer that's currently mid-
+  // publish gets a brief dashed line from its OWN card to the chosen
+  // partition. Source is the consumer so the visual reads as "this
+  // specific consumer is publishing", not as a group-shared event.
+  for (const g of state.groups) {
+    for (const c of g.consumers) {
+      if (!c._publishInflight || c._publishInflight.length === 0) continue;
+      const consEl = document.querySelector(
+        `[data-group-id="${g.id}"] [data-consumer-id="${c.id}"]`
+      );
+      if (!consEl) continue;
+      const cb = consEl.getBoundingClientRect();
+      const ax = cb.left - r.left;
+      const ay = cb.top + cb.height / 2 - r.top;
+      for (const inflight of c._publishInflight) {
+        const partEl = document.querySelector(
+          `[data-topic-id="${inflight.topicId}"] .partition[data-partition-idx="${inflight.partitionIdx}"]`
+        );
+        if (!partEl) continue;
+        const pb = partEl.getBoundingClientRect();
+        const bx = pb.right - r.left;
+        const by = pb.top + pb.height / 2 - r.top;
+        addDashedLink(svg, ax, ay, bx, by, c.color);
+      }
     }
   }
 }
@@ -2153,6 +2295,8 @@ function topicCard(t) {
         g.offsets = {};
         reassign(g);
       }
+      // Drop any 'publish' action pointing at the deleted topic.
+      g.actions = (g.actions || []).filter(a => !(a.type === 'publish' && a.topicId === t.id));
     }
     render();
   };
@@ -2253,9 +2397,71 @@ function groupCard(g) {
     </div>
     <div class="consumers"></div>
     <button class="add-mini add-consumer expanded-only">+ consumer</button>
+    <div class="group-actions expanded-only">
+      <div class="ga-head">
+        <span class="lbl">acciones del grupo</span>
+        <span class="ga-add-buttons">
+          <button class="mini-btn add-action-rest" ${state.apis.length===0?'disabled':''} title="añadir llamada REST">+ REST</button>
+          <button class="mini-btn add-action-pub" ${state.topics.length===0?'disabled':''} title="añadir publish a topic">+ Publish</button>
+        </span>
+      </div>
+      <div class="ga-list">${
+        (g.actions || []).map(a => {
+          if (a.type === 'rest') {
+            const apiOpts = state.apis.map(x =>
+              `<option value="${x.id}" ${x.id===a.apiId?'selected':''}>${escapeHtml(x.name)}</option>`
+            ).join('');
+            return `<div class="ga-row" data-action-id="${a.id}">
+              <span class="ga-tag rest">→ REST</span>
+              <select class="sel ga-target" data-kind="rest">${apiOpts}</select>
+              <button class="ga-x" title="quitar acción">✕</button>
+            </div>`;
+          }
+          if (a.type === 'publish') {
+            const topicOpts2 = state.topics.map(t =>
+              `<option value="${t.id}" ${t.id===a.topicId?'selected':''}>${escapeHtml(t.name)}</option>`
+            ).join('');
+            return `<div class="ga-row" data-action-id="${a.id}">
+              <span class="ga-tag pub">↗ Publish</span>
+              <select class="sel ga-target" data-kind="publish">${topicOpts2}</select>
+              <button class="ga-x" title="quitar acción">✕</button>
+            </div>`;
+          }
+          return '';
+        }).join('')
+      }</div>
+    </div>
   `;
   const consDiv = card.querySelector('.consumers');
   for (const c of g.consumers) consDiv.appendChild(consumerRow(g, c, topic));
+
+  // Wire up group-action add/remove + target selects
+  card.querySelector('.add-action-rest').onclick = () => {
+    if (state.apis.length === 0) return;
+    g.actions = g.actions || [];
+    g.actions.push({ id: newId(), type: 'rest', apiId: state.apis[0].id });
+    render();
+  };
+  card.querySelector('.add-action-pub').onclick = () => {
+    if (state.topics.length === 0) return;
+    g.actions = g.actions || [];
+    g.actions.push({ id: newId(), type: 'publish', topicId: state.topics[0].id });
+    render();
+  };
+  card.querySelectorAll('.ga-row').forEach(rowEl => {
+    const aid = +rowEl.dataset.actionId;
+    rowEl.querySelector('.ga-x').onclick = () => {
+      g.actions = (g.actions || []).filter(a => a.id !== aid);
+      render();
+    };
+    rowEl.querySelector('.ga-target').onchange = e => {
+      const action = (g.actions || []).find(a => a.id === aid);
+      if (!action) return;
+      if (action.type === 'rest') action.apiId = +e.target.value;
+      else if (action.type === 'publish') action.topicId = +e.target.value;
+      render();
+    };
+  });
 
   card.querySelector('.close-x').onclick = () => {
     state.groups = state.groups.filter(x => x.id !== g.id);
@@ -2316,13 +2522,13 @@ function apiCard(api) {
   card.dataset.apiId = api.id;
   card.style.color = api.color;
   const fmtSecs = ms => (ms / 1000).toFixed(1) + 's';
-  // Which consumers currently point their action at this api? (Computed
-  // at render time — kept in sync by renderLive's busy class update.)
+  // Which groups have a REST action pointing at this api? Each consumer
+  // of every such group is a potential caller.
   const callers = [];
   for (const g of state.groups) {
-    for (const c of g.consumers) {
-      if (c.action && c.action.apiId === api.id) callers.push(c);
-    }
+    const has = (g.actions || []).some(a => a.type === 'rest' && a.apiId === api.id);
+    if (!has) continue;
+    for (const c of g.consumers) callers.push(c);
   }
   card.innerHTML = `
     <div class="ahead">
@@ -2358,11 +2564,9 @@ function apiCard(api) {
   `;
   card.querySelector('.close-x').onclick = () => {
     state.apis = state.apis.filter(x => x.id !== api.id);
-    // Detach any consumer pointing here
+    // Drop any group action pointing at this api.
     for (const g of state.groups) {
-      for (const c of g.consumers) {
-        if (c.action && c.action.apiId === api.id) c.action = null;
-      }
+      g.actions = (g.actions || []).filter(a => !(a.type === 'rest' && a.apiId === api.id));
     }
     render();
   };
@@ -2416,30 +2620,12 @@ function consumerRow(g, c, topic) {
       <div class="proc-bar"><div class="proc-fill"></div></div>
       <span class="proc-eta" title="tiempo que falta para terminar">${fmtSecs(c.processingMs)}</span>
     </div>
-    <div class="action-row expanded-only">
-      <span class="lbl">acción</span>
-      <select class="sel action-sel">
-        <option value="" ${!c.action?'selected':''}>(ninguna)</option>
-        ${state.apis.map(a =>
-          `<option value="rest:${a.id}" ${c.action && c.action.type==='rest' && c.action.apiId===a.id?'selected':''}>→ ${escapeHtml(a.name)}</option>`
-        ).join('')}
-      </select>
-    </div>
     <div class="rebalance-slot"></div>
     <ol class="walk-log"></ol>
   `;
   row.querySelector('.x').onclick = () => {
     g.consumers = g.consumers.filter(x => x.id !== c.id);
     reassign(g);
-    render();
-  };
-  row.querySelector('.action-sel').onchange = e => {
-    const v = e.target.value;
-    if (!v) { c.action = null; }
-    else {
-      const [type, idRaw] = v.split(':');
-      c.action = { type, apiId: +idRaw };
-    }
     render();
   };
   const cv = row.querySelector('.cval');
@@ -2590,18 +2776,25 @@ function renderLive() {
   const apiAlive = new Set();      // apiId → any active sub-phase
   for (const g of state.groups) {
     for (const c of g.consumers) {
-      if (!c.processing || c.processing.phase !== 'process') continue;
-      if (!c.action || c.action.type !== 'rest') continue;
-      const sub = consumerSubPhase(c);
-      if (sub === 'local') continue;   // not yet talking to the api
-      apiAlive.add(c.action.apiId);
-      if (sub === 'remote') {
-        const api = state.apis.find(a => a.id === c.action.apiId);
-        if (api) {
-          const t2 = (c.processingMs || 0) + LATENCY_MS;
-          const remoteElapsed = c.processing.elapsed - t2;
-          const pct = Math.max(0, Math.min(1, remoteElapsed / (api.processingMs || 1)));
-          apiProgress.set(api.id, Math.max(apiProgress.get(api.id) || 0, pct));
+      const sub = consumerSubPhase(c, g);
+      if (!sub || sub.kind === 'local' || sub.kind === 'done') continue;
+      apiAlive.add(sub.api.id);
+      if (sub.kind === 'remote') {
+        // Compute remote-progress for the current api in this consumer's
+        // composite process phase.
+        let cursor = c.processingMs || 0;
+        const rests = groupRestActions(g);
+        for (let i = 0; i < rests.length; i++) {
+          if (i !== sub.actionIdx) {
+            const aPrev = state.apis.find(x => x.id === rests[i].apiId);
+            if (aPrev) cursor += 2 * LATENCY_MS + (aPrev.processingMs || 1);
+            continue;
+          }
+          const tRemoteStart = cursor + LATENCY_MS;
+          const remoteElapsed = c.processing.elapsed - tRemoteStart;
+          const pct = Math.max(0, Math.min(1, remoteElapsed / (sub.api.processingMs || 1)));
+          apiProgress.set(sub.api.id, Math.max(apiProgress.get(sub.api.id) || 0, pct));
+          break;
         }
       }
     }
@@ -2628,12 +2821,25 @@ function renderLive() {
     for (const g of state.groups) {
       for (const c of g.consumers) {
         if (!c.processing || c.processing.phase !== 'process') continue;
-        if (!c.action || c.action.type !== 'rest' || c.action.apiId !== api.id) continue;
         if (c.processing.replicaIdx === undefined) continue;
+        if (c.processing.currentRestApiId !== api.id) continue;
+        // Compute progress within THIS api's remote window, accounting
+        // for any earlier REST actions that already ran before it.
+        const rests = groupRestActions(g);
+        let cursor = c.processingMs || 0;
+        let progress = 0;
+        for (let i = 0; i < rests.length; i++) {
+          const aRest = state.apis.find(x => x.id === rests[i].apiId);
+          if (!aRest) continue;
+          if (aRest.id === api.id) {
+            const tRemoteStart = cursor + LATENCY_MS;
+            const remoteElapsed = c.processing.elapsed - tRemoteStart;
+            progress = Math.max(0, Math.min(1, remoteElapsed / (api.processingMs || 1)));
+            break;
+          }
+          cursor += 2 * LATENCY_MS + (aRest.processingMs || 1);
+        }
         const arr = perReplica.get(c.processing.replicaIdx) || [];
-        const t2 = (c.processingMs || 0) + LATENCY_MS;
-        const remoteElapsed = c.processing.elapsed - t2;
-        const progress = Math.max(0, Math.min(1, remoteElapsed / (api.processingMs || 1)));
         arr.push({ color: c.color, progress });
         perReplica.set(c.processing.replicaIdx, arr);
       }
@@ -2740,9 +2946,9 @@ function renderLive() {
         row.classList.remove('idle');
         row.classList.add('processing');
         const phase = c.processing.phase;
-        // Use phaseDuration so the bar tracks the REAL phase length —
-        // including api.processingMs when the consumer has a REST action.
-        const procMs = Math.max(1, phaseDuration(c, 'process'));
+        // Bar tracks the REAL phase length — including all REST actions
+        // (group-level) when configured.
+        const procMs = Math.max(1, phaseDuration(c, 'process', g));
         let pct, etaMs;
         if (phase === 'fetch') {
           pct = 0;
@@ -2758,18 +2964,14 @@ function renderLive() {
         if (tgt) tgt.textContent = `${tag} P${c.processing.partition} · #${c.processing.offset}`;
         if (fill) fill.style.width = pct.toFixed(1) + '%';
         if (eta) eta.textContent = fmtS(etaMs);
-        // While the consumer is BLOCKED on the REST api (sub-phase 'remote'),
-        // tint the bar with the api's colour so the visual reads "waiting
-        // for that api". The 'requesting' and 'responding' sub-phases are
-        // brief (network hop) so we paint them the api colour too for
-        // continuity. Local prep stays the consumer's own colour.
+        // When the consumer is in any REST sub-phase, tint the bar with
+        // the api's colour so it reads "blocked on this api".
         if (fill) {
-          const sub = consumerSubPhase(c);
-          if (sub === 'requesting' || sub === 'remote' || sub === 'responding') {
-            const api = state.apis.find(a => a.id === c.action.apiId);
-            fill.style.background = api ? api.color : '';
+          const sub = consumerSubPhase(c, g);
+          if (sub && sub.api && sub.kind !== 'local' && sub.kind !== 'done') {
+            fill.style.background = sub.api.color;
           } else {
-            fill.style.background = '';   // back to currentColor (consumer)
+            fill.style.background = '';
           }
         }
       } else {
@@ -2777,7 +2979,7 @@ function renderLive() {
         row.classList.remove('processing');
         if (tgt) tgt.textContent = '—';
         if (fill) { fill.style.width = '0%'; fill.style.background = ''; }
-        if (eta) eta.textContent = fmtS(phaseDuration(c, 'process'));
+        if (eta) eta.textContent = fmtS(phaseDuration(c, 'process', g));
       }
     }
     const gLagEl = document.querySelector(`[data-group-id="${g.id}"] .glag`);
@@ -2849,11 +3051,11 @@ function serializeState() {
         id: c.id, name: c.name, color: c.color,
         processingMs: c.processingMs,
         processing: c.processing,   // preserve in-flight; consumeForGroup is tolerant
-        action: c.action || null,
       })),
       assignments: g.assignments,
       offsets: g.offsets,
       collapsed: !!g.collapsed,
+      actions: g.actions || [],
     })),
   });
 }
@@ -2900,25 +3102,37 @@ function hydrateFromParsed(parsed) {
   // Walkthrough mode defaults to ON; only OFF if explicitly saved as false.
   // Accept the old `consumerWalkthrough` field name for backward compat.
   state.walkthroughMode = (parsed.walkthroughMode ?? parsed.consumerWalkthrough) !== false;
-  state.groups = (parsed.groups || []).map(g => ({
-    id: g.id, name: g.name, color: g.color, topicId: g.topicId,
-    consumers: (g.consumers || []).map(c => {
-      // Older saves stored `processing` without a phase. Default to
-      // 'process' so the work resumes mid-flight instead of disappearing.
-      let proc = c.processing || null;
-      if (proc && !proc.phase) proc = { ...proc, phase: 'process', elapsed: proc.elapsed | 0 };
-      return {
-        id: c.id, name: c.name, color: c.color,
-        processingMs: c.processingMs ?? 2000,
-        processing: proc,
-        rrIdx: 0, lastActive: 0,
-        action: c.action || null,
-      };
-    }),
-    assignments: g.assignments || {},
-    offsets: g.offsets || {},
-    collapsed: !!g.collapsed,
-  }));
+  state.groups = (parsed.groups || []).map(g => {
+    // Migrate legacy per-consumer action to the new group-level actions list.
+    const legacyActions = [];
+    (g.consumers || []).forEach(c => {
+      if (c.action && c.action.type === 'rest' && c.action.apiId) {
+        if (!legacyActions.some(a => a.type === 'rest' && a.apiId === c.action.apiId)) {
+          legacyActions.push({ id: newId(), type: 'rest', apiId: c.action.apiId });
+        }
+      }
+    });
+    const actions = Array.isArray(g.actions) && g.actions.length
+      ? g.actions.map(a => ({ id: a.id || newId(), ...a }))
+      : legacyActions;
+    return {
+      id: g.id, name: g.name, color: g.color, topicId: g.topicId,
+      consumers: (g.consumers || []).map(c => {
+        let proc = c.processing || null;
+        if (proc && !proc.phase) proc = { ...proc, phase: 'process', elapsed: proc.elapsed | 0 };
+        return {
+          id: c.id, name: c.name, color: c.color,
+          processingMs: c.processingMs ?? 2000,
+          processing: proc,
+          rrIdx: 0, lastActive: 0,
+        };
+      }),
+      assignments: g.assignments || {},
+      offsets: g.offsets || {},
+      collapsed: !!g.collapsed,
+      actions,
+    };
+  });
   // Make sure every newly-loaded group has at least default offsets +
   // assignments for the partitions it sees now.
   for (const g of state.groups) reassign(g);
