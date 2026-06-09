@@ -87,6 +87,10 @@
     mix-blend-mode:multiply;
   }
   .links-svg path{transition:opacity .15s;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  /* Hover-hit paths sit on top of the visible link. They're transparent
+     but accept stroke hits so the native SVG &lt;title&gt; tooltip fires
+     even though the SVG itself has pointer-events:none. */
+  .links-svg path[pointer-events="stroke"]{pointer-events:stroke}
   /* Walkthrough connector: dashed line that "marches" while a producer is
      mid-walkthrough. Targets the TOPIC card during the metadata-consultation
      phase, then snaps to the SPECIFIC partition once the decision is made. */
@@ -195,11 +199,36 @@
      phase at a time; each step has a ✓ to advance, and the final ✓ actually
      triggers the send (ball flies). Visible in both collapsed and expanded
      mode — the whole point is to see it during a demo. */
+  /* Walkthrough log — when present it floats as a fixed-position panel
+     so it never pushes the card layout. JS in renderLive places it next
+     to the row it belongs to (top + left computed from the row's
+     bounding rect). pointer-events:auto on the panel itself so the ✓
+     button stays clickable. */
   .walk-log{
     list-style:none;font-size:11.5px;color:var(--muted);
-    margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:3px;
+    margin:0;padding:6px;display:flex;flex-direction:column;gap:3px;
+    position:fixed;z-index:1000;
+    width:340px;max-height:60vh;overflow-y:auto;
+    background:#fff;border:1px solid #d2d8e5;border-radius:6px;
+    box-shadow:0 6px 18px rgba(20,30,60,.18);
+    pointer-events:auto;
   }
   .walk-log:empty{display:none}
+  /* Small caret on the left edge pointing at the originating row (when
+     the panel is placed to the row's right). When fallback positions
+     the panel BELOW the row, the caret swings to the top edge instead. */
+  .walk-log::before{
+    content:'';position:absolute;left:-7px;top:14px;
+    width:0;height:0;border:7px solid transparent;
+    border-right-color:#fff;border-left:0;
+    filter:drop-shadow(-1px 0 0 #d2d8e5);
+  }
+  .walk-log.below::before{
+    left:18px;top:-7px;
+    border:7px solid transparent;
+    border-bottom-color:#fff;border-top:0;
+    filter:drop-shadow(0 -1px 0 #d2d8e5);
+  }
   .walk-log li{padding:3px 7px;border-radius:4px;line-height:1.35}
   .walk-log li.done{
     background:#f3f5fa;color:var(--muted);
@@ -247,6 +276,24 @@
   /* A consumer row whose walkthrough is active gets a faint amber ring so
      it's easy to spot among siblings at a glance. */
   .consumer-row.walking{box-shadow:0 0 0 2px rgba(240,213,138,.55)}
+  /* Topic kind badge: tiny chip in the header so it's obvious whether the
+     card models a Kafka log or an Azure Service Bus queue. Different
+     colours so both can coexist visibly side-by-side. */
+  .kind-badge{
+    font-size:10px;font-weight:900;letter-spacing:.5px;
+    padding:2px 6px;border-radius:4px;color:#fff;flex:0 0 auto;
+  }
+  .kind-badge.kafka{background:#3956d3}
+  .kind-badge.sb{background:#0078d4}   /* Azure-ish */
+  .topic-card.kind-sb-queue{border-left:4px solid #0078d4}
+  /* Single-lane queue view for SB queues — same internal anatomy as a
+     partition row, just one of them and labelled "Queue". */
+  .sb-lane{
+    display:grid;grid-template-columns:48px 1fr;gap:8px;align-items:center;
+    border:1px solid var(--partition-border);background:var(--partition-bg);
+    border-radius:6px;padding:5px 8px;
+  }
+  .sb-lane .p-label{font-size:10.5px;font-weight:800;color:var(--ink);letter-spacing:.3px}
   .action-row{display:flex;align-items:center;gap:6px;font-size:11.5px;margin-top:2px}
   .action-row .sel{flex:1;min-width:0}
   /* Group-level actions list (REST calls during process, publish after commit) */
@@ -277,6 +324,18 @@
     font-size:12px;padding:1px 4px;border-radius:3px;
   }
   .ga-row .ga-x:hover{color:#9c2a2a;background:#fbe9e9}
+  /* REST actions are two lines: top line = target select, bottom line =
+     per-group time override + follow-msg toggle. Publish actions stay on
+     a single line (no override needed). */
+  .ga-row.ga-rest{flex-direction:column;align-items:stretch;gap:4px}
+  .ga-row .ga-row-top{display:flex;align-items:center;gap:6px}
+  .ga-row .ga-row-time{
+    display:flex;align-items:center;gap:6px;font-size:10.5px;
+    padding-left:18px;color:var(--muted);
+  }
+  .ga-row .ga-row-time .lbl{font-size:10px;letter-spacing:.2px;text-transform:uppercase;font-weight:700;flex:0 0 auto}
+  .ga-row .ga-row-time .num{flex:0 0 auto}
+  .ga-row .ga-row-time .follow-msg-tgl{margin-left:auto}
 
   /* REST API card — standalone endpoint that can receive requests from
      consumers (or future producers). Visually similar to a producer card
@@ -305,6 +364,24 @@
     letter-spacing:.2px;
   }
   .api-card .caller-badge.idle{background:#bfc8de;color:#fff;font-style:italic}
+  /* Per-(api, calling-group) override rows on the api card. Each row
+     shows the group name, the time it spends in this api, and a follow-
+     msg toggle — that's the "REST API time per group" the user wants
+     in the api card itself (not on the group's action row). */
+  .api-card .api-group-rows{
+    display:flex;flex-direction:column;gap:4px;margin:2px 0;
+  }
+  .api-card .api-group-row{
+    display:flex;align-items:center;gap:6px;font-size:11px;
+    background:#f8faff;border:1px solid #e2e8f5;border-radius:4px;
+    padding:3px 6px 3px 6px;
+  }
+  .api-card .api-group-row .agr-name{
+    font-weight:700;color:var(--ink);flex:1 1 auto;min-width:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .api-card .api-group-row .num{flex:0 0 auto}
+  .api-card .api-group-row .follow-msg-tgl{flex:0 0 auto}
   /* API's own progress bar — fills only while a consumer is in the
      'remote' sub-phase (api crunching the request). Stays at 0% otherwise. */
   .api-bar{
@@ -329,10 +406,14 @@
   .replica.busy .rstatus{color:#8a5a10;font-style:normal;font-weight:700}
   .replica.contended{background:#fdecec;border-color:#d49a9a}
   .replica.contended .rstatus{color:#9c2a2a;font-weight:800}
-  .replica .rqueue{display:flex;flex-direction:column;gap:2px}
+  .replica .rqueue{display:flex;flex-direction:column;gap:3px}
   .replica .rqueue:empty{display:none}
+  /* One row per in-flight request: the consumer's mini message square
+     on the left + its progress bar on the right. */
+  .req-row{display:flex;align-items:center;gap:4px}
+  .req-bar-wrap{flex:1 1 auto;background:#e8edf6;border-radius:2px;overflow:hidden;height:5px;min-width:24px}
   .req-bar{
-    height:3px;border-radius:2px;width:0%;
+    height:100%;border-radius:2px;width:0%;
     box-shadow:inset 0 0 0 1px rgba(0,0,0,.1);
     transition:width .08s linear;
   }
@@ -429,22 +510,41 @@
     text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;
   }
   .partition .p-track{position:relative;display:flex;flex-direction:column;gap:1px}
-  .partition .p-log{
+  .partition .p-log,
+  .sb-lane .p-log{
     position:relative;border-radius:4px;background:#fff;border:1px solid #e2e8f5;
-    padding:3px;overflow:hidden;height:24px;
+    padding:3px;overflow:hidden;height:34px;
   }
   .p-log-inner{
     display:flex;flex-direction:row;justify-content:flex-end;gap:2px;
     height:100%;width:100%;
   }
   .msg{
-    width:18px;height:100%;border-radius:2px;color:#fff;font-size:8.5px;font-weight:800;
-    display:flex;align-items:center;justify-content:center;
+    width:30px;height:100%;border-radius:3px;color:#fff;font-size:9px;font-weight:800;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
     box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);position:relative;
-    font-variant-numeric:tabular-nums;flex:0 0 auto;
+    font-variant-numeric:tabular-nums;flex:0 0 auto;padding:1px 0;
   }
   .msg .mkey{display:none}
-  .msg .moff{font-size:8.5px;letter-spacing:-.4px}
+  .msg .moff{font-size:9.5px;letter-spacing:-.2px;line-height:1}
+  /* Per-message processing time, stamped by the producer. Sits as a
+     tinted chip under the seq/offset so it's identifiable at a glance.
+     Hidden when the message wasn't stamped (legacy / consumer republish). */
+  .msg .mtime{
+    font-size:8.5px;font-weight:700;letter-spacing:-.2px;line-height:1;
+    background:rgba(255,255,255,.28);color:#fff;
+    padding:0 3px;border-radius:2px;
+  }
+  .msg .mtime:empty{display:none}
+  /* Mini variant for inline use inside the consumer's processing area and
+     inside the api's replica queue — same colour/seq/time encoding as
+     the queue square but small enough to ride next to other widgets. */
+  .msg.mini{
+    width:32px;height:22px;border-radius:3px;
+    font-size:8.5px;gap:0;padding:1px 2px;
+  }
+  .msg.mini .moff{font-size:9px;line-height:1}
+  .msg.mini .mtime{font-size:7.5px;line-height:1;padding:0 2px}
   .msg.enter{animation:msgin .26s cubic-bezier(.22,.7,.18,1)}
   @keyframes msgin{
     from{transform:translateX(22px) scaleX(.2);opacity:0}
@@ -505,6 +605,10 @@
   .consumer-row .crow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;width:100%}
   .consumer-row.processing{background:#eef5ff}
   .proc-info{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted)}
+  /* Slot for the in-flight message square (rendered into the consumer's
+     processing area each frame while it has work). Empty → no-op. */
+  .proc-msg{display:flex;align-items:center;flex:0 0 auto;min-width:0}
+  .proc-msg:empty{display:none}
   .proc-target{
     font-weight:800;font-variant-numeric:tabular-nums;min-width:54px;color:var(--ink);
     font-size:9.5px;letter-spacing:.2px;
@@ -539,6 +643,62 @@
     background:#fdecec;padding:1px 5px;border-radius:3px;font-variant-numeric:tabular-nums;
   }
   .lagn.ok{color:var(--ok);background:#e7f5ec}
+  /* "follow msg time" toggle — shown on consumer rows and REST api cards.
+     When ON, the component takes processingMs from each message instead
+     of using its own fixed value. Compact so it fits inline. */
+  .mini-btn.follow-msg-tgl{
+    padding:1px 7px;font-size:10.5px;letter-spacing:.2px;flex:0 0 auto;
+  }
+  /* Dedicated row that hosts the follow-msg-tgl on consumers + api cards.
+     Separate from the main meta row so the toggle is visible at a glance
+     instead of being squeezed at the end of a tight flex line. */
+  .follow-row{
+    display:flex;align-items:center;gap:6px;font-size:10.5px;
+    border-top:1px dashed #d2d8e5;padding:5px 0 0;margin-top:2px;
+  }
+  .follow-row .lbl{font-size:10.5px;letter-spacing:.2px;text-transform:uppercase;
+                    color:var(--muted);font-weight:700}
+  .is-muted{opacity:.4;pointer-events:none}
+  /* Service Bus receiver — different fields from a Kafka consumer:
+       · no partition assignment (competing-consumer over one queue)
+       · no per-consumer lag (it's a queue-level depth)
+       · peek-lock state instead of offset                                    */
+  .consumer-row.sb{background:#f4faff;border-color:#cfe4f5}
+  .consumer-row.sb.processing{background:#e6f2fb}
+  .consumer-row.sb .role-tag{
+    font-size:9.5px;font-weight:800;color:#fff;background:#0078d4;
+    padding:1px 5px;border-radius:3px;letter-spacing:.3px;
+  }
+  .consumer-row.sb .lock-badge{
+    font-size:9.5px;font-weight:800;color:#0078d4;background:#e1efff;
+    border:1px solid #b6d4ee;padding:1px 5px;border-radius:3px;letter-spacing:.3px;
+  }
+  .consumer-row.sb .lock-badge.locked{color:#fff;background:#0078d4;border-color:#0078d4}
+  .consumer-row.sb .deliv-badge{
+    font-size:9.5px;font-weight:800;color:#9a4a00;background:#fff0d9;
+    border:1px solid #f3d39a;padding:1px 5px;border-radius:3px;letter-spacing:.3px;
+  }
+  .consumer-row.sb .sb-meta{
+    flex:1 1 auto;display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0;
+  }
+  /* Group-card variant for Service Bus — matches the queue-card accent. */
+  .group-card.kind-sb{border-left-color:#0078d4}
+  .group-meta .sb-pill{
+    font-size:9.5px;font-weight:800;color:#fff;background:#0078d4;
+    padding:1px 5px;border-radius:3px;letter-spacing:.3px;margin-right:4px;
+  }
+  .group-meta .kafka-pill{
+    font-size:9.5px;font-weight:800;color:#fff;background:#3956d3;
+    padding:1px 5px;border-radius:3px;letter-spacing:.3px;margin-right:4px;
+  }
+  /* More descriptive topic/queue header tag — the K/Q chips are still there
+     but a short text label next to them removes ambiguity. */
+  .kind-text{
+    font-size:9.5px;font-weight:700;color:var(--muted);letter-spacing:.2px;
+    text-transform:uppercase;
+  }
+  .kind-text.kafka{color:#3956d3}
+  .kind-text.sb{color:#0078d4}
   .consumer-row .x{
     background:none;border:none;color:var(--muted2);cursor:pointer;font-size:12px;
     padding:1px 4px;border-radius:3px;
@@ -557,6 +717,12 @@
      along the consumer's connector. Position is driven by requestAnimation-
      Frame in JS (no CSS transition — it would fight the per-frame writes). */
   #flyLayer{position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:visible}
+  /* Walk-log overlay — sits ABOVE every card/column so the panels are
+     never trapped by .col's stacking context (which is z-index:2). The
+     panels themselves use position:fixed with pointer-events:auto so the
+     ✓ stays clickable; the layer's pointer-events:none means the empty
+     space between panels still lets clicks through. */
+  #walkLayer{position:fixed;inset:0;pointer-events:none;z-index:5000;overflow:visible}
   .fly-msg{
     position:fixed;left:0;top:0;width:13px;height:13px;border-radius:50%;
     box-shadow:0 4px 12px rgba(0,0,0,.28),inset 0 0 0 1.5px rgba(255,255,255,.45);
@@ -572,7 +738,7 @@
 <div class="app">
 
   <header class="top">
-    <h1>Kafka <span class="sep">·</span> Producers <span class="sep">·</span> Topics <span class="sep">·</span> Consumers</h1>
+    <h1>Producers <span class="sep">·</span> Brokers <span class="sep">·</span> Consumers</h1>
     <div class="toolbar">
       <button class="btn toggle on" id="playBtn">Simulación: ON</button>
       <label class="speedctl" title="velocidad del reloj del simulador">
@@ -613,12 +779,15 @@
       </section>
     </div>
 
-    <!-- CENTER: topics with partitions -->
+    <!-- CENTER: brokers — host both Kafka topics (partitioned) and ASB queues (single lane) -->
     <div class="col">
       <section class="section flex">
         <header class="section-head">
-          <div class="title">Topics · Particiones</div>
-          <div class="actions"><button class="ghost-btn" id="addTopicBtn">+ topic</button></div>
+          <div class="title" title="Kafka topics y Azure Service Bus queues — ambos son destinos donde los producers escriben y los consumers leen">Brokers</div>
+          <div class="actions">
+            <button class="ghost-btn" id="addTopicBtn" title="añadir un Kafka topic">+ Kafka</button>
+            <button class="ghost-btn" id="addQueueBtn" title="añadir una Azure Service Bus queue">+ ASB queue</button>
+          </div>
         </header>
         <div class="section-body" id="topicsList"></div>
       </section>
@@ -652,6 +821,9 @@
   </footer>
 </div>
 <div id="flyLayer"></div>
+<!-- Top-level overlay for floating walk-log panels. Lives outside .col
+     stacking contexts so the panels can sit above the rest of the app. -->
+<div id="walkLayer"></div>
 
 <script>
 (() => {
@@ -666,7 +838,9 @@ const PALETTE = [
 ];
 const MAX_PARTITION_HISTORY = 240;   // ring buffer cap per partition
 const MAX_VISIBLE = 24;              // upper bound on how many .msg we paint
-const MSG_W = 18;                    // px per message bar (horizontal log)
+// Bumped to 30px so a small "1.5s" time chip fits below the seq/offset
+// inside the message square. Vertical stacking keeps the row tight.
+const MSG_W = 30;                    // px per message bar (horizontal log)
 const MSG_GAP = 2;                   // px between message bars
 const ROW_W = MSG_W + MSG_GAP;
 const LOG_PAD = 3;                   // .p-log padding (left+right inset)
@@ -748,7 +922,11 @@ function pickPartition(p, topic) {
 // to draw — the ball itself is what reveals the routing in those cases.
 function producerTargets(p) {
   const topic = state.topics.find(t => t.id === p.topicId);
-  if (!topic || topic.partitions.length === 0) return [];
+  if (!topic) return [];
+  // SB queues have no partitions; the producer→queue connector (if any)
+  // is drawn elsewhere and only when there's actually an in-flight ball.
+  if (topic.kind === 'sb-queue') return [];
+  if (!topic.partitions || topic.partitions.length === 0) return [];
   if (p.mode !== 'sticky') return [];
   return [Math.min(p.stickyPart || 0, topic.partitions.length - 1)];
 }
@@ -758,12 +936,61 @@ function producerTargets(p) {
 // ============================================================
 function produceMessage(producer) {
   const topic = state.topics.find(t => t.id === producer.topicId);
-  if (!topic || topic.partitions.length === 0) return;
+  if (!topic) return;
+  producer.sendCount++;
+  if (topic.kind === 'sb-queue') {
+    // Service Bus has no partitioning exposed to the client. The producer
+    // just appends to the queue's single lane. mode/key are recorded but
+    // don't affect routing.
+    deliverSbMessage(producer, topic, keyForProducer(producer));
+    return;
+  }
+  if (topic.partitions.length === 0) return;
   const pIdx = pickPartition(producer, topic);
   if (pIdx < 0) return;
   const key = keyForProducer(producer);
-  producer.sendCount++;   // counter advances at send time (UX feedback)
   deliverMessage(producer, topic, pIdx, key);
+}
+
+// Service-Bus variant of deliverMessage: the ball flies producer → queue
+// card (not to a specific partition since there isn't one), and on arrival
+// the message gets appended to topic.messages.
+function deliverSbMessage(producer, topic, key, onAck) {
+  const colour       = producer.color;
+  const producerId   = producer.id;
+  const topicId      = topic.id;
+  const processingMs = producer.msgProcessingMs;
+  const fromEl = document.querySelector(`[data-producer-id="${producer.id}"]`);
+  const toEl   = document.querySelector(`[data-topic-id="${topic.id}"] .sb-lane .p-log`);
+  // Track inflight on the producer so the dashed line shows during flight
+  // (same UX as a Kafka rr-mode producer).
+  if (!producer._sbInflight) producer._sbInflight = new Map();
+  producer._sbInflight.set(topic.id, (producer._sbInflight.get(topic.id) || 0) + 1);
+  const onArrival = () => {
+    producer._sbInflight.set(topic.id,
+      Math.max(0, (producer._sbInflight.get(topic.id) || 0) - 1));
+    if (producer._sbInflight.get(topic.id) === 0) producer._sbInflight.delete(topic.id);
+    const t = state.topics.find(x => x.id === topicId);
+    if (!t || t.kind !== 'sb-queue') return;
+    const seq = t.nextSeq++;
+    t.messages.push({
+      id: newId(),
+      seq, key, producerId, color: colour,
+      processingMs,
+      deliveryCount: 0,
+      lockedBy: null,
+      lockedUntil: 0,
+    });
+    while (t.messages.length > MAX_PARTITION_HISTORY) t.messages.shift();
+    t.flashUntil = performance.now() + 350;
+    if (onAck) onAck(seq);
+  };
+  if (!fromEl || !toEl) { onArrival(); return; }
+  const fr = fromEl.getBoundingClientRect();
+  const tr = toEl.getBoundingClientRect();
+  const p0 = { x: fr.right, y: fr.top + fr.height / 2 };
+  const p3 = { x: tr.left,  y: tr.top + tr.height / 2 };
+  flyAlong(p0, p3, colour, scaled(420), onArrival);
 }
 
 // Helper for the silent-mode in-flight connector: count concurrent deliveries
@@ -783,9 +1010,10 @@ function bumpInflight(producer, pIdx, delta) {
 // has landed AND the partition has actually appended the record; it gets
 // the assigned offset so the walkthrough's ack step can name it.
 function deliverMessage(producer, topic, pIdx, key, onAck) {
-  const colour    = producer.color;
-  const producerId= producer.id;
-  const topicId   = topic.id;
+  const colour       = producer.color;
+  const producerId   = producer.id;
+  const topicId      = topic.id;
+  const processingMs = producer.msgProcessingMs;
   bumpInflight(producer, pIdx, +1);
   spawnFly(producer, topic, pIdx, () => {
     const t = state.topics.find(x => x.id === topicId);
@@ -796,6 +1024,7 @@ function deliverMessage(producer, topic, pIdx, key, onAck) {
         partition.messages.push({
           id: newId(), offset, key,
           producerId, color: colour,
+          processingMs,
         });
         while (partition.messages.length > MAX_PARTITION_HISTORY) {
           partition.messages.shift();
@@ -905,7 +1134,14 @@ function computeDecision(producer, topic) {
 function startWalkthrough(p) {
   if (p.walk) return;   // already mid-walkthrough; ignore double-click
   const topic = state.topics.find(t => t.id === p.topicId);
-  if (!topic || topic.partitions.length === 0) return;
+  if (!topic) return;
+  if (topic.kind === 'sb-queue') {
+    // No partition-selection reasoning to walk through for SB — the
+    // producer just appends. Send directly.
+    produceMessage(p);
+    return;
+  }
+  if (!topic.partitions || topic.partitions.length === 0) return;
   p.walk = Object.assign(computeDecision(p, topic), {
     topicId: topic.id, idx: 0, flightFired: false,
   });
@@ -968,10 +1204,39 @@ function walkBody(step, showNote) {
   return body;
 }
 
+// Look up (or lazily create) the walk-log panel for a given anchor. The
+// panel lives in #walkLayer (top-level overlay) so its z-index isn't
+// trapped by .col's stacking context. We remember the anchor selector
+// on the panel so renderLive can re-find the anchor to position the
+// panel even after the card it belonged to was re-rendered.
+function ensureWalkPanel(key, anchorEl) {
+  const layer = document.getElementById('walkLayer');
+  if (!layer) return null;
+  let log = document.getElementById('walk-' + key);
+  if (!log) {
+    log = document.createElement('ol');
+    log.className = 'walk-log';
+    log.id = 'walk-' + key;
+    layer.appendChild(log);
+  }
+  // Build a stable selector to re-find the anchor each frame, even if
+  // the original element gets replaced by a re-render.
+  if (anchorEl.dataset.consumerId) {
+    const groupCard = anchorEl.closest('[data-group-id]');
+    if (groupCard) {
+      log.dataset.anchorSel =
+        `[data-group-id="${groupCard.dataset.groupId}"] [data-consumer-id="${anchorEl.dataset.consumerId}"]`;
+    }
+  } else if (anchorEl.dataset.producerId) {
+    log.dataset.anchorSel = `[data-producer-id="${anchorEl.dataset.producerId}"]`;
+  }
+  return log;
+}
+
 function renderWalkthrough(p) {
   const card = document.querySelector(`[data-producer-id="${p.id}"]`);
   if (!card) return;
-  const log = card.querySelector('.walk-log');
+  const log = ensureWalkPanel('p-' + p.id, card);
   if (!log) return;
   log.innerHTML = '';
   if (!p.walk) return;
@@ -1059,6 +1324,41 @@ function computeConsumerDecision(c, g, topic, picked) {
   return { steps, decidedAtIdx: 1 };
 }
 
+// Service Bus equivalent: a Receive → peek-lock → Complete cycle. The
+// receiver shares the queue with the rest of the group (competing-
+// consumer pattern); the broker grants a lock on the head message when
+// it answers the Receive call. Complete tells the broker to delete the
+// message — there's no offset to commit.
+function computeSbReceiverDecision(c, g, topic, picked) {
+  const peerNames = g.consumers.filter(x => x.id !== c.id).map(x => x.name);
+  const peersStr = peerNames.length ? peerNames.join(', ') : 'sin otros receivers';
+  const steps = [];
+  steps.push({
+    text: `Receive() invocado por la app sobre la queue ${topic.name}`,
+    note: 'el receiver tira del broker (modo PEEK-LOCK por defecto). No hay push: la app decide cuándo pedir; en peek-lock el broker bloquea el mensaje y lo entrega — no lo borra hasta que el cliente haga Complete',
+    kind: 'decision',
+  });
+  steps.push({
+    text: `Cola única — competimos con: ${peersStr}`,
+    note: 'ASB no asigna particiones; varios receivers comparten el AMQP link a la queue y el broker reparte mensaje a mensaje. El primero que pida un Receive y haya un mensaje sin lock se lo lleva',
+    kind: 'decision',
+  });
+  steps.push({
+    text: `Próximo mensaje de la cabeza sin lock: seq ${picked.seq}${picked.key ? ` · key=${picked.key}` : ''}${picked.deliveryCount > 0 ? ` · ya entregado ${picked.deliveryCount} vez(ces)` : ''}`,
+    note: 'el broker recorre los mensajes en orden FIFO y entrega el primero cuyo lock haya caducado o no exista. Por eso un mensaje "atascado" en un receiver bloquea al siguiente sólo si el lock sigue vivo (LockDuration, 30s por defecto)',
+    kind: 'decision',
+  });
+  steps.push({
+    text: `Enviar Receive (AMQP) al broker — ✓ envía`,
+    note: 'el cliente abre/reutiliza el AMQP link al namespace; el broker responderá con un único transfer-frame que ya viene con el LockToken adjunto',
+    kind: 'fetchTrigger',
+  });
+  // The queue is fixed (g.topicId) — no "decided at" step like Kafka's
+  // partitioner needs. The dashed walk-link is always over the same
+  // queue→receiver subscription line, so decidedAtIdx = 0 is fine.
+  return { steps, decidedAtIdx: 0 };
+}
+
 // Called automatically by consumeForGroup when a free consumer would pick
 // up the next message. Sets up c.walk with the precomputed picked message
 // and renders the first step. Does NOT touch c.processing — that's set
@@ -1067,9 +1367,33 @@ function beginConsumerWalkthrough(g, c, topic, picked) {
   if (c.walk) return;
   const decision = computeConsumerDecision(c, g, topic, picked);
   c.walk = Object.assign(decision, {
+    kind: 'kafka',
     topicId: topic.id,
     partition: picked.pi,
     offset: picked.off,
+    idx: 0,
+    fetchTriggered: false,
+    fetchAckShown: false,
+    processTriggered: false,
+    processAckShown: false,
+    commitTriggered: false,
+    commitAckShown: false,
+  });
+  renderConsumerWalkthrough(g, c);
+}
+
+// SB sibling — same shape of walk record, but the work units are a
+// peek-lock'd messageId + a Service Bus sequence number instead of
+// partition + offset. Used by consumeSbQueueForGroup when paso-a-paso
+// is on.
+function beginSbReceiverWalkthrough(g, c, topic, picked) {
+  if (c.walk) return;
+  const decision = computeSbReceiverDecision(c, g, topic, picked);
+  c.walk = Object.assign(decision, {
+    kind: 'sb',
+    topicId: topic.id,
+    messageId: picked.id,
+    seq: picked.seq,
     idx: 0,
     fetchTriggered: false,
     fetchAckShown: false,
@@ -1086,18 +1410,36 @@ function advanceConsumerWalkthrough(g, c) {
   const w = c.walk;
   const cur = w.steps[w.idx];
   if (!cur) return;
+  const isSb = w.kind === 'sb';
   switch (cur.kind) {
     case 'decision':
       w.idx++;
       break;
     case 'fetchTrigger':
       w.fetchTriggered = true;
-      // Set up c.processing manually so consumeForGroup drives fetch.elapsed.
-      c.processing = {
-        partition: w.partition, offset: w.offset,
-        phase: 'fetch', elapsed: 0,
-      };
-      spawnFetchFly(g, w.partition, c);
+      if (isSb) {
+        // SB: actually acquire the peek-lock now (this is the broker's
+        // side picking the head and locking it on Receive). If the
+        // message was taken by another receiver between decision steps,
+        // bail out gracefully — the next tick will start a fresh walk.
+        const topic = state.topics.find(t => t.id === w.topicId);
+        const msg = topic?.messages.find(m => m.id === w.messageId);
+        if (!topic || !msg) { c.walk = null; renderConsumerWalkthrough(g, c); return; }
+        msg.lockedBy = c.id;
+        msg.lockedUntil = performance.now() + 30000;
+        msg.deliveryCount++;
+        c.processing = {
+          messageId: msg.id,
+          phase: 'fetch', elapsed: 0,
+        };
+        spawnSbFetchFly(g, topic, c);
+      } else {
+        c.processing = {
+          partition: w.partition, offset: w.offset,
+          phase: 'fetch', elapsed: 0,
+        };
+        spawnFetchFly(g, w.partition, c);
+      }
       w.idx++;
       break;
     case 'fetchAck':
@@ -1109,9 +1451,12 @@ function advanceConsumerWalkthrough(g, c) {
       w.idx++;
       break;
     case 'commitAck': {
-      // Final ✓ — commit officially (advance offset, clear processing,
-      // fire publish actions), end walkthrough.
-      finalizeCommit(g, c);
+      // Final ✓ — settle the message and end the walkthrough.
+      if (isSb) {
+        finalizeSbComplete(g, c);
+      } else {
+        finalizeCommit(g, c);
+      }
       c.walk = null;
       break;
     }
@@ -1122,20 +1467,30 @@ function advanceConsumerWalkthrough(g, c) {
 function consumerAwaitingMessage(w) {
   // What's currently in flight? Each in-flight phase has its own little
   // narration so the user knows what the simulator is waiting on.
+  const isSb = w.kind === 'sb';
   if (w.fetchTriggered && !w.fetchAckShown) {
-    return {
+    return isSb ? {
+      text: 'Receive en vuelo · esperando transfer-frame…',
+      note: 'el broker localiza el primer mensaje sin lock en la queue, le pone un peek-lock (LockToken + LockedUntil) e incrementa su DeliveryCount antes de enviarlo',
+    } : {
       text: 'FetchRequest en vuelo · esperando FetchResponse…',
       note: 'el broker líder lee del log a partir del offset pedido y prepara un batch con los siguientes mensajes',
     };
   }
   if (w.processTriggered && !w.processAckShown) {
-    return {
+    return isSb ? {
+      text: 'Procesando mensaje localmente…',
+      note: 'el mensaje sigue en la queue con peek-lock; si el receiver crashea o el lock expira, el broker lo devuelve a la cola con DeliveryCount+1 (redelivery). MaxDeliveryCount agotado → DLQ',
+    } : {
       text: 'Procesando mensaje localmente…',
       note: 'el offset aún NO está comiteado; si el consumer crashea aquí, el grupo redelivera el mensaje al próximo poll (semántica at-least-once)',
     };
   }
   if (w.commitTriggered && !w.commitAckShown) {
-    return {
+    return isSb ? {
+      text: 'Complete en vuelo · esperando confirmación…',
+      note: 'el cliente envía un disposition-frame con el LockToken; el broker borra el mensaje de la queue. Si fallase aquí, el lock expirará y el mensaje volverá a estar disponible',
+    } : {
       text: 'OffsetCommitRequest en vuelo · esperando OffsetCommitResponse…',
       note: 'el coordinator del grupo escribirá el offset en el topic interno __consumer_offsets y devolverá la confirmación',
     };
@@ -1149,7 +1504,7 @@ function renderConsumerWalkthrough(g, c) {
   );
   if (!row) return;
   row.classList.toggle('walking', !!c.walk);
-  const log = row.querySelector('.walk-log');
+  const log = ensureWalkPanel('c-' + g.id + '-' + c.id, row);
   if (!log) return;
   log.innerHTML = '';
   if (!c.walk) return;
@@ -1203,13 +1558,92 @@ function groupRestActions(g) {
   return (g.actions || []).filter(a => a.type === 'rest');
 }
 
+// Resolve the message the consumer is currently busy with — needed by the
+// "follow msg time" mode so consumer + api can pull processingMs out of it.
+// Returns the stamped value or undefined when there's no message in flight
+// or it wasn't stamped (e.g. consumer-republish, legacy messages).
+function currentMessageProcessingMs(c, g) {
+  const m = currentMessage(c, g);
+  return m?.processingMs;
+}
+
+// Resolves the actual message object the consumer is currently working
+// on (or null). Shared by the proc-msg rendering and processingMs
+// resolution paths.
+function currentMessage(c, g) {
+  if (!c.processing) return null;
+  const topic = state.topics.find(t => t.id === g?.topicId);
+  if (!topic) return null;
+  if (topic.kind === 'sb-queue') {
+    return topic.messages.find(x => x.id === c.processing.messageId) || null;
+  }
+  const partition = topic.partitions?.[c.processing.partition];
+  if (!partition) return null;
+  return partition.messages.find(x => x.offset === c.processing.offset) || null;
+}
+
+// Build a tiny "in-flight message" square element — the same visual
+// language as the queue/partition log msg, scaled down so it fits next
+// to consumer / api widgets. ringColor adds the pulsing in-flight ring
+// (consumer's colour). Returns null when there's no message to show.
+function buildMiniMsgEl(m, ringColor) {
+  if (!m) return null;
+  const div = document.createElement('div');
+  div.className = 'msg mini enter in-flight';
+  div.style.background = m.color;
+  if (ringColor) div.style.setProperty('--ring', ringColor);
+  const seqOrOff = m.seq != null ? m.seq : m.offset;
+  const tTxt = formatMsgTime(m.processingMs);
+  div.innerHTML = `<span class="moff">${seqOrOff}</span><span class="mtime">${tTxt}</span>`;
+  div.title =
+    (m.seq != null ? `seq=${m.seq}` : `offset=${m.offset}`)
+    + (m.key ? ' · key=' + m.key : '')
+    + (m.deliveryCount > 1 ? ' · entrega #' + m.deliveryCount : '')
+    + (tTxt ? ' · proc=' + tTxt : '');
+  return div;
+}
+
+// Effective time the consumer's LOCAL work takes for the current message.
+// The time + follow-toggle live on the GROUP, not the consumer, so all
+// consumers in the group share the profile. Fallback to the legacy
+// per-consumer value if the group's hasn't been hydrated (old saves).
+function effectiveConsumerLocalMs(c, g) {
+  const gMs   = (g && Number.isFinite(g.processingMs)) ? g.processingMs : (c.processingMs || 0);
+  const follow = g ? !!g.followMsgTime : !!c.followMsgTime;
+  if (follow) {
+    const msMsg = currentMessageProcessingMs(c, g);
+    if (msMsg != null) return msMsg;
+  }
+  return gMs;
+}
+
+// Same idea for an api inside a REST sub-phase. Each api stores a per-
+// calling-group override on api.groupOverrides[groupId] = {processingMs,
+// followMsgTime}. That lets two groups hit the same api with different
+// time profiles. The override is visualised on the api card itself (one
+// row per calling group) — group actions are just "use this api", no
+// time fields. Falls back to api.processingMs / api.followMsgTime when
+// the group hasn't been configured yet.
+function effectiveApiMs(api, c, g) {
+  const ovr = g && api.groupOverrides && api.groupOverrides[g.id];
+  const baseMs = ovr && Number.isFinite(ovr.processingMs)
+    ? ovr.processingMs
+    : (api.processingMs || 1);
+  const follow = ovr ? !!ovr.followMsgTime : !!api.followMsgTime;
+  if (follow) {
+    const msMsg = currentMessageProcessingMs(c, g);
+    if (msMsg != null) return msMsg;
+  }
+  return baseMs;
+}
+
 function phaseDuration(c, phase, g) {
   if (phase === 'fetch')   return FETCH_MS;
   if (phase === 'process') {
-    let total = c.processingMs || 0;
+    let total = effectiveConsumerLocalMs(c, g);
     for (const a of groupRestActions(g || {})) {
       const api = state.apis.find(x => x.id === a.apiId);
-      if (api) total += 2 * LATENCY_MS + (api.processingMs || 1);
+      if (api) total += 2 * LATENCY_MS + effectiveApiMs(api, c, g);
     }
     return Math.max(1, total);
   }
@@ -1225,14 +1659,14 @@ function phaseDuration(c, phase, g) {
 function consumerSubPhase(c, g) {
   if (!c.processing || c.processing.phase !== 'process') return null;
   let e = c.processing.elapsed;
-  const t1 = c.processingMs || 0;
+  const t1 = effectiveConsumerLocalMs(c, g);
   if (e < t1) return { kind: 'local' };
   e -= t1;
   const rests = groupRestActions(g || {});
   for (let i = 0; i < rests.length; i++) {
     const api = state.apis.find(a => a.id === rests[i].apiId);
     if (!api) continue;
-    const remDur = api.processingMs || 1;
+    const remDur = effectiveApiMs(api, c, g);
     if (e < LATENCY_MS) return { kind: 'requesting', actionIdx: i, api };
     e -= LATENCY_MS;
     if (e < remDur)     return { kind: 'remote',     actionIdx: i, api };
@@ -1243,9 +1677,244 @@ function consumerSubPhase(c, g) {
   return { kind: 'done' };
 }
 
+// Competing-consumers consume for an ASB queue. Each consumer picks the
+// next unlocked message off the front of topic.messages, "locks" it (a
+// peek-lock token), runs the standard fetch→process→commit phases, and
+// on the commit phase landing the message is REMOVED from the queue
+// (settle/Complete). Without lockDuration handling for now — we always
+// complete successfully in v1.
+function consumeSbQueueForGroup(g, topic, dt) {
+  const now = performance.now();
+  for (const c of g.consumers) {
+    let remaining = dt;
+    let safety = 200;
+    while (remaining > 0 && safety-- > 0) {
+      if (c.processing) {
+        const phaseLen = phaseDuration(c, c.processing.phase, g);
+        const oldElapsed = c.processing.elapsed;
+        let slowdown = 1;
+        if (c.processing.phase === 'process' &&
+            c.processing.replicaIdx !== undefined &&
+            c.processing.currentRestApiId !== undefined) {
+          const api = state.apis.find(a => a.id === c.processing.currentRestApiId);
+          if (api && api._replicaState) {
+            const st = api._replicaState[c.processing.replicaIdx];
+            slowdown = Math.max(1, st?.inflightCount || 1);
+          }
+        }
+        const need = phaseLen - c.processing.elapsed;
+        const advanceCapacity = remaining / slowdown;
+        let fullyAdvanced = false;
+        if (need > advanceCapacity) {
+          c.processing.elapsed += advanceCapacity;
+          remaining = 0;
+        } else {
+          c.processing.elapsed = phaseLen;
+          remaining -= need * slowdown;
+          fullyAdvanced = true;
+        }
+        // REST sub-phase crossings (same as Kafka)
+        if (c.processing.phase === 'process') {
+          const rests = groupRestActions(g);
+          let cursor = effectiveConsumerLocalMs(c, g);
+          const newE = c.processing.elapsed;
+          for (let i = 0; i < rests.length; i++) {
+            const action = rests[i];
+            const api = state.apis.find(a => a.id === action.apiId);
+            if (!api) continue;
+            const tReqStart = cursor;
+            const tRemoteStart = tReqStart + LATENCY_MS;
+            const tRespStart = tRemoteStart + effectiveApiMs(api, c, g);
+            cursor = tRespStart + LATENCY_MS;
+            if (oldElapsed < tReqStart && newE >= tReqStart) {
+              spawnApiRequestFly(g, c, api, scaled(LATENCY_MS));
+            }
+            if (oldElapsed < tRemoteStart && newE >= tRemoteStart) {
+              c.processing.replicaIdx = pickReplica(api);
+              c.processing.currentRestApiId = api.id;
+            }
+            if (oldElapsed < tRespStart && newE >= tRespStart) {
+              if (c.processing.replicaIdx !== undefined) {
+                releaseReplica(api, c.processing.replicaIdx);
+                c.processing.replicaIdx = undefined;
+                c.processing.currentRestApiId = undefined;
+              }
+              spawnApiResponseFly(g, c, api, scaled(LATENCY_MS));
+            }
+          }
+        }
+        if (fullyAdvanced) {
+          if (c.processing.phase === 'fetch') {
+            // WALK GATE: pause at end-of-Receive until the user ✓s the
+            // transfer-frame step. Mirrors the Kafka fetchAck gate.
+            if (c.walk && c.walk.kind === 'sb' && !c.walk.processTriggered) {
+              if (!c.walk.fetchAckShown) {
+                const held = topic.messages.find(m => m.id === c.processing.messageId);
+                const seq = held?.seq ?? '?';
+                const deliv = held?.deliveryCount ?? 1;
+                c.walk.fetchAckShown = true;
+                c.walk.steps.push({
+                  text: `transfer-frame: seq ${seq} con peek-lock (LockToken) · DeliveryCount=${deliv} — ✓ procesa`,
+                  note: 'el mensaje sigue en la queue (no borrado todavía), pero está oculto al resto de receivers hasta que termine el lock o se Complete/Abandon',
+                  kind: 'fetchAck',
+                });
+                renderConsumerWalkthrough(g, c);
+              }
+              remaining = 0;
+              break;
+            }
+            c.processing.phase = 'process';
+            c.processing.elapsed = 0;
+          } else if (c.processing.phase === 'process') {
+            // WALK GATE: pause at end-of-process until the user ✓s the
+            // Complete trigger step (mirrors Kafka's commitTrigger).
+            if (c.walk && c.walk.kind === 'sb' && !c.walk.commitTriggered) {
+              if (!c.walk.processAckShown) {
+                const held = topic.messages.find(m => m.id === c.processing.messageId);
+                const seq = held?.seq ?? '?';
+                c.walk.processAckShown = true;
+                c.walk.steps.push({
+                  text: `Trabajo terminado · enviar Complete (LockToken de seq ${seq}) al broker — ✓ envía`,
+                  note: 'Complete = disposition-frame con outcome=accepted. Alternativas: Abandon (libera el lock, vuelve a la cola), Defer (lo aparta), Dead-letter (lo manda a la DLQ)',
+                  kind: 'commitTrigger',
+                });
+                renderConsumerWalkthrough(g, c);
+              }
+              remaining = 0;
+              break;
+            }
+            // Spawn settle/Complete ball (consumer → queue)
+            spawnSbSettleFly(g, topic, c);
+            c.processing.phase = 'commit';
+            c.processing.elapsed = 0;
+          } else if (c.processing.phase === 'commit') {
+            // WALK GATE: pause at end-of-Complete until the user ✓s the
+            // final ack step; the actual queue-removal + publish actions
+            // happen in finalizeSbComplete (called by advanceConsumer-
+            // Walkthrough on commitAck).
+            if (c.walk && c.walk.kind === 'sb') {
+              if (!c.walk.commitAckShown) {
+                const held = topic.messages.find(m => m.id === c.processing.messageId);
+                const seq = held?.seq ?? '?';
+                c.walk.commitAckShown = true;
+                c.walk.steps.push({
+                  text: `Complete confirmado · mensaje seq ${seq} eliminado de la cola — ✓ cierra`,
+                  note: 'el broker borra el mensaje del log de la queue. A diferencia de Kafka, no queda histórico ni offset al que volver: el mensaje deja de existir',
+                  kind: 'commitAck',
+                });
+                renderConsumerWalkthrough(g, c);
+              }
+              remaining = 0;
+              break;
+            }
+            // Auto-mode: settle directly (delete + post-commit publishes).
+            finalizeSbComplete(g, c);
+          }
+        }
+      }
+      // Pickup: take the next message that isn't locked by another consumer.
+      if (!c.processing) {
+        if (c.walk) break;
+        // Find first available (not locked, or lock expired)
+        let picked = null;
+        for (const m of topic.messages) {
+          if (m.lockedBy && m.lockedBy !== c.id) {
+            // Skip if still locked by someone else within lock window
+            if (m.lockedUntil && now < m.lockedUntil) continue;
+          }
+          picked = m;
+          break;
+        }
+        if (!picked) break;
+        if (state.walkthroughMode) {
+          // Educational mode: don't lock yet — the broker only locks when
+          // it actually answers the Receive. Defer to fetchTrigger ✓.
+          beginSbReceiverWalkthrough(g, c, topic, picked);
+          break;
+        }
+        // Take the lock
+        picked.lockedBy = c.id;
+        picked.lockedUntil = now + 30000;   // 30s default lock (not enforced in v1)
+        picked.deliveryCount++;
+        c.processing = {
+          messageId: picked.id,
+          phase: 'fetch',
+          elapsed: 0,
+        };
+        spawnSbFetchFly(g, topic, c);
+      }
+    }
+  }
+}
+
+// SB-side ball helpers: fly between consumer and the queue card (no
+// specific partition since there isn't one).
+function spawnSbFetchFly(group, topic, consumer) {
+  const fromEl = document.querySelector(`[data-topic-id="${topic.id}"] .sb-lane`);
+  const toEl   = document.querySelector(
+    `[data-group-id="${group.id}"] [data-consumer-id="${consumer.id}"]`
+  );
+  if (!fromEl || !toEl) return;
+  const fr = fromEl.getBoundingClientRect();
+  const tr = toEl.getBoundingClientRect();
+  const p0 = { x: fr.right, y: fr.top + fr.height / 2 };
+  const p3 = { x: tr.left,  y: tr.top + tr.height / 2 };
+  flyAlong(p0, p3, consumer.color, scaled(FETCH_MS));
+}
+function spawnSbSettleFly(group, topic, consumer) {
+  const fromEl = document.querySelector(
+    `[data-group-id="${group.id}"] [data-consumer-id="${consumer.id}"]`
+  );
+  const toEl   = document.querySelector(`[data-topic-id="${topic.id}"] .sb-lane`);
+  if (!fromEl || !toEl) return;
+  const fr = fromEl.getBoundingClientRect();
+  const tr = toEl.getBoundingClientRect();
+  const p0 = { x: fr.left,  y: fr.top + fr.height / 2 };
+  const p3 = { x: tr.right, y: tr.top + tr.height / 2 };
+  flyAlong(p0, p3, consumer.color, scaled(COMMIT_MS));
+}
+
+// Publish action target = SB queue. Same ball pattern as the Kafka
+// publish but aimed at the queue card and appending to topic.messages.
+function spawnConsumerPublishFlySb(consumer, group, topic) {
+  const fromEl = document.querySelector(
+    `[data-group-id="${group.id}"] [data-consumer-id="${consumer.id}"]`
+  );
+  const toEl = document.querySelector(`[data-topic-id="${topic.id}"] .sb-lane`);
+  const topicId = topic.id;
+  const colour = consumer.color;
+  if (!consumer._publishInflight) consumer._publishInflight = [];
+  const inflight = { topicId, partitionIdx: -1 };  // -1 = "no partition"
+  consumer._publishInflight.push(inflight);
+  const onArrival = () => {
+    const idx = consumer._publishInflight.indexOf(inflight);
+    if (idx >= 0) consumer._publishInflight.splice(idx, 1);
+    const t = state.topics.find(x => x.id === topicId);
+    if (!t || t.kind !== 'sb-queue') return;
+    const seq = t.nextSeq++;
+    t.messages.push({
+      id: newId(), seq, key: null,
+      producerId: -consumer.id, color: colour,
+      deliveryCount: 0, lockedBy: null, lockedUntil: 0,
+    });
+    while (t.messages.length > MAX_PARTITION_HISTORY) t.messages.shift();
+    t.flashUntil = performance.now() + 350;
+  };
+  if (!fromEl || !toEl) { onArrival(); return; }
+  const fr = fromEl.getBoundingClientRect();
+  const tr = toEl.getBoundingClientRect();
+  const p0 = { x: fr.left,  y: fr.top + fr.height / 2 };
+  const p3 = { x: tr.right, y: tr.top + tr.height / 2 };
+  flyAlong(p0, p3, colour, scaled(420), onArrival);
+}
+
 function consumeForGroup(g, dt) {
   const topic = state.topics.find(t => t.id === g.topicId);
   if (!topic || g.consumers.length === 0) return;
+  if (topic.kind === 'sb-queue') {
+    consumeSbQueueForGroup(g, topic, dt);
+    return;
+  }
   const now = performance.now();
   for (const c of g.consumers) {
     let remaining = dt;
@@ -1285,7 +1954,7 @@ function consumeForGroup(g, dt) {
         // remote / remote→responding crossings and act accordingly.
         if (c.processing.phase === 'process') {
           const rests = groupRestActions(g);
-          let cursor = c.processingMs || 0;
+          let cursor = effectiveConsumerLocalMs(c, g);
           const newE = c.processing.elapsed;
           for (let i = 0; i < rests.length; i++) {
             const action = rests[i];
@@ -1293,7 +1962,7 @@ function consumeForGroup(g, dt) {
             if (!api) continue;
             const tReqStart = cursor;
             const tRemoteStart = tReqStart + LATENCY_MS;
-            const tRespStart = tRemoteStart + (api.processingMs || 1);
+            const tRespStart = tRemoteStart + effectiveApiMs(api, c, g);
             cursor = tRespStart + LATENCY_MS;
             // local→requesting (or response_of_prev→request_of_this)
             if (oldElapsed < tReqStart && newE >= tReqStart) {
@@ -1443,9 +2112,11 @@ function reassign(g) {
     g.assignments[c.id] = [];
     c.rrIdx = 0;
   }
-  if (!topic || g.consumers.length === 0) {
-    // Even with no consumers/topic we still flag rebalance if assignments
-    // existed before (someone went from assigned → unassigned).
+  if (!topic || g.consumers.length === 0 || topic.kind === 'sb-queue') {
+    // SB queues don't have partition assignments — every consumer is a
+    // generic receiver competing for messages. We still flag rebalance
+    // for the case "topic deleted" → "no assignments" so the dashed line
+    // visualisation fires.
     diffAndMarkRebalance(g, oldAssignments);
     return;
   }
@@ -1505,10 +2176,22 @@ function reassignAllOnTopic(topicId) {
 // ============================================================
 // FACTORIES
 // ============================================================
-function makeTopic(name, parts) {
-  const t = { id: newId(), name, partitions: [] };
-  for (let i = 0; i < parts; i++) {
-    t.partitions.push({ messages: [], nextOffset: 0, earliestOffset: 0, flashUntil: 0 });
+// Topic factory. `kind` selects the broker model:
+//   'kafka'    → partitioned, replayable log (current behaviour)
+//   'sb-queue' → Azure Service Bus Queue: single lane, point-to-point,
+//                competing consumers, messages disappear on Complete.
+function makeTopic(name, parts, kind = 'kafka') {
+  const t = { id: newId(), name, kind };
+  if (kind === 'sb-queue') {
+    t.messages = [];       // single linear queue
+    t.dlq      = [];       // poison-message dead-letter list (v2 will fill)
+    t.flashUntil = 0;
+    t.nextSeq = 0;         // sequence number for newly added messages
+  } else {
+    t.partitions = [];
+    for (let i = 0; i < parts; i++) {
+      t.partitions.push({ messages: [], nextOffset: 0, earliestOffset: 0, flashUntil: 0 });
+    }
   }
   return t;
 }
@@ -1519,6 +2202,11 @@ function makeProducer(name, color, topicId) {
     rate: 2, accum: 0, sendCount: 0,
     auto: false,   // producers default to MANUAL — click ▶ to inject,
                    // or toggle Auto to make them fire at `rate` msg/s.
+    // Time the consumer / api will spend processing each message produced
+    // by THIS producer, when the downstream component opts into "follow
+    // msg time" mode. The value is stamped into every appended message
+    // (m.processingMs) so it survives the producer being modified later.
+    msgProcessingMs: 1500,
   };
 }
 function makeGroup(name, color, topicId) {
@@ -1526,8 +2214,17 @@ function makeGroup(name, color, topicId) {
     id: newId(), name, color, topicId,
     consumers: [], assignments: {}, offsets: {},
     collapsed: false,
+    // Local processing time + "follow msg time" toggle live on the GROUP
+    // (not on each consumer): all consumers/receivers in this group share
+    // the same processing profile, which matches real workloads where the
+    // group is the unit of behaviour. Each consumer used to carry its own;
+    // we migrate those into the group on first hydrate.
+    processingMs: 2000,
+    followMsgTime: false,
     // Side-effects every consumer in the group runs alongside a message:
-    //   { type: 'rest',    apiId }   → during process phase (sequential)
+    //   { type: 'rest',    apiId, processingMs, followMsgTime }
+    //     → during process phase (sequential); the per-action time
+    //       OVERRIDES the api's default for calls made from this group
     //   { type: 'publish', topicId } → fires once commit completes
     actions: [],
   };
@@ -1537,8 +2234,38 @@ function makeApi(name, color) {
     id: newId(), name, color,
     processingMs: 1500,
     replicas: 1,   // how many backend pods sit behind this service
+    // Default for groups that haven't been configured yet. When true, a
+    // new (api, group) entry inherits ON; the group can still toggle it
+    // independently afterwards.
+    followMsgTime: false,
+    // Per-calling-group overrides: { [groupId]: { processingMs, followMsgTime } }.
+    // Populated when a group adds a REST action targeting this api (and
+    // removable when the action is removed). Rendered as one row per
+    // calling group on the api card itself.
+    groupOverrides: {},
     // Runtime-only fields (not persisted): _rrIdx, _replicaState[].
   };
+}
+
+// Lazy-init the per-(api, group) override row. Called when a group adds
+// a REST action targeting this api so we can display its own time/follow
+// entry immediately. Idempotent — existing entries are left untouched.
+function ensureApiGroupOverride(api, groupId) {
+  if (!api.groupOverrides) api.groupOverrides = {};
+  if (!api.groupOverrides[groupId]) {
+    api.groupOverrides[groupId] = {
+      processingMs: api.processingMs ?? 1500,
+      followMsgTime: !!api.followMsgTime,
+    };
+  }
+}
+
+// Whether any group still has a REST action pointing at this api. Used
+// to know if a per-group override row should be kept after edits.
+function groupCallsApi(api, groupId) {
+  const g = state.groups.find(x => x.id === groupId);
+  if (!g) return false;
+  return (g.actions || []).some(a => a.type === 'rest' && a.apiId === api.id);
 }
 
 // Lazy-init runtime state for the api's replicas so callers can always
@@ -1613,6 +2340,45 @@ function finalizeCommit(g, c) {
   }, scaled(POST_COMMIT_PUBLISH_DELAY_MS));
 }
 
+// SB analogue of finalizeCommit: there's no offset to advance — the
+// "settle" is the broker deleting the message from the queue. Called
+// when the Complete ball lands (auto mode) or when the user ✓s the
+// final commitAck step (walkthrough mode).
+function finalizeSbComplete(g, c) {
+  if (!c.processing) return;
+  const topic = state.topics.find(t => t.id === g.topicId);
+  const msgId = c.processing.messageId;
+  if (topic && msgId !== undefined) {
+    const idx = topic.messages.findIndex(m => m.id === msgId);
+    if (idx >= 0) topic.messages.splice(idx, 1);
+  }
+  c.lastActive = performance.now();
+  const groupId = g.id;
+  const consumerId = c.id;
+  clearConsumerProcessing(c);
+  const pubSnapshot = (g.actions || []).filter(a => a.type === 'publish').map(a => a.id);
+  if (pubSnapshot.length === 0) return;
+  setTimeout(() => {
+    const gNow = state.groups.find(x => x.id === groupId);
+    if (!gNow) return;
+    const cNow = gNow.consumers.find(x => x.id === consumerId);
+    if (!cNow) return;
+    for (const aid of pubSnapshot) {
+      const action = (gNow.actions || []).find(a => a.id === aid);
+      if (!action || action.type !== 'publish') continue;
+      const tt = state.topics.find(t => t.id === action.topicId);
+      if (!tt) continue;
+      if (tt.kind === 'sb-queue') {
+        spawnConsumerPublishFlySb(cNow, gNow, tt);
+      } else {
+        if (tt.partitions.length === 0) continue;
+        gNow._pubIdx = ((gNow._pubIdx | 0) + 1) % tt.partitions.length;
+        spawnConsumerPublishFly(cNow, gNow, tt, gNow._pubIdx);
+      }
+    }
+  }, scaled(POST_COMMIT_PUBLISH_DELAY_MS));
+}
+
 // Ball for a 'publish' action. Originates at the CONSUMER that just
 // committed — each consumer fires its own publishes so it visually reads
 // as "this consumer is doing it", not as a group-level event. The
@@ -1666,6 +2432,12 @@ function makeConsumer(name, color) {
     // process phase finishes — so a slow consumer visibly drags behind on
     // its partition log. Group-level actions add their own time on top.
     processingMs: 2000,
+    // When true, the consumer uses the message's own processingMs as its
+    // local processing time (instead of its fixed processingMs). Useful
+    // to model heterogeneous workloads where each message carries its own
+    // expected cost. Falls back to processingMs if the message lacks the
+    // stamp (older messages, manual injects, …).
+    followMsgTime: false,
     processing: null,    // { partition, offset, phase, elapsed } while busy
     rrIdx: 0, lastActive: 0,
   };
@@ -1831,18 +2603,48 @@ function spawnApiResponseFly(group, consumer, api, durationMs) {
 // ============================================================
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-function addLink(svg, ax, ay, bx, by, color, width, opacity) {
-  const path = document.createElementNS(SVG_NS, 'path');
+// Tooltips for broker↔consumer connectors. Hover anywhere over the line
+// to see the connection model behind it. Kept short on purpose — they
+// surface the WHY of the visual, not the spec.
+const TIP_KAFKA_LINK =
+  'Kafka · conexión TCP persistente + poll continuo.\n' +
+  'El consumer hace FetchRequest cada ~500ms; el broker nunca empuja, ' +
+  'solo responde. Incluso en reposo hay tráfico de bajo volumen.';
+const TIP_SB_LINK =
+  'ASB · conexión AMQP persistente.\n' +
+  'El receiver concede credits; el broker empuja mensajes a medida que ' +
+  'llegan. En reposo el enlace está callado salvo heartbeats (~30s).';
+
+function addLink(svg, ax, ay, bx, by, color, width, opacity, tooltip) {
   // Horizontal-leaning cubic bezier — the control points are pulled toward
   // the midpoint horizontally so the curve enters/leaves each card flat.
   const dx = Math.max(36, Math.abs(bx - ax) * 0.45);
   const c1x = ax + dx, c1y = ay;
   const c2x = bx - dx, c2y = by;
-  path.setAttribute('d', `M ${ax} ${ay} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${bx} ${by}`);
+  const d = `M ${ax} ${ay} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${bx} ${by}`;
+  const path = document.createElementNS(SVG_NS, 'path');
+  path.setAttribute('d', d);
   path.setAttribute('stroke', color);
   path.setAttribute('stroke-width', width);
   path.setAttribute('stroke-opacity', opacity);
   svg.appendChild(path);
+  // Optional tooltip: a transparent wider "hit path" sits on top of the
+  // visible one so hovering anywhere near the curve fires the native SVG
+  // <title> tooltip. Without this trick, a 2px stroke is almost impossible
+  // to hover precisely.
+  if (tooltip) {
+    const hit = document.createElementNS(SVG_NS, 'path');
+    hit.setAttribute('d', d);
+    hit.setAttribute('stroke', 'transparent');
+    hit.setAttribute('stroke-width', 16);
+    hit.setAttribute('fill', 'none');
+    hit.setAttribute('pointer-events', 'stroke');
+    hit.style.cursor = 'help';
+    const title = document.createElementNS(SVG_NS, 'title');
+    title.textContent = tooltip;
+    hit.appendChild(title);
+    svg.appendChild(hit);
+  }
 }
 
 // Dashed marching-ants link. Same bezier shape as addLink but with the
@@ -1909,19 +2711,30 @@ function updateLinks() {
   // sticky case already has a solid line — we skip the dashed for those.
   for (const p of state.producers) {
     if (p.walk) continue;
-    if (!p._inflight || p._inflight.size === 0) continue;
     const prodEl = document.querySelector(`[data-producer-id="${p.id}"]`);
     if (!prodEl) continue;
     const a = rightMid(prodEl);
-    const stickyTargets = new Set(producerTargets(p));
-    for (const pi of p._inflight.keys()) {
-      if (stickyTargets.has(pi)) continue;   // already covered by the solid line
-      const partEl = document.querySelector(
-        `[data-topic-id="${p.topicId}"] .partition[data-partition-idx="${pi}"]`
-      );
-      if (!partEl) continue;
-      const b = leftMid(partEl);
-      addDashedLink(svg, a.x, a.y, b.x, b.y, p.color);
+    // Kafka in-flight: dashed to each target partition while a ball flies.
+    if (p._inflight && p._inflight.size > 0) {
+      const stickyTargets = new Set(producerTargets(p));
+      for (const pi of p._inflight.keys()) {
+        if (stickyTargets.has(pi)) continue;
+        const partEl = document.querySelector(
+          `[data-topic-id="${p.topicId}"] .partition[data-partition-idx="${pi}"]`
+        );
+        if (!partEl) continue;
+        const b = leftMid(partEl);
+        addDashedLink(svg, a.x, a.y, b.x, b.y, p.color);
+      }
+    }
+    // SB queue in-flight: dashed to the queue card (no partition concept).
+    if (p._sbInflight && p._sbInflight.size > 0) {
+      for (const topicId of p._sbInflight.keys()) {
+        const laneEl = document.querySelector(`[data-topic-id="${topicId}"] .sb-lane`);
+        if (!laneEl) continue;
+        const b = leftMid(laneEl);
+        addDashedLink(svg, a.x, a.y, b.x, b.y, p.color);
+      }
     }
   }
 
@@ -1952,8 +2765,32 @@ function updateLinks() {
   // it that way visually. During the few seconds right after a rebalance,
   // the affected consumer's lines pulse with marching ants to make the
   // change visible; afterwards they go back to a solid line.
+  //
+  // For an SB receiver the connector represents the subscription itself:
+  // the AMQP link from the queue to the receiver. All receivers in groups
+  // bound to the queue compete on that one logical lane, so we draw one
+  // solid line from the queue card to each receiver.
   const REBALANCE_MS = 2500;
   for (const g of state.groups) {
+    const topic = state.topics.find(t => t.id === g.topicId);
+    if (!topic) continue;
+    if (topic.kind === 'sb-queue') {
+      const laneEl = document.querySelector(`[data-topic-id="${topic.id}"] .sb-lane`);
+      if (!laneEl) continue;
+      const a = rightMid(laneEl);
+      for (const c of g.consumers) {
+        const consEl = document.querySelector(
+          `[data-group-id="${g.id}"] [data-consumer-id="${c.id}"]`
+        );
+        if (!consEl) continue;
+        const b = leftMid(consEl);
+        // Solid AMQP receiver link (subscription). The flying ball is
+        // enough to signal in-flight activity — no dashed overlay on
+        // top of the solid line.
+        addLink(svg, a.x, a.y, b.x, b.y, c.color, 2, 0.55, TIP_SB_LINK);
+      }
+      continue;
+    }
     for (const c of g.consumers) {
       const parts = g.assignments[c.id] || [];
       if (parts.length === 0) continue;
@@ -1972,32 +2809,32 @@ function updateLinks() {
         if (dashed) {
           addDashedLink(svg, a.x, a.y, b.x, b.y, c.color);
         } else {
-          addLink(svg, a.x, a.y, b.x, b.y, c.color, 2, 0.55);
+          addLink(svg, a.x, a.y, b.x, b.y, c.color, 2, 0.55, TIP_KAFKA_LINK);
         }
       }
     }
   }
 
-  // Consumer → REST API (solid). One line per (consumer, REST action) so
-  // a group with multiple REST actions shows multiple wires to different
-  // APIs leaving each consumer.
+  // Consumer → REST API: NO persistent line. Real REST clients don't
+  // hold an always-on connection (each call is a stateless HTTP request),
+  // so the connector is only drawn (dashed, marching ants) while a
+  // request from this consumer is actually in flight on that api —
+  // detected via c.processing.currentRestApiId and the requesting /
+  // remote / responding sub-phases.
   for (const g of state.groups) {
-    const rests = groupRestActions(g);
     for (const c of g.consumers) {
-      if (rests.length === 0) continue;
+      const sub = consumerSubPhase(c, g);
+      if (!sub || !sub.api) continue;
+      if (sub.kind === 'local' || sub.kind === 'done') continue;
       const consEl = document.querySelector(
         `[data-group-id="${g.id}"] [data-consumer-id="${c.id}"]`
       );
       if (!consEl) continue;
+      const apiEl = document.querySelector(`[data-api-id="${sub.api.id}"]`);
+      if (!apiEl) continue;
       const a = rightMid(consEl);
-      for (const action of rests) {
-        const api = state.apis.find(x => x.id === action.apiId);
-        if (!api) continue;
-        const apiEl = document.querySelector(`[data-api-id="${api.id}"]`);
-        if (!apiEl) continue;
-        const b = leftMid(apiEl);
-        addLink(svg, a.x, a.y, b.x, b.y, api.color, 2, 0.55);
-      }
+      const b = leftMid(apiEl);
+      addDashedLink(svg, a.x, a.y, b.x, b.y, sub.api.color);
     }
   }
 
@@ -2107,27 +2944,62 @@ function renderProducers() {
 }
 
 function producerMiniHtml(p) {
-  const modeText =
-    p.mode === 'rr'     ? 'rr' :
-    p.mode === 'random' ? 'random' :
-    p.mode === 'sticky' ? `sticky·P${p.stickyPart}` :
-    `key·${p.keyPool}`;
-  // Rate is shown ONLY when Auto is on — its presence vs. absence is the
-  // signal for which mode the producer is in. No explicit "manual"/"auto"
-  // label needed.
+  const topic = state.topics.find(t => t.id === p.topicId);
+  const isSb = topic?.kind === 'sb-queue';
+  // SB queues are single-lane — partitioning modes don't affect routing,
+  // so we collapse the mini chip to just "queue" (and rate when Auto is
+  // on). Kafka producers keep the full mode breakdown.
+  let modeText;
+  if (isSb) {
+    modeText = 'queue';
+  } else {
+    modeText =
+      p.mode === 'rr'     ? 'rr' :
+      p.mode === 'random' ? 'random' :
+      p.mode === 'sticky' ? `sticky·P${p.stickyPart}` :
+      `key·${p.keyPool}`;
+  }
   return p.auto ? `${modeText} · ${p.rate}/s` : modeText;
 }
 
 function producerCard(p) {
   const card = document.createElement('div');
-  card.className = 'pcard prod-card accented' + (state.producersCollapsed ? ' collapsed' : '');
+  const targetTopic = state.topics.find(t => t.id === p.topicId);
+  const isSb = targetTopic?.kind === 'sb-queue';
+  card.className = 'pcard prod-card accented' + (isSb ? ' to-sb' : ' to-kafka') + (state.producersCollapsed ? ' collapsed' : '');
   card.dataset.producerId = p.id;
+  card.dataset.producerTargetKind = isSb ? 'sb' : 'kafka';
   card.style.borderLeftColor = p.color;
   const topicOpts = state.topics.map(t =>
     `<option value="${t.id}" ${t.id===p.topicId?'selected':''}>${escapeHtml(t.name)}</option>`
   ).join('');
-  const stickyMax = (state.topics.find(t => t.id === p.topicId)?.partitions.length || 1) - 1;
+  const stickyMax = (targetTopic?.partitions?.length || 1) - 1;
   const sendIconSvg = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>';
+  // SB producers don't show partition-routing controls — there's no
+  // partitioner on a Service Bus queue, so the mode/sticky/keyPool
+  // selectors would be misleading. We still keep `p.mode` and the keys
+  // (informational) but render a frozen explanation instead.
+  const targetLabelHtml = isSb
+    ? '<span class="kind-text sb" title="el target es una Azure Service Bus Queue">→ ASB Queue</span>'
+    : '<span class="kind-text kafka" title="el target es un Kafka topic">→ Kafka</span>';
+  const modeRowHtml = isSb
+    ? `<span class="small" style="grid-column:span 4;color:var(--muted)" title="ASB queue: una sola lane, sin partitioner — el modo/key del productor no afecta el routing">cola única · sin partitioner</span>`
+    : `<select class="sel mode-sel" style="grid-column:span 4" title="cómo el productor elige partición para cada mensaje">
+         <option value="rr"     ${p.mode==='rr'?'selected':''}>Round-robin (sin key)</option>
+         <option value="random" ${p.mode==='random'?'selected':''}>Aleatorio (sin key)</option>
+         <option value="sticky" ${p.mode==='sticky'?'selected':''}>Sticky (sin key)</option>
+         <option value="key"    ${p.mode==='key'?'selected':''}>Por key (pool de N)</option>
+       </select>
+       ${p.mode==='sticky' ? `
+         <div class="row tight" style="grid-column:span 4">
+           <span class="num"><button class="sdec">−</button><span class="sval">${p.stickyPart}</span><button class="sinc">+</button></span>
+           <span class="small">partición · / ${stickyMax}</span>
+         </div>` : ''}
+       ${p.mode==='key' ? `
+         <div class="row tight" style="grid-column:span 4">
+           <span class="num"><button class="kdec">−</button><span class="kval">${p.keyPool}</span><button class="kinc">+</button></span>
+           <span class="small">keys · k0..k${p.keyPool-1}</span>
+         </div>` : ''}`;
   card.innerHTML = `
     <div class="row tight">
       <span class="drag-handle" draggable="true" data-drag-type="producer" title="arrastrar para reordenar">⋮⋮</span>
@@ -2142,37 +3014,23 @@ function producerCard(p) {
       </span>
     </div>
     <div class="grid-row expanded-only">
-      <span class="lbl">topic</span>
-      <select class="sel topic-sel">${topicOpts}</select>
-      <span class="lbl">modo</span>
-      <select class="sel mode-sel">
-        <option value="rr"     ${p.mode==='rr'?'selected':''}>Round-robin (sin key)</option>
-        <option value="random" ${p.mode==='random'?'selected':''}>Aleatorio (sin key)</option>
-        <option value="sticky" ${p.mode==='sticky'?'selected':''}>Sticky (sin key)</option>
-        <option value="key"    ${p.mode==='key'?'selected':''}>Por key (pool de N)</option>
-      </select>
-      ${p.mode==='sticky' ? `
-        <span class="lbl">partición</span>
-        <div class="row tight">
-          <span class="num"><button class="sdec">−</button><span class="sval">${p.stickyPart}</span><button class="sinc">+</button></span>
-          <span class="small">/ ${stickyMax}</span>
-        </div>` : ''}
-      ${p.mode==='key' ? `
-        <span class="lbl">keys</span>
-        <div class="row tight">
-          <span class="num"><button class="kdec">−</button><span class="kval">${p.keyPool}</span><button class="kinc">+</button></span>
-          <span class="small">k0..k${p.keyPool-1}</span>
-        </div>` : ''}
-      <span class="lbl">rate</span>
-      <div class="row tight">
+      <span class="row tight" style="gap:6px;grid-column:span 4">
+        <select class="sel topic-sel" style="flex:1" title="destino">${topicOpts}</select>
+        ${targetLabelHtml}
+      </span>
+      ${modeRowHtml}
+      <div class="row tight" style="grid-column:span 4">
         <span class="num"><button class="rdec">−</button><span class="rval">${p.rate}</span><button class="rinc">+</button></span>
         <span class="small">msg/s</span>
+      </div>
+      <div class="row tight" style="grid-column:span 4" title="tiempo de procesamiento que el productor estampa en cada mensaje (lo usan los consumers/APIs con &quot;seguir tiempo del msg&quot;)">
+        <span class="num"><button class="mtdec">−</button><span class="mtval">${(p.msgProcessingMs/1000).toFixed(1)}s</span><button class="mtinc">+</button></span>
+        <span class="small">por msg</span>
       </div>
     </div>
     <div class="row expanded-only">
       <button class="mini-btn auto-tgl ${p.auto?'tgl-on':'tgl-off'}" title="cuando está en ON el producer emite a 'rate' msg/s; en OFF solo envía con ▶">Auto: ${p.auto?'ON':'OFF'}</button>
     </div>
-    <ol class="walk-log"></ol>
   `;
   // Wire up
   card.querySelector('.close-x').onclick = () => {
@@ -2182,7 +3040,9 @@ function producerCard(p) {
   card.querySelector('.badge-color').onclick = () => { p.color = pickColor(); render(); };
   card.querySelector('.pname').onchange = e => { p.name = (e.target.value || p.name).trim() || p.name; };
   card.querySelector('.topic-sel').onchange = e => { p.topicId = +e.target.value; render(); };
-  card.querySelector('.mode-sel').onchange = e => { p.mode = e.target.value; render(); };
+  // mode-sel only renders for Kafka producers — guard so SB doesn't crash.
+  const modeSel = card.querySelector('.mode-sel');
+  if (modeSel) modeSel.onchange = e => { p.mode = e.target.value; render(); };
   // ▶ button: send N messages where N comes from the adjacent <input>.
   // Clamped to [1, 500]. When N=1 we enter the step-by-step WALKTHROUGH
   // (showing the partitioner's reasoning before the ball flies). N>1
@@ -2221,7 +3081,22 @@ function producerCard(p) {
     p.rate = Math.min(40, p.rate + 1); rv.textContent = p.rate;
     if (miniEl) miniEl.innerHTML = producerMiniHtml(p);
   };
-  if (p.mode === 'sticky') {
+  // Per-message processing time stamp. ±0.5s steps, clamped [100ms, 30s].
+  // Display rounds to 1 decimal; the value goes into every produced message
+  // (Kafka and SB) as m.processingMs and is what consumers/APIs read when
+  // they have "follow msg time" enabled.
+  const mtv = card.querySelector('.mtval');
+  card.querySelector('.mtdec').onclick = () => {
+    p.msgProcessingMs = Math.max(100, p.msgProcessingMs - 500);
+    mtv.textContent = (p.msgProcessingMs/1000).toFixed(1) + 's';
+  };
+  card.querySelector('.mtinc').onclick = () => {
+    p.msgProcessingMs = Math.min(30000, p.msgProcessingMs + 500);
+    mtv.textContent = (p.msgProcessingMs/1000).toFixed(1) + 's';
+  };
+  // Partition-routing controls only exist on Kafka producers. SB producers
+  // don't render the sticky/key blocks, so we guard the wire-up.
+  if (!isSb && p.mode === 'sticky') {
     const sv = card.querySelector('.sval');
     card.querySelector('.sdec').onclick = () => {
       p.stickyPart = Math.max(0, p.stickyPart - 1); sv.textContent = p.stickyPart;
@@ -2232,7 +3107,7 @@ function producerCard(p) {
       if (miniEl) miniEl.innerHTML = producerMiniHtml(p);
     };
   }
-  if (p.mode === 'key') {
+  if (!isSb && p.mode === 'key') {
     card.querySelector('.kdec').onclick = () => { p.keyPool = Math.max(1, p.keyPool - 1); render(); };
     card.querySelector('.kinc').onclick = () => { p.keyPool = Math.min(20, p.keyPool + 1); render(); };
   }
@@ -2249,40 +3124,89 @@ function renderTopics() {
     hint.innerHTML = 'Empieza aquí — crea un <b>topic</b> con<br>el botón de abajo.';
     els.topicList.appendChild(hint);
   }
-  const add = document.createElement('button');
-  add.className = 'add-mini';
-  add.textContent = '+ topic';
-  add.onclick = () => {
-    // New topics start with a SINGLE partition — minimal default; the user
-    // bumps it with the +/- stepper in the topic head when they want more.
-    state.topics.push(makeTopic(`topic-${state.topics.length+1}`, 1));
+  const addRow = document.createElement('div');
+  addRow.style.display = 'flex';
+  addRow.style.gap = '6px';
+  const addK = document.createElement('button');
+  addK.className = 'add-mini';
+  addK.style.flex = '1';
+  addK.textContent = '+ Kafka topic';
+  addK.onclick = () => {
+    state.topics.push(makeTopic(`topic-${state.topics.length+1}`, 1, 'kafka'));
     render();
   };
-  els.topicList.appendChild(add);
+  const addQ = document.createElement('button');
+  addQ.className = 'add-mini';
+  addQ.style.flex = '1';
+  addQ.textContent = '+ ASB queue';
+  addQ.onclick = () => {
+    state.topics.push(makeTopic(`queue-${state.topics.length+1}`, 0, 'sb-queue'));
+    render();
+  };
+  addRow.appendChild(addK);
+  addRow.appendChild(addQ);
+  els.topicList.appendChild(addRow);
 }
 
 function topicCard(t) {
   const card = document.createElement('div');
-  card.className = 'pcard topic-card';
+  card.className = 'pcard topic-card kind-' + t.kind;
   card.dataset.topicId = t.id;
-  card.innerHTML = `
-    <div class="topic-head">
-      <span class="drag-handle" draggable="true" data-drag-type="topic" title="arrastrar para reordenar">⋮⋮</span>
-      <input class="name-input tname" value="${escapeHtml(t.name)}" style="max-width:140px">
-      <span class="pill">${t.partitions.length} part.</span>
-      <span class="topic-meta">total: <b id="tot-${t.id}" style="color:var(--ink);font-variant-numeric:tabular-nums">0</b></span>
-      <span style="flex:1"></span>
-      <span class="num" title="partitions">
-        <button class="pdec">−</button>
-        <span class="pval">${t.partitions.length}</span>
-        <button class="pinc">+</button>
-      </span>
-      <button class="close-x" title="borrar topic">✕</button>
-    </div>
-    <div class="partitions-row"></div>
-  `;
-  const row = card.querySelector('.partitions-row');
-  t.partitions.forEach((p, idx) => row.appendChild(partitionCell(t, p, idx)));
+  card.dataset.topicKind = t.kind;
+  if (t.kind === 'sb-queue') {
+    card.innerHTML = `
+      <div class="topic-head">
+        <span class="drag-handle" draggable="true" data-drag-type="topic" title="arrastrar para reordenar">⋮⋮</span>
+        <span class="kind-badge sb" title="Azure Service Bus Queue">Q</span>
+        <span class="kind-text sb">ASB Queue</span>
+        <input class="name-input tname" value="${escapeHtml(t.name)}" style="max-width:130px">
+        <span class="topic-meta">en cola: <b id="tot-${t.id}" style="color:var(--ink);font-variant-numeric:tabular-nums">0</b></span>
+        <span style="flex:1"></span>
+        <button class="close-x" title="borrar queue">✕</button>
+      </div>
+      <div class="sb-lane">
+        <span class="p-label">Queue</span>
+        <div class="p-track">
+          <div class="p-log"><div class="p-log-inner"></div></div>
+        </div>
+      </div>
+    `;
+  } else {
+    card.innerHTML = `
+      <div class="topic-head">
+        <span class="drag-handle" draggable="true" data-drag-type="topic" title="arrastrar para reordenar">⋮⋮</span>
+        <span class="kind-badge kafka" title="Kafka topic">K</span>
+        <span class="kind-text kafka">Kafka Topic</span>
+        <input class="name-input tname" value="${escapeHtml(t.name)}" style="max-width:120px">
+        <span class="pill">${t.partitions.length} part.</span>
+        <span class="topic-meta">total: <b id="tot-${t.id}" style="color:var(--ink);font-variant-numeric:tabular-nums">0</b></span>
+        <span style="flex:1"></span>
+        <span class="num" title="partitions">
+          <button class="pdec">−</button>
+          <span class="pval">${t.partitions.length}</span>
+          <button class="pinc">+</button>
+        </span>
+        <button class="close-x" title="borrar topic">✕</button>
+      </div>
+      <div class="partitions-row"></div>
+    `;
+    const row = card.querySelector('.partitions-row');
+    t.partitions.forEach((p, idx) => row.appendChild(partitionCell(t, p, idx)));
+    card.querySelector('.pdec').onclick = () => {
+      if (t.partitions.length > 1) {
+        t.partitions.pop();
+        reassignAllOnTopic(t.id);
+        render();
+      }
+    };
+    card.querySelector('.pinc').onclick = () => {
+      if (t.partitions.length < MAX_PARTITIONS) {
+        t.partitions.push({ messages: [], nextOffset: 0, earliestOffset: 0, flashUntil: 0 });
+        reassignAllOnTopic(t.id);
+        render();
+      }
+    };
+  }
 
   card.querySelector('.tname').onchange = e => { t.name = (e.target.value || t.name).trim() || t.name; render(); };
   card.querySelector('.close-x').onclick = () => {
@@ -2295,24 +3219,9 @@ function topicCard(t) {
         g.offsets = {};
         reassign(g);
       }
-      // Drop any 'publish' action pointing at the deleted topic.
       g.actions = (g.actions || []).filter(a => !(a.type === 'publish' && a.topicId === t.id));
     }
     render();
-  };
-  card.querySelector('.pdec').onclick = () => {
-    if (t.partitions.length > 1) {
-      t.partitions.pop();
-      reassignAllOnTopic(t.id);
-      render();
-    }
-  };
-  card.querySelector('.pinc').onclick = () => {
-    if (t.partitions.length < MAX_PARTITIONS) {
-      t.partitions.push({ messages: [], nextOffset: 0, earliestOffset: 0, flashUntil: 0 });
-      reassignAllOnTopic(t.id);
-      render();
-    }
   };
   return card;
 }
@@ -2370,13 +3279,32 @@ function renderGroups() {
 
 function groupCard(g) {
   const card = document.createElement('div');
-  card.className = 'group-card' + (g.collapsed ? ' collapsed' : '');
+  const isSb = !!(state.topics.find(t => t.id === g.topicId)?.kind === 'sb-queue');
+  card.className = 'group-card' + (isSb ? ' kind-sb' : ' kind-kafka') + (g.collapsed ? ' collapsed' : '');
   card.dataset.groupId = g.id;
+  card.dataset.groupKind = isSb ? 'sb' : 'kafka';
   card.style.color = g.color;
   const topic = state.topics.find(t => t.id === g.topicId);
   const topicOpts = state.topics.map(t =>
     `<option value="${t.id}" ${t.id===g.topicId?'selected':''}>${escapeHtml(t.name)}</option>`
   ).join('');
+  // Group meta line: Kafka shows particiones + lag (offset-derived); SB
+  // shows queue depth + locked count (peek-lock semantics). Different
+  // fields because they're different broker models, not the same UI with
+  // a kind toggle.
+  const groupMeta = isSb
+    ? `<span class="group-meta">
+         <span class="sb-pill" title="Azure Service Bus">ASB</span>
+         <b style="color:var(--ink)">${g.consumers.length}</b> receivers
+         · pendientes <b class="glag" style="color:var(--ink)" title="mensajes en la cola (queue depth)">0</b>
+         · con lock <b class="glock" style="color:var(--ink)" title="mensajes actualmente en peek-lock por receivers del grupo">0</b>
+       </span>`
+    : `<span class="group-meta">
+         <span class="kafka-pill" title="Kafka">K</span>
+         <b style="color:var(--ink)">${g.consumers.length}</b> consumers
+         · particiones <b style="color:var(--ink)">${topic?.partitions?.length || 0}</b>
+         · lag <b class="glag" style="color:var(--ink)" title="suma de offsets pendientes en el grupo">0</b>
+       </span>`;
   card.innerHTML = `
     <div class="ghead">
       <span class="drag-handle" draggable="true" data-drag-type="group" title="arrastrar para reordenar">⋮⋮</span>
@@ -2388,15 +3316,19 @@ function groupCard(g) {
       </span>
     </div>
     <div class="grid-row expanded-only">
-      <span class="lbl">topic</span>
-      <select class="sel topic-sel">${topicOpts}</select>
-      <span class="lbl">consumers</span>
-      <div class="row tight">
-        <span class="group-meta"><b style="color:var(--ink)">${g.consumers.length}</b> · particiones <b style="color:var(--ink)">${topic?.partitions.length || 0}</b> · lag <b class="glag" style="color:var(--ink)">0</b></span>
+      <select class="sel topic-sel" style="grid-column:span 4" title="${isSb ? 'queue origen' : 'topic origen'}">${topicOpts}</select>
+      <div class="row tight" style="grid-column:span 4">
+        ${groupMeta}
+      </div>
+      <div class="row tight" style="grid-column:span 4" title="tiempo de procesamiento local compartido por todos los ${isSb?'receivers':'consumers'} del grupo (antes de cualquier acción REST)">
+        ${g.followMsgTime ? '' : `<span class="num">
+          <button class="gdec">−</button><span class="gval">${((g.processingMs ?? 2000)/1000).toFixed(1)}s</span><button class="ginc">+</button>
+        </span>`}
+        <button class="mini-btn follow-msg-tgl g-follow ${g.followMsgTime?'tgl-on':'tgl-off'}" title="ON = todos los ${isSb?'receivers':'consumers'} del grupo tardan lo que indique cada mensaje (m.processingMs); OFF = tiempo fijo">⏱ msg: ${g.followMsgTime?'ON':'OFF'}</button>
       </div>
     </div>
     <div class="consumers"></div>
-    <button class="add-mini add-consumer expanded-only">+ consumer</button>
+    <button class="add-mini add-consumer expanded-only">+ ${isSb ? 'receiver' : 'consumer'}</button>
     <div class="group-actions expanded-only">
       <div class="ga-head">
         <span class="lbl">acciones del grupo</span>
@@ -2411,6 +3343,8 @@ function groupCard(g) {
             const apiOpts = state.apis.map(x =>
               `<option value="${x.id}" ${x.id===a.apiId?'selected':''}>${escapeHtml(x.name)}</option>`
             ).join('');
+            // Time + follow live on the API card (one row per calling
+            // group) — keep the action row minimal: just target + ✕.
             return `<div class="ga-row" data-action-id="${a.id}">
               <span class="ga-tag rest">→ REST</span>
               <select class="sel ga-target" data-kind="rest">${apiOpts}</select>
@@ -2435,11 +3369,34 @@ function groupCard(g) {
   const consDiv = card.querySelector('.consumers');
   for (const c of g.consumers) consDiv.appendChild(consumerRow(g, c, topic));
 
+  // Group-level processing time + follow-msg toggle. The stepper is only
+  // present when followMsgTime is OFF — when ON it's removed from the
+  // DOM, so guard every query with optional chaining.
+  const gv   = card.querySelector('.gval');
+  const gdec = card.querySelector('.gdec');
+  const ginc = card.querySelector('.ginc');
+  if (gdec) gdec.onclick = () => {
+    g.processingMs = Math.max(100, (g.processingMs ?? 2000) - 500);
+    gv.textContent = (g.processingMs/1000).toFixed(1) + 's';
+  };
+  if (ginc) ginc.onclick = () => {
+    g.processingMs = (g.processingMs ?? 2000) + 500;
+    gv.textContent = (g.processingMs/1000).toFixed(1) + 's';
+  };
+  card.querySelector('.g-follow').onclick = () => {
+    g.followMsgTime = !g.followMsgTime;
+    render();
+  };
+
   // Wire up group-action add/remove + target selects
   card.querySelector('.add-action-rest').onclick = () => {
     if (state.apis.length === 0) return;
     g.actions = g.actions || [];
-    g.actions.push({ id: newId(), type: 'rest', apiId: state.apis[0].id });
+    const api = state.apis[0];
+    g.actions.push({ id: newId(), type: 'rest', apiId: api.id });
+    // Seed the per-(api, group) override row with the api's current
+    // defaults. The group can tweak it later from the api card.
+    ensureApiGroupOverride(api, g.id);
     render();
   };
   card.querySelector('.add-action-pub').onclick = () => {
@@ -2451,13 +3408,35 @@ function groupCard(g) {
   card.querySelectorAll('.ga-row').forEach(rowEl => {
     const aid = +rowEl.dataset.actionId;
     rowEl.querySelector('.ga-x').onclick = () => {
+      const action = (g.actions || []).find(a => a.id === aid);
       g.actions = (g.actions || []).filter(a => a.id !== aid);
+      // If the removed action was REST and no other action in any group
+      // still calls that api, drop the per-(api, group) override row so
+      // the api card stays tidy.
+      if (action?.type === 'rest') {
+        const api = state.apis.find(x => x.id === action.apiId);
+        if (api && api.groupOverrides && !groupCallsApi(api, g.id)) {
+          delete api.groupOverrides[g.id];
+        }
+      }
       render();
     };
     rowEl.querySelector('.ga-target').onchange = e => {
       const action = (g.actions || []).find(a => a.id === aid);
       if (!action) return;
-      if (action.type === 'rest') action.apiId = +e.target.value;
+      if (action.type === 'rest') {
+        const prevApiId = action.apiId;
+        action.apiId = +e.target.value;
+        // Clean up old api's override if no longer referenced.
+        if (prevApiId !== action.apiId) {
+          const prevApi = state.apis.find(x => x.id === prevApiId);
+          if (prevApi && prevApi.groupOverrides && !groupCallsApi(prevApi, g.id)) {
+            delete prevApi.groupOverrides[g.id];
+          }
+          const newApi = state.apis.find(x => x.id === action.apiId);
+          if (newApi) ensureApiGroupOverride(newApi, g.id);
+        }
+      }
       else if (action.type === 'publish') action.topicId = +e.target.value;
       render();
     };
@@ -2465,6 +3444,10 @@ function groupCard(g) {
 
   card.querySelector('.close-x').onclick = () => {
     state.groups = state.groups.filter(x => x.id !== g.id);
+    // Free any per-(api, group) override rows the deleted group held.
+    for (const api of state.apis) {
+      if (api.groupOverrides) delete api.groupOverrides[g.id];
+    }
     render();
   };
   const gToggle = card.querySelector('.toggle-collapse');
@@ -2522,14 +3505,27 @@ function apiCard(api) {
   card.dataset.apiId = api.id;
   card.style.color = api.color;
   const fmtSecs = ms => (ms / 1000).toFixed(1) + 's';
-  // Which groups have a REST action pointing at this api? Each consumer
-  // of every such group is a potential caller.
-  const callers = [];
-  for (const g of state.groups) {
-    const has = (g.actions || []).some(a => a.type === 'rest' && a.apiId === api.id);
-    if (!has) continue;
-    for (const c of g.consumers) callers.push(c);
-  }
+  // Groups that have a REST action pointing at this api. The PER-GROUP
+  // time/follow override row is rendered for each — this is where the
+  // user configures how long the api takes for THAT group's calls. The
+  // api's own time/follow act as defaults (template for groups added
+  // later); they don't affect already-configured groups.
+  const callingGroups = state.groups.filter(g =>
+    (g.actions || []).some(a => a.type === 'rest' && a.apiId === api.id)
+  );
+  if (!api.groupOverrides) api.groupOverrides = {};
+  const perGroupRows = callingGroups.map(g => {
+    const ovr = api.groupOverrides[g.id] || {};
+    const ms = Number.isFinite(ovr.processingMs) ? ovr.processingMs : (api.processingMs ?? 1500);
+    const follow = !!ovr.followMsgTime;
+    return `<div class="api-group-row" data-group-id="${g.id}" style="border-left:3px solid ${g.color}">
+      <span class="agr-name" title="grupo que llama">${escapeHtml(g.name)}</span>
+      ${follow ? '' : `<span class="num" title="tiempo fijo de este api cuando lo llama este grupo">
+        <button class="agr-tdec">−</button><span class="agr-tval">${fmtSecs(ms)}</span><button class="agr-tinc">+</button>
+      </span>`}
+      <button class="mini-btn follow-msg-tgl agr-follow ${follow?'tgl-on':'tgl-off'}" title="ON = el api tarda lo que indique el mensaje del consumer del grupo (m.processingMs); OFF = tiempo fijo">⏱ msg: ${follow?'ON':'OFF'}</button>
+    </div>`;
+  }).join('');
   card.innerHTML = `
     <div class="ahead">
       <span class="drag-handle" draggable="true" data-drag-type="api" title="arrastrar para reordenar">⋮⋮</span>
@@ -2537,15 +3533,18 @@ function apiCard(api) {
       <input class="name-input aname" value="${escapeHtml(api.name)}" spellcheck="false">
       <button class="close-x" title="quitar api">✕</button>
     </div>
-    <div class="api-meta">
-      <span class="lbl">tiempo</span>
-      <span class="num">
+    <div class="api-meta" title="valores por defecto al añadir nuevas (api, grupo). Los grupos ya conectados conservan los suyos.">
+      ${api.followMsgTime ? '' : `<span class="num">
         <button class="adec">−</button><span class="aval">${fmtSecs(api.processingMs)}</span><button class="ainc">+</button>
-      </span>
-      <span class="lbl">réplicas</span>
-      <span class="num">
+      </span>`}
+      <button class="mini-btn follow-msg-tgl ${api.followMsgTime?'tgl-on':'tgl-off'}">⏱ msg: ${api.followMsgTime?'ON':'OFF'}</button>
+      <span class="num" title="réplicas" style="margin-left:auto">
         <button class="rdec">−</button><span class="rval">${api.replicas}</span><button class="rinc">+</button>
+        <span class="small" style="margin-left:4px">×</span>
       </span>
+    </div>
+    <div class="api-group-rows">
+      ${perGroupRows || '<div class="empty-hint" style="margin:0;padding:4px 6px;font-size:10.5px">sin grupos llamando — añade una acción REST en un grupo</div>'}
     </div>
     <div class="api-replicas">${
       Array.from({length: api.replicas}, (_, i) =>
@@ -2556,11 +3555,6 @@ function apiCard(api) {
       ).join('')
     }</div>
     <div class="api-bar"><div class="api-bar-fill"></div></div>
-    <div class="api-callers">${
-      callers.length
-        ? callers.map(c => `<span class="caller-badge" style="background:${c.color}" title="consumer que llama">← ${escapeHtml(c.name)}</span>`).join('')
-        : '<span class="caller-badge idle">sin callers</span>'
-    }</div>
   `;
   card.querySelector('.close-x').onclick = () => {
     state.apis = state.apis.filter(x => x.id !== api.id);
@@ -2572,12 +3566,15 @@ function apiCard(api) {
   };
   card.querySelector('.badge-color').onclick = () => { api.color = pickColor(); render(); };
   card.querySelector('.aname').onchange = e => { api.name = (e.target.value || api.name).trim() || api.name; render(); };
-  const av = card.querySelector('.aval');
-  card.querySelector('.adec').onclick = () => {
+  // Stepper is only present when followMsgTime is OFF — guard.
+  const av   = card.querySelector('.aval');
+  const adec = card.querySelector('.adec');
+  const ainc = card.querySelector('.ainc');
+  if (adec) adec.onclick = () => {
     api.processingMs = Math.max(100, api.processingMs - 500);
     av.textContent = fmtSecs(api.processingMs);
   };
-  card.querySelector('.ainc').onclick = () => {
+  if (ainc) ainc.onclick = () => {
     api.processingMs = api.processingMs + 500;
     av.textContent = fmtSecs(api.processingMs);
   };
@@ -2589,53 +3586,100 @@ function apiCard(api) {
     ensureReplicaState(api);
     render();
   };
+  card.querySelector('.follow-msg-tgl').onclick = () => {
+    api.followMsgTime = !api.followMsgTime;
+    render();
+  };
+  // Per-(api, group) override rows. The stepper is omitted when ⏱ msg
+  // is ON, so guard each querySelector.
+  card.querySelectorAll('.api-group-row').forEach(rowEl => {
+    const gid = +rowEl.dataset.groupId;
+    if (!api.groupOverrides[gid]) ensureApiGroupOverride(api, gid);
+    const tval = rowEl.querySelector('.agr-tval');
+    const tdec = rowEl.querySelector('.agr-tdec');
+    const tinc = rowEl.querySelector('.agr-tinc');
+    if (tdec) tdec.onclick = () => {
+      const ovr = api.groupOverrides[gid];
+      if (!ovr) return;
+      ovr.processingMs = Math.max(100, (ovr.processingMs ?? 1500) - 500);
+      tval.textContent = fmtSecs(ovr.processingMs);
+    };
+    if (tinc) tinc.onclick = () => {
+      const ovr = api.groupOverrides[gid];
+      if (!ovr) return;
+      ovr.processingMs = Math.min(30000, (ovr.processingMs ?? 1500) + 500);
+      tval.textContent = fmtSecs(ovr.processingMs);
+    };
+    rowEl.querySelector('.agr-follow').onclick = () => {
+      const ovr = api.groupOverrides[gid];
+      if (!ovr) return;
+      ovr.followMsgTime = !ovr.followMsgTime;
+      render();
+    };
+  });
   return card;
 }
 
 function consumerRow(g, c, topic) {
   const row = document.createElement('div');
-  row.className = 'consumer-row idle';
+  const isSb = topic && topic.kind === 'sb-queue';
+  row.className = 'consumer-row idle' + (isSb ? ' sb' : '');
   row.dataset.consumerId = c.id;
+  row.dataset.consumerKind = isSb ? 'sb' : 'kafka';
   row.style.color = c.color;
-  const parts = g.assignments[c.id] || [];
   const fmtSecs = ms => (ms/1000).toFixed(1) + 's';
-  row.innerHTML = `
-    <div class="crow">
-      <span class="drag-handle expanded-only" draggable="true" data-drag-type="consumer" title="arrastrar para reordenar">⋮⋮</span>
-      <span class="dot" style="background:${c.color}"></span>
-      <span class="cname">${escapeHtml(c.name)}</span>
+
+  // The middle of the row differs by broker model. Kafka shows partition
+  // assignments + per-consumer lag (offset-derived). SB shows a "Receiver"
+  // role tag, the peek-lock state, and the current delivery count — none
+  // of which apply to Kafka, and vice-versa. We intentionally do NOT
+  // share fields so the UI mirrors the real semantics.
+  let midHtml;
+  if (isSb) {
+    midHtml = `
+      <span class="sb-meta">
+        <span class="role-tag" title="receptor que compite por mensajes de la cola">Receiver</span>
+        <span class="lock-badge" title="estado del peek-lock del receiver">sin lock</span>
+        <span class="deliv-badge" title="entrega actual (deliveryCount). >1 = redelivery" hidden>·</span>
+      </span>`;
+  } else {
+    const parts = g.assignments[c.id] || [];
+    midHtml = `
       <span class="parts">${
         parts.length
           ? parts.map(pi => `<span class="part-badge" style="background:${c.color}">P${pi}</span>`).join('')
           : '<span class="part-badge idle">idle</span>'
       }</span>
-      <span class="lagn ok" title="lag (mensajes pendientes para este consumer)">0</span>
-      <span class="num expanded-only" title="tiempo de procesamiento por mensaje">
-        <button class="cdec">−</button><span class="cval">${fmtSecs(c.processingMs)}</span><button class="cinc">+</button>
-      </span>
+      <span class="lagn ok" title="lag (mensajes pendientes para este consumer)">0</span>`;
+  }
+
+  const procTitle = isSb
+    ? 'mensaje (seq) que está procesando ahora'
+    : 'partición · offset que está procesando ahora';
+
+  // Per-consumer time + follow-toggle are GONE — they live on the group
+  // card now so every consumer/receiver of the group shares one profile.
+  // The row keeps only identity + role/partition + close.
+  row.innerHTML = `
+    <div class="crow">
+      <span class="drag-handle expanded-only" draggable="true" data-drag-type="consumer" title="arrastrar para reordenar">⋮⋮</span>
+      <span class="dot" style="background:${c.color}"></span>
+      <span class="cname">${escapeHtml(c.name)}</span>
+      ${midHtml}
       <button class="x expanded-only" title="quitar consumer">✕</button>
     </div>
     <div class="proc-info">
-      <span class="proc-target" title="partición · offset que está procesando ahora">—</span>
+      <span class="proc-msg" title="el mensaje que está procesando ahora"></span>
+      <span class="proc-target" title="${procTitle}">—</span>
       <div class="proc-bar"><div class="proc-fill"></div></div>
-      <span class="proc-eta" title="tiempo que falta para terminar">${fmtSecs(c.processingMs)}</span>
+      <span class="proc-eta" title="tiempo que falta para terminar">${g?.followMsgTime ? '' : fmtSecs(g?.processingMs ?? c.processingMs ?? 2000)}</span>
     </div>
-    <div class="rebalance-slot"></div>
-    <ol class="walk-log"></ol>
+    ${isSb ? '' : '<div class="rebalance-slot"></div>'}
   `;
   row.querySelector('.x').onclick = () => {
     g.consumers = g.consumers.filter(x => x.id !== c.id);
     reassign(g);
     render();
-  };
-  const cv = row.querySelector('.cval');
-  row.querySelector('.cdec').onclick = () => {
-    c.processingMs = Math.max(100, c.processingMs - 500);
-    cv.textContent = fmtSecs(c.processingMs);
-  };
-  row.querySelector('.cinc').onclick = () => {
-    c.processingMs = c.processingMs + 500;
-    cv.textContent = fmtSecs(c.processingMs);
   };
   return row;
 }
@@ -2664,6 +3708,53 @@ function renderLive() {
   // Topic totals + partition logs + markers
   for (const t of state.topics) {
     let total = 0;
+    // SB queue: render the single message lane with the in-queue list.
+    // Locked messages (currently held by a consumer's peek-lock) get a
+    // coloured ring; the queue's total is the size of t.messages.
+    if (t.kind === 'sb-queue') {
+      const cell = document.querySelector(`[data-topic-id="${t.id}"] .sb-lane`);
+      if (cell) {
+        cell.classList.toggle('flash', now < t.flashUntil);
+        const inner = cell.querySelector('.p-log-inner');
+        const logEl = cell.querySelector('.p-log');
+        const logW = Math.max(0, (logEl?.clientWidth || 0) - 2 * LOG_PAD);
+        const visibleCount = Math.max(1, Math.min(MAX_VISIBLE, Math.floor((logW + MSG_GAP) / ROW_W)));
+        const visible = t.messages.slice(0, visibleCount);  // oldest first (head of queue)
+        const sig = visible.map(m => m.id + (m.lockedBy ? ('L'+m.lockedBy) : '')).join(',');
+        if (inner && inner.dataset.sig !== sig) {
+          const oldIds = new Set((inner.dataset.sig || '').split(',').filter(Boolean).map(s => s.split('L')[0]).map(Number));
+          inner.innerHTML = '';
+          for (const m of visible) {
+            const div = document.createElement('div');
+            div.className = 'msg' + (oldIds.has(m.id) ? '' : ' enter');
+            div.dataset.msgId = m.id;
+            div.style.background = m.color;
+            if (m.lockedBy) {
+              // Find the consumer holding the lock to colour the ring
+              let lockColor = '#000';
+              for (const g of state.groups) {
+                const cc = g.consumers.find(x => x.id === m.lockedBy);
+                if (cc) { lockColor = cc.color; break; }
+              }
+              div.classList.add('in-flight');
+              div.style.setProperty('--ring', lockColor);
+            }
+            const tTxt = formatMsgTime(m.processingMs);
+            div.title = `seq=${m.seq}${m.key?' · key='+m.key:''}${m.deliveryCount>1?' · entrega #'+m.deliveryCount:''}${tTxt?' · proc='+tTxt:''}`;
+            div.innerHTML =
+              `<span class="mkey">${m.key ? escapeHtml(m.key) : ''}</span>` +
+              `<span class="moff">${m.seq}</span>` +
+              `<span class="mtime">${tTxt}</span>`;
+            inner.appendChild(div);
+          }
+          inner.dataset.sig = sig;
+        }
+      }
+      total = t.messages.length;
+      const tot = document.getElementById('tot-' + t.id);
+      if (tot) tot.textContent = total;
+      continue;   // skip the Kafka per-partition loop below
+    }
     for (let idx = 0; idx < t.partitions.length; idx++) {
       const partition = t.partitions[idx];
       total += partition.nextOffset;
@@ -2696,11 +3787,16 @@ function renderLive() {
           div.dataset.offset = m.offset;
           div.style.background = m.color;
           // Show the key as a title (tooltip) since horizontal width is tight.
-          if (m.key) div.title = `key=${m.key} · offset=${m.offset}`;
-          else div.title = `offset=${m.offset}`;
+          const tTxt = formatMsgTime(m.processingMs);
+          const titleParts = [];
+          if (m.key) titleParts.push(`key=${m.key}`);
+          titleParts.push(`offset=${m.offset}`);
+          if (tTxt) titleParts.push(`proc=${tTxt}`);
+          div.title = titleParts.join(' · ');
           div.innerHTML =
             `<span class="mkey">${m.key ? escapeHtml(m.key) : ''}</span>` +
-            `<span class="moff">${m.offset}</span>`;
+            `<span class="moff">${m.offset}</span>` +
+            `<span class="mtime">${tTxt}</span>`;
           inner.appendChild(div);
         }
         inner.dataset.sig = sig;
@@ -2781,18 +3877,19 @@ function renderLive() {
       apiAlive.add(sub.api.id);
       if (sub.kind === 'remote') {
         // Compute remote-progress for the current api in this consumer's
-        // composite process phase.
-        let cursor = c.processingMs || 0;
+        // composite process phase. All time values respect "follow msg time"
+        // — both for the consumer's local slice and each REST api window.
+        let cursor = effectiveConsumerLocalMs(c, g);
         const rests = groupRestActions(g);
         for (let i = 0; i < rests.length; i++) {
           if (i !== sub.actionIdx) {
             const aPrev = state.apis.find(x => x.id === rests[i].apiId);
-            if (aPrev) cursor += 2 * LATENCY_MS + (aPrev.processingMs || 1);
+            if (aPrev) cursor += 2 * LATENCY_MS + effectiveApiMs(aPrev, c, g);
             continue;
           }
           const tRemoteStart = cursor + LATENCY_MS;
           const remoteElapsed = c.processing.elapsed - tRemoteStart;
-          const pct = Math.max(0, Math.min(1, remoteElapsed / (sub.api.processingMs || 1)));
+          const pct = Math.max(0, Math.min(1, remoteElapsed / effectiveApiMs(sub.api, c, g)));
           apiProgress.set(sub.api.id, Math.max(apiProgress.get(sub.api.id) || 0, pct));
           break;
         }
@@ -2826,7 +3923,7 @@ function renderLive() {
         // Compute progress within THIS api's remote window, accounting
         // for any earlier REST actions that already ran before it.
         const rests = groupRestActions(g);
-        let cursor = c.processingMs || 0;
+        let cursor = effectiveConsumerLocalMs(c, g);
         let progress = 0;
         for (let i = 0; i < rests.length; i++) {
           const aRest = state.apis.find(x => x.id === rests[i].apiId);
@@ -2834,13 +3931,13 @@ function renderLive() {
           if (aRest.id === api.id) {
             const tRemoteStart = cursor + LATENCY_MS;
             const remoteElapsed = c.processing.elapsed - tRemoteStart;
-            progress = Math.max(0, Math.min(1, remoteElapsed / (api.processingMs || 1)));
+            progress = Math.max(0, Math.min(1, remoteElapsed / effectiveApiMs(api, c, g)));
             break;
           }
-          cursor += 2 * LATENCY_MS + (aRest.processingMs || 1);
+          cursor += 2 * LATENCY_MS + effectiveApiMs(aRest, c, g);
         }
         const arr = perReplica.get(c.processing.replicaIdx) || [];
-        arr.push({ color: c.color, progress });
+        arr.push({ color: c.color, progress, msg: currentMessage(c, g) });
         perReplica.set(c.processing.replicaIdx, arr);
       }
     }
@@ -2859,14 +3956,24 @@ function renderLive() {
       const queue = box.querySelector('.rqueue');
       if (queue) {
         const reqs = perReplica.get(i) || [];
-        // Rebuild: cheap, ≤ a handful of bars per replica.
+        // Rebuild: cheap, ≤ a handful of bars per replica. Each row =
+        // the in-flight message square (small) + the progress bar of
+        // this consumer's call inside this replica.
         queue.innerHTML = '';
         for (const r of reqs) {
+          const rowEl = document.createElement('div');
+          rowEl.className = 'req-row';
+          const miniEl = buildMiniMsgEl(r.msg, r.color);
+          if (miniEl) rowEl.appendChild(miniEl);
+          const barWrap = document.createElement('div');
+          barWrap.className = 'req-bar-wrap';
           const bar = document.createElement('div');
           bar.className = 'req-bar';
           bar.style.background = r.color;
           bar.style.width = (r.progress * 100).toFixed(1) + '%';
-          queue.appendChild(bar);
+          barWrap.appendChild(bar);
+          rowEl.appendChild(barWrap);
+          queue.appendChild(rowEl);
         }
       }
     }
@@ -2881,31 +3988,70 @@ function renderLive() {
   // Consumer lag + processing pulse
   for (const g of state.groups) {
     const topic = state.topics.find(t => t.id === g.topicId);
+    const isSb = topic?.kind === 'sb-queue';
     let gLag = 0;
+    let gLock = 0;
+    if (isSb) {
+      // SB: "group lag" is the queue depth (msgs the group hasn't drained
+      // yet); per-consumer lag doesn't exist (competing consumers share
+      // one logical lane). Locked count = msgs currently peek-locked by
+      // receivers of this group.
+      gLag = topic.messages.length;
+      const ownIds = new Set(g.consumers.map(c => c.id));
+      for (const m of topic.messages) if (m.lockedBy && ownIds.has(m.lockedBy)) gLock++;
+    }
     for (const c of g.consumers) {
       const row = document.querySelector(`[data-group-id="${g.id}"] [data-consumer-id="${c.id}"]`);
       if (!row) continue;
-      let lag = 0;
-      if (topic) {
-        const parts = g.assignments[c.id] || [];
-        for (const pi of parts) {
-          const partition = topic.partitions[pi];
-          if (partition) {
-            const off = g.offsets[pi] ?? 0;
-            lag += Math.max(0, partition.nextOffset - off);
+      if (isSb) {
+        // Receiver-specific badges: peek-lock state + redelivery count.
+        const lockEl = row.querySelector('.lock-badge');
+        const delivEl = row.querySelector('.deliv-badge');
+        let held = null;
+        if (c.processing && c.processing.messageId != null) {
+          held = topic.messages.find(m => m.id === c.processing.messageId) || null;
+        }
+        if (lockEl) {
+          if (held) {
+            lockEl.textContent = `peek-lock · seq ${held.seq}`;
+            lockEl.classList.add('locked');
+          } else {
+            lockEl.textContent = 'sin lock';
+            lockEl.classList.remove('locked');
           }
         }
+        if (delivEl) {
+          if (held && held.deliveryCount > 1) {
+            delivEl.hidden = false;
+            delivEl.textContent = `entrega #${held.deliveryCount}`;
+          } else {
+            delivEl.hidden = true;
+          }
+        }
+      } else {
+        let lag = 0;
+        if (topic) {
+          const parts = g.assignments[c.id] || [];
+          for (const pi of parts) {
+            const partition = topic.partitions[pi];
+            if (partition) {
+              const off = g.offsets[pi] ?? 0;
+              lag += Math.max(0, partition.nextOffset - off);
+            }
+          }
+        }
+        gLag += lag;
+        const lagEl = row.querySelector('.lagn');
+        if (lagEl) {
+          lagEl.textContent = lag;
+          lagEl.classList.toggle('ok', lag === 0);
+        }
       }
-      gLag += lag;
-      const lagEl = row.querySelector('.lagn');
-      if (lagEl) {
-        lagEl.textContent = lag;
-        lagEl.classList.toggle('ok', lag === 0);
-      }
-      // Rebalance pill — visible for ~4s after the consumer's assignment
-      // changed. Auto-cleared when the timer expires.
+      // Rebalance pill — Kafka-only (SB receivers don't rebalance; they
+      // compete on a shared queue). The SB consumer row also omits the
+      // slot entirely, so the querySelector below is a no-op there.
       const slot = row.querySelector('.rebalance-slot');
-      if (slot) {
+      if (slot && !isSb) {
         if (c.rebalanceLog && (now - c.rebalanceLog.at < 4000)) {
           if (!slot.firstChild) {
             const pill = document.createElement('div');
@@ -2941,10 +4087,24 @@ function renderLive() {
       const tgt  = row.querySelector('.proc-target');
       const fill = row.querySelector('.proc-fill');
       const eta  = row.querySelector('.proc-eta');
+      const pmsg = row.querySelector('.proc-msg');
       const fmtS = ms => (ms/1000).toFixed(1) + 's';
       if (c.processing) {
         row.classList.remove('idle');
         row.classList.add('processing');
+        // Mini message square showing which message is "live" inside the
+        // consumer. Rebuild only when the underlying message id changes
+        // (avoid trashing the DOM every animation frame).
+        if (pmsg) {
+          const m = currentMessage(c, g);
+          const sig = m ? String(m.id) : '';
+          if (pmsg.dataset.sig !== sig) {
+            pmsg.innerHTML = '';
+            const el = buildMiniMsgEl(m, c.color);
+            if (el) pmsg.appendChild(el);
+            pmsg.dataset.sig = sig;
+          }
+        }
         const phase = c.processing.phase;
         // Bar tracks the REAL phase length — including all REST actions
         // (group-level) when configured.
@@ -2961,7 +4121,18 @@ function renderLive() {
           etaMs = 0;
         }
         const tag = phase === 'fetch' ? '↓' : phase === 'commit' ? '↑' : '·';
-        if (tgt) tgt.textContent = `${tag} P${c.processing.partition} · #${c.processing.offset}`;
+        if (tgt) {
+          if (isSb) {
+            // SB: messageId → look up seq for a friendly label. The phase
+            // names are reused (fetch/process/commit) but represent Receive
+            // → Process → Complete in Service Bus terms.
+            const held = topic.messages.find(m => m.id === c.processing.messageId);
+            const seqTxt = held ? `seq ${held.seq}` : '…';
+            tgt.textContent = `${tag} ${seqTxt}`;
+          } else {
+            tgt.textContent = `${tag} P${c.processing.partition} · #${c.processing.offset}`;
+          }
+        }
         if (fill) fill.style.width = pct.toFixed(1) + '%';
         if (eta) eta.textContent = fmtS(etaMs);
         // When the consumer is in any REST sub-phase, tint the bar with
@@ -2979,16 +4150,90 @@ function renderLive() {
         row.classList.remove('processing');
         if (tgt) tgt.textContent = '—';
         if (fill) { fill.style.width = '0%'; fill.style.background = ''; }
-        if (eta) eta.textContent = fmtS(phaseDuration(c, 'process', g));
+        // When the group follows msg-time and there's no message to read
+        // a duration from, hide the ETA — we don't know it yet.
+        if (eta) eta.textContent = g?.followMsgTime ? '' : fmtS(phaseDuration(c, 'process', g));
+        // Clear the in-flight mini square when idle.
+        if (pmsg && pmsg.dataset.sig !== '') {
+          pmsg.innerHTML = '';
+          pmsg.dataset.sig = '';
+        }
       }
     }
     const gLagEl = document.querySelector(`[data-group-id="${g.id}"] .glag`);
     if (gLagEl) gLagEl.textContent = gLag;
+    if (isSb) {
+      const gLockEl = document.querySelector(`[data-group-id="${g.id}"] .glock`);
+      if (gLockEl) gLockEl.textContent = gLock;
+    }
   }
 
   // Redraw the producer↔partition↔consumer connection paths to follow any
   // layout changes that happened this frame (scroll, reflow, rebalance…).
   updateLinks();
+
+  // Reposition every floating walk-log panel so it tracks its anchor
+  // (consumer row or producer card). The panel is position:fixed so
+  // this only updates style.top / style.left — no layout work on the
+  // rest of the page. Empty panels stay display:none via :empty.
+  //
+  // Three concerns handled here:
+  //   1) Don't overlap the API column on the right — clip the "to the
+  //      right of the anchor" position to leave the api cards alone.
+  //   2) When several panels would land in the same area, cascade them
+  //      vertically so each one is fully clickable.
+  //   3) Honour user-pinned z-order (click-to-front) by leaving any
+  //      panel that has style.zIndex set alone.
+  const apiCol = document.getElementById('apisList');
+  const apiLeft = apiCol ? apiCol.getBoundingClientRect().left : window.innerWidth;
+  const placed = [];   // {left, top, w, h} rects already laid out
+  for (const log of document.querySelectorAll('#walkLayer .walk-log')) {
+    if (!log.firstChild) {
+      log.style.left = ''; log.style.top = '';
+      continue;
+    }
+    const sel = log.dataset.anchorSel;
+    const anchor = sel ? document.querySelector(sel) : null;
+    if (!anchor) {
+      // Anchor is gone (consumer/producer was deleted). Drop the orphan.
+      log.remove();
+      continue;
+    }
+    const rRect = anchor.getBoundingClientRect();
+    const margin = 16;
+    const w = log.offsetWidth, h = log.offsetHeight;
+    let left, top, below = false;
+    // Prefer to the RIGHT of the anchor, but never crossing into the
+    // api column (or the viewport edge if there's no api column).
+    const rightLimit = Math.min(apiLeft, window.innerWidth) - 8;
+    if (rRect.right + margin + w <= rightLimit) {
+      left = rRect.right + margin;
+      top  = rRect.top;
+    } else {
+      // Fall back to BELOW the anchor.
+      left = Math.max(8, rRect.left);
+      top  = rRect.bottom + 6;
+      below = true;
+    }
+    // Cascade if this rect would intersect an already-placed one.
+    let safety = 40;
+    while (safety-- > 0) {
+      let hit = false;
+      for (const p of placed) {
+        if (left < p.left + p.w && left + w > p.left &&
+            top  < p.top  + p.h && top  + h > p.top) {
+          top = p.top + p.h + 6;
+          hit = true;
+          break;
+        }
+      }
+      if (!hit) break;
+    }
+    log.classList.toggle('below', below);
+    log.style.left = left + 'px';
+    log.style.top  = top + 'px';
+    placed.push({ left, top, w, h });
+  }
 }
 
 // ============================================================
@@ -2998,6 +4243,16 @@ function escapeHtml(s) {
   return String(s)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Compact one-decimal seconds — used inside .msg squares where width is
+// scarce. Returns '' if the message was never stamped (so the chip stays
+// collapsed via :empty rather than rendering "—s"). Below 100ms we drop
+// to ms to avoid showing "0.0s".
+function formatMsgTime(ms) {
+  if (ms == null || !Number.isFinite(ms)) return '';
+  if (ms < 100) return ms + 'ms';
+  return (ms / 1000).toFixed(1) + 's';
 }
 
 // ============================================================
@@ -3025,30 +4280,47 @@ function serializeState() {
     nextId,
     running: state.running,
     speed: state.speed,
-    topics: state.topics.map(t => ({
-      id: t.id, name: t.name,
-      partitions: t.partitions.map(p => ({
-        messages: p.messages,
-        nextOffset: p.nextOffset,
-        earliestOffset: p.earliestOffset,
-      })),
-    })),
+    topics: state.topics.map(t => {
+      if (t.kind === 'sb-queue') {
+        return {
+          id: t.id, name: t.name, kind: t.kind,
+          messages: t.messages,
+          dlq: t.dlq || [],
+          nextSeq: t.nextSeq | 0,
+        };
+      }
+      return {
+        id: t.id, name: t.name, kind: t.kind || 'kafka',
+        partitions: t.partitions.map(p => ({
+          messages: p.messages,
+          nextOffset: p.nextOffset,
+          earliestOffset: p.earliestOffset,
+        })),
+      };
+    }),
     producers: state.producers.map(p => ({
       id: p.id, name: p.name, color: p.color, topicId: p.topicId,
       mode: p.mode, stickyPart: p.stickyPart, keyPool: p.keyPool,
       rate: p.rate, sendCount: p.sendCount, auto: !!p.auto,
+      msgProcessingMs: p.msgProcessingMs,
     })),
     apis: state.apis.map(a => ({
       id: a.id, name: a.name, color: a.color,
       processingMs: a.processingMs,
       replicas: a.replicas,
+      followMsgTime: !!a.followMsgTime,
+      groupOverrides: a.groupOverrides || {},
     })),
     producersCollapsed: !!state.producersCollapsed,
     walkthroughMode: state.walkthroughMode !== false,
     groups: state.groups.map(g => ({
       id: g.id, name: g.name, color: g.color, topicId: g.topicId,
+      processingMs: g.processingMs,
+      followMsgTime: !!g.followMsgTime,
       consumers: g.consumers.map(c => ({
         id: c.id, name: c.name, color: c.color,
+        // Legacy: pre-group-level saves still carried per-consumer time.
+        // We keep writing it so older readers don't lose it on round-trip.
         processingMs: c.processingMs,
         processing: c.processing,   // preserve in-flight; consumeForGroup is tolerant
       })),
@@ -3070,19 +4342,36 @@ function hydrateFromParsed(parsed) {
   state.running = parsed.running !== false;
   state.speed = (typeof parsed.speed === 'number' && parsed.speed > 0) ? parsed.speed : 1;
 
-  state.topics = (parsed.topics || []).map(t => ({
-    id: t.id, name: t.name,
-    partitions: (t.partitions || []).map(p => ({
-      messages: Array.isArray(p.messages) ? p.messages : [],
-      nextOffset: p.nextOffset | 0,
-      earliestOffset: p.earliestOffset | 0,
-      flashUntil: 0,
-    })),
-  }));
+  state.topics = (parsed.topics || []).map(t => {
+    const kind = t.kind || 'kafka';
+    if (kind === 'sb-queue') {
+      return {
+        id: t.id, name: t.name, kind,
+        messages: (Array.isArray(t.messages) ? t.messages : []).map(m => ({
+          // clear runtime peek-lock — broker restart effectively releases all locks
+          ...m, lockedBy: null, lockedUntil: 0,
+        })),
+        dlq: Array.isArray(t.dlq) ? t.dlq : [],
+        nextSeq: t.nextSeq | 0,
+        flashUntil: 0,
+      };
+    }
+    return {
+      id: t.id, name: t.name, kind,
+      partitions: (t.partitions || []).map(p => ({
+        messages: Array.isArray(p.messages) ? p.messages : [],
+        nextOffset: p.nextOffset | 0,
+        earliestOffset: p.earliestOffset | 0,
+        flashUntil: 0,
+      })),
+    };
+  });
   state.apis = (parsed.apis || []).map(a => ({
     id: a.id, name: a.name, color: a.color,
     processingMs: a.processingMs ?? 1500,
     replicas: Math.max(1, a.replicas | 0 || 1),
+    followMsgTime: !!a.followMsgTime,
+    groupOverrides: (a.groupOverrides && typeof a.groupOverrides === 'object') ? a.groupOverrides : {},
   }));
   state.producers = (parsed.producers || []).map(p => ({
     id: p.id, name: p.name, color: p.color, topicId: p.topicId,
@@ -3093,6 +4382,7 @@ function hydrateFromParsed(parsed) {
     accum: 0,
     sendCount: p.sendCount | 0,
     auto: !!p.auto,
+    msgProcessingMs: p.msgProcessingMs ?? 1500,
   }));
   // Backward-compat: derive section-level collapse from either the explicit
   // flag, or "all producers were collapsed" in an older per-producer save.
@@ -3112,17 +4402,54 @@ function hydrateFromParsed(parsed) {
         }
       }
     });
-    const actions = Array.isArray(g.actions) && g.actions.length
-      ? g.actions.map(a => ({ id: a.id || newId(), ...a }))
+    // Hydrate actions. Per-action time/follow no longer lives here — it
+    // migrated to api.groupOverrides[groupId]. We carry across any
+    // legacy action.processingMs / action.followMsgTime into the api's
+    // groupOverrides so old saves keep their custom timings.
+    const actionsRaw = Array.isArray(g.actions) && g.actions.length
+      ? g.actions
       : legacyActions;
+    const actions = actionsRaw.map(a => {
+      const out = { id: a.id || newId(), type: a.type };
+      if (a.type === 'rest') {
+        out.apiId = a.apiId;
+        // Migrate legacy fields → api.groupOverrides[g.id]
+        if (Number.isFinite(a.processingMs) || a.followMsgTime != null) {
+          const api = state.apis.find(x => x.id === a.apiId);
+          if (api) {
+            if (!api.groupOverrides) api.groupOverrides = {};
+            if (!api.groupOverrides[g.id]) {
+              api.groupOverrides[g.id] = {
+                processingMs: Number.isFinite(a.processingMs) ? a.processingMs : (api.processingMs ?? 1500),
+                followMsgTime: !!a.followMsgTime,
+              };
+            }
+          }
+        }
+      } else if (a.type === 'publish') {
+        out.topicId = a.topicId;
+      }
+      return out;
+    });
+    // Group-level time: explicit field wins; otherwise migrate from the
+    // first consumer's legacy per-consumer value; else fall back to 2000.
+    const firstC = (g.consumers || [])[0];
+    const groupMs = Number.isFinite(g.processingMs)
+      ? g.processingMs
+      : Number.isFinite(firstC?.processingMs)
+        ? firstC.processingMs
+        : 2000;
     return {
       id: g.id, name: g.name, color: g.color, topicId: g.topicId,
+      processingMs: groupMs,
+      followMsgTime: !!g.followMsgTime,
       consumers: (g.consumers || []).map(c => {
         let proc = c.processing || null;
         if (proc && !proc.phase) proc = { ...proc, phase: 'process', elapsed: proc.elapsed | 0 };
         return {
           id: c.id, name: c.name, color: c.color,
-          processingMs: c.processingMs ?? 2000,
+          // Kept for backward-compat reads; runtime ignores in favour of g.
+          processingMs: c.processingMs ?? groupMs,
           processing: proc,
           rrIdx: 0, lastActive: 0,
         };
@@ -3136,6 +4463,16 @@ function hydrateFromParsed(parsed) {
   // Make sure every newly-loaded group has at least default offsets +
   // assignments for the partitions it sees now.
   for (const g of state.groups) reassign(g);
+  // Make sure every (api, calling-group) pair has an override row, even
+  // if the save predates the per-(api, group) model. The api card needs
+  // these to render its sub-rows.
+  for (const g of state.groups) {
+    for (const a of (g.actions || [])) {
+      if (a.type !== 'rest') continue;
+      const api = state.apis.find(x => x.id === a.apiId);
+      if (api) ensureApiGroupOverride(api, g.id);
+    }
+  }
   return true;
 }
 
@@ -3148,8 +4485,22 @@ function loadState() {
   if (!raw) return false;
   let parsed;
   try { parsed = JSON.parse(raw); }
-  catch (e) { return false; }
-  return hydrateFromParsed(parsed);
+  catch (e) {
+    // Corrupt JSON — drop it so the next save replaces it cleanly.
+    try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+    return false;
+  }
+  // Wrap hydration too: if any unexpected field shape blows up, we'd
+  // rather start fresh than break the entire IIFE init.
+  try {
+    return hydrateFromParsed(parsed);
+  } catch (e) {
+    console.warn('[kafka-sim] hydrate failed, starting fresh:', e);
+    try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+    // Reset to a clean slate.
+    state.topics = []; state.producers = []; state.groups = []; state.apis = [];
+    return false;
+  }
 }
 
 // Trigger a download of the current state as a pretty-printed JSON file.
@@ -3445,7 +4796,11 @@ document.getElementById('walkModeBtn').onclick = () => {
   scheduleSave();
 };
 document.getElementById('addTopicBtn').onclick = () => {
-  state.topics.push(makeTopic(`topic-${state.topics.length+1}`, 1));
+  state.topics.push(makeTopic(`topic-${state.topics.length+1}`, 1, 'kafka'));
+  render();
+};
+document.getElementById('addQueueBtn').onclick = () => {
+  state.topics.push(makeTopic(`queue-${state.topics.length+1}`, 0, 'sb-queue'));
   render();
 };
 document.getElementById('addGroupBtn').onclick = () => {
@@ -3472,6 +4827,16 @@ loadState();
 syncToolbar();
 render();
 setupDragHandlers();
+// Click-to-front for floating walk-log panels. A single counter beats
+// the base z-index of every other panel; the most recently clicked panel
+// wins. Delegation here (vs per-panel onclick) is safe because the
+// panel elements persist across renders and pointerdown fires before
+// any embedded button click — so this never interferes with the ✓.
+let walkLogTopZ = 1000;
+document.addEventListener('pointerdown', e => {
+  const log = e.target.closest && e.target.closest('.walk-log');
+  if (log) log.style.zIndex = String(++walkLogTopZ);
+}, true);
 loop();
 })();
 </script>
