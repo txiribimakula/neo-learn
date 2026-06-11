@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cámaras · Viewports · Espacios de coordenadas</title>
+<style>
+  :root{
+    --bg:#f3efe6; --card:#ffffff; --card-border:#e4dfd2;
+    --ink:#23272f; --muted:#6b7280; --muted2:#9aa1ad;
+    --accent:#3956d3;
+    --world:#2e7d4f;     /* verde — MUNDO */
+    --camera:#d97706;    /* ámbar — CÁMARA */
+    --screen:#2563eb;    /* azul — PANTALLA / viewport */
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+
+  /* ---------- layout maestro: 2/3 viz · 1/3 narrativa ---------- */
+  .page{display:grid;grid-template-columns:2fr 1fr;align-items:start;gap:0}
+
+  .viz{position:sticky;top:0;height:100vh;border-right:1px solid var(--card-border);
+       background:linear-gradient(180deg,#faf8f3,#efeadf)}
+  .viz-inner{position:relative;height:100%;display:flex;flex-direction:column;
+             padding:14px 16px;gap:10px}
+
+  /* miniaturas de escena (selector visual) */
+  .scene-thumbs{display:flex;gap:8px;flex:0 0 auto;align-items:stretch}
+  .scene-thumb{
+    position:relative;border:2px solid var(--card-border);border-radius:8px;background:#fff;
+    padding:0;cursor:pointer;overflow:hidden;flex:1 1 0;min-width:0;
+    transition:border-color .15s, box-shadow .15s, transform .1s;
+  }
+  .scene-thumb:hover{transform:translateY(-1px)}
+  .scene-thumb canvas{display:block;width:100%;height:62px;background:#dfe6ef}
+  .scene-thumb .name{
+    font-size:10px;font-weight:700;color:var(--muted);padding:3px 6px;text-align:left;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .scene-thumb.sel{border-color:var(--world);box-shadow:0 0 0 2px rgba(46,125,79,.18)}
+  .scene-thumb.sel .name{color:var(--world)}
+  .scene-thumb .badge{
+    position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;
+    background:var(--world);color:#fff;font-size:11px;font-weight:800;
+    display:none;align-items:center;justify-content:center;line-height:1;
+  }
+  .scene-thumb.sel .badge{display:flex}
+  .thumbs-hint{font-size:10.5px;color:var(--muted2);flex:0 0 auto;margin-top:-2px}
+  .thumbs-hint b{color:var(--muted)}
+
+  .controls{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:12px;flex:0 0 auto}
+  .controls label{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--muted)}
+  .controls select{padding:2px 5px;border:1px solid var(--card-border);border-radius:5px;background:#fff;font-size:12px}
+  .controls input[type=range]{width:120px}
+  .controls input[type=checkbox]{accent-color:var(--accent)}
+  .controls .divider{width:1px;height:18px;background:var(--card-border)}
+  .controls b{font-variant-numeric:tabular-nums}
+
+  .stage{position:relative;flex:1 1 auto;display:flex;flex-direction:column;gap:8px;min-height:0}
+  .canvas-wrap{position:relative;display:flex;align-items:center;justify-content:center}
+  .canvas-wrap .tag{
+    position:absolute;top:6px;left:8px;font-size:10px;font-weight:800;letter-spacing:.6px;
+    text-transform:uppercase;padding:2px 8px;border-radius:20px;color:#fff;z-index:3;
+  }
+  .canvas-wrap .tag.world{background:var(--world)}
+  .canvas-wrap .tag.screen{background:var(--screen)}
+  canvas{display:block;border-radius:8px}
+  #worldCanvas{cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  #worldCanvas:active{cursor:grabbing}
+  #screenCanvas{cursor:grab;box-shadow:0 4px 14px rgba(20,30,60,.22)}
+  /* overlay de conectores: cubre todo el escenario, no captura ratón */
+  #overlay{position:absolute;inset:0;pointer-events:none;z-index:2}
+
+  /* ---------- narrativa scrollytelling ---------- */
+  .narrative{padding:0 0 40vh}
+  .hero{padding:64px 34px 20px}
+  .hero h1{font-size:24px;font-weight:800;letter-spacing:-.3px;margin:0 0 10px;line-height:1.2}
+  .hero p{font-size:13.5px;color:var(--muted);line-height:1.6;margin:0}
+  .hero p b{color:var(--ink)}
+  .legend{display:flex;flex-direction:column;gap:7px;margin:18px 0 0}
+  .legend .chip{font-size:11.5px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:9px}
+  .legend .chip .sw{width:13px;height:13px;border-radius:4px;flex:0 0 auto}
+  .legend .chip b{color:var(--ink);font-weight:800}
+  .scroll-hint{margin-top:26px;font-size:11.5px;color:var(--muted2);display:flex;align-items:center;gap:8px}
+  .scroll-hint .arrow{animation:bob 1.4s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+
+  section.step{
+    min-height:88vh;display:flex;flex-direction:column;justify-content:center;
+    padding:30px 34px;border-top:1px solid transparent;
+  }
+  section.step .num{
+    font-size:11px;font-weight:800;letter-spacing:1.5px;color:var(--accent);
+    text-transform:uppercase;margin-bottom:10px;
+  }
+  section.step h2{font-size:19px;font-weight:800;margin:0 0 12px;line-height:1.25;letter-spacing:-.2px}
+  section.step p{font-size:13.5px;color:#3b4250;line-height:1.65;margin:0 0 12px}
+  section.step p b{color:var(--ink)}
+  section.step .hl-world{color:var(--world);font-weight:700}
+  section.step .hl-camera{color:var(--camera);font-weight:700}
+  section.step .hl-screen{color:var(--screen);font-weight:700}
+
+  /* bloque técnico con la fórmula + números vivos */
+  .tech{
+    background:#1d2230;color:#e6e9f2;border-radius:9px;padding:13px 15px;margin-top:6px;
+    font-family:ui-monospace,"SF Mono",Consolas,monospace;font-size:12.5px;line-height:1.7;
+  }
+  .tech .row{display:flex;justify-content:space-between;gap:10px;white-space:nowrap}
+  .tech .lbl{color:#8e9bb3}
+  .tech .val{font-weight:700;font-variant-numeric:tabular-nums}
+  .tech .val.world{color:#7ee2a8}
+  .tech .val.camera{color:#fbc77d}
+  .tech .val.screen{color:#8fbcff}
+  .tech .sep{height:1px;background:#2f3850;margin:8px 0}
+  .tech .formula{color:#c7cede;font-size:12px}
+  .tech .formula .op{color:#8e9bb3}
+
+  .mini-note{font-size:12px;color:var(--muted);line-height:1.55;margin-top:12px;
+             border-left:3px solid var(--card-border);padding-left:11px}
+
+  /* selector activo: realza la sección en el centro */
+  section.step.active h2{color:var(--ink)}
+  section.step{transition:opacity .3s}
+  section.step:not(.active):not(.hero-sib){opacity:.5}
+
+  .fitbtns{display:inline-flex;gap:5px;margin-left:4px}
+  .fitbtns button{
+    font:inherit;font-size:11px;font-weight:700;padding:2px 9px;border-radius:6px;cursor:pointer;
+    border:1px solid var(--card-border);background:#fff;color:var(--muted);
+  }
+  .fitbtns button.on{background:var(--screen);color:#fff;border-color:var(--screen)}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ============ IZQUIERDA: visualización pegajosa ============ -->
+  <div class="viz">
+    <div class="viz-inner">
+      <div class="scene-thumbs" id="sceneThumbs"></div>
+      <div class="thumbs-hint"><b>Clic</b> en una escena · <b>Ctrl/Shift+clic</b> para combinar varias (grid)</div>
+      <div class="controls">
+        <label>Viewport
+          <select id="vpSel">
+            <option value="480x270" selected>16:9 · 480×270</option>
+            <option value="360x270">4:3 · 360×270</option>
+            <option value="270x270">1:1 · 270×270</option>
+            <option value="540x230">21:9 · 540×230</option>
+          </select>
+        </label>
+        <span class="divider"></span>
+        <label>Zoom
+          <input type="range" id="zoom" min="220" max="2400" step="10" value="900">
+        </label>
+        <label class="ajuste-lbl">Ajuste
+          <span class="fitbtns" id="fitBtns">
+            <button data-fit="letterbox" class="on">letterbox</button>
+            <button data-fit="stretch">estirar</button>
+            <button data-fit="cover">cover</button>
+          </span>
+        </label>
+      </div>
+
+      <div class="stage" id="stage">
+        <div class="canvas-wrap" id="worldWrap">
+          <span class="tag world">Mundo · vista de dios</span>
+          <canvas id="worldCanvas"></canvas>
+        </div>
+        <div class="canvas-wrap" id="screenWrap">
+          <span class="tag screen">Pantalla · lo que se renderiza</span>
+          <canvas id="screenCanvas"></canvas>
+        </div>
+        <canvas id="overlay"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ DERECHA: narrativa vertical ============ -->
+  <div class="narrative">
+    <div class="hero">
+      <h1>Cámaras, viewports y<br>espacios de coordenadas</h1>
+      <p>Una escena vive en su <b>propio sistema de coordenadas</b>. Una cámara decide <i>qué trozo</i>
+         se ve. La pantalla es <i>dónde</i> se dibuja ese trozo. Baja para ver cómo un punto viaja
+         de un espacio al siguiente.</p>
+      <div class="legend">
+        <div class="chip"><span class="sw" style="background:var(--world)"></span><b>Mundo</b> — unidades de la escena, fijas</div>
+        <div class="chip"><span class="sw" style="background:var(--camera)"></span><b>Cámara</b> — relativo al recorte</div>
+        <div class="chip"><span class="sw" style="background:var(--screen)"></span><b>Pantalla</b> — píxeles del viewport</div>
+      </div>
+      <div class="scroll-hint"><span class="arrow">↓</span> desplázate para empezar</div>
+    </div>
+
+    <section class="step" data-step="intro">
+      <div class="num">00 · ingredientes</div>
+      <h2>Tres cosas independientes</h2>
+      <p>Arriba, la <span class="hl-world">escena completa</span> en su tamaño real — la ves entera
+         como un dios. Abajo, la <span class="hl-screen">ventana de render</span>: el rectángulo de
+         píxeles donde acabará el dibujo.</p>
+      <p>Cambia de <b>escena</b> en el selector: cada una tiene un <b>tamaño distinto</b> (ancha, alta,
+         cuadrada). Fíjate en que la ventana de render no cambia — es la escena la que es de otro tamaño.</p>
+      <div class="mini-note">Todavía no hay cámara. Solo tenemos el material en crudo y el sitio donde
+         pintarlo. La cámara es lo que los conecta.</div>
+    </section>
+
+    <section class="step" data-step="world">
+      <div class="num">01 · espacio de mundo</div>
+      <h2>El mundo tiene sus propias coordenadas</h2>
+      <p>Cada objeto vive en <span class="hl-world">unidades de mundo</span> medidas desde el origen
+         <code>(0,&nbsp;0)</code> — arriba a la izquierda. Estas coordenadas <b>no dependen de la cámara</b>:
+         la casa está donde está la mires o no.</p>
+      <div class="tech">
+        <div class="formula">P_mundo = posición fija del objeto</div>
+        <div class="sep"></div>
+        <div class="row"><span class="lbl">ancla.x</span><span class="val world" id="wWx">—</span></div>
+        <div class="row"><span class="lbl">ancla.y</span><span class="val world" id="wWy">—</span></div>
+        <div class="row"><span class="lbl">tamaño mundo</span><span class="val world" id="wSize">—</span></div>
+      </div>
+    </section>
+
+    <section class="step" data-step="camera">
+      <div class="num">02 · la cámara</div>
+      <h2>La cámara es un recorte</h2>
+      <p>El rectángulo <span class="hl-camera">ámbar</span> selecciona una región del mundo. Eso —y solo
+         eso— es lo que se proyectará a la pantalla. Mover la cámara <b>no mueve el mundo</b>: cambia qué
+         porción entra en el recuadro.</p>
+      <p>Arrástrala en la vista de dios. Lo de dentro aparece abajo, en la pantalla.</p>
+      <div class="tech">
+        <div class="row"><span class="lbl">cámara.origen</span><span class="val camera" id="cOrigin">—</span></div>
+        <div class="row"><span class="lbl">cámara.tamaño</span><span class="val camera" id="cSize">—</span></div>
+      </div>
+    </section>
+
+    <section class="step" data-step="camtransform">
+      <div class="num">03 · mundo → cámara</div>
+      <h2>Restar el origen de la cámara</h2>
+      <p>Para saber dónde cae un punto <i>dentro</i> del recorte, le restamos la esquina de la cámara.
+         Así el origen pasa a ser la esquina del recuadro: lo mismo expresado <b>en relativo</b>.</p>
+      <div class="tech">
+        <div class="formula">P_cam <span class="op">=</span> P_mundo <span class="op">−</span> cámara.origen</div>
+        <div class="sep"></div>
+        <div class="row"><span class="lbl">P_mundo</span><span class="val world" id="tWorld">—</span></div>
+        <div class="row"><span class="lbl">− origen</span><span class="val camera" id="tOrigin">—</span></div>
+        <div class="row"><span class="lbl">= P_cam</span><span class="val camera" id="tCam">—</span></div>
+      </div>
+      <div class="mini-note">Las líneas ámbar en la vista de dios son los ejes de la cámara: ahí nace
+         su <code>(0,&nbsp;0)</code>.</div>
+    </section>
+
+    <section class="step" data-step="screen">
+      <div class="num">04 · cámara → pantalla</div>
+      <h2>Escalar para caber en los píxeles</h2>
+      <p>El recorte mide en unidades de mundo; la pantalla, en píxeles. Multiplicamos por una
+         <span class="hl-screen">escala</span> = <code>píxeles / unidades</code> y sumamos un
+         <i>offset</i> de centrado. Las líneas que conectan el recuadro con la pantalla son
+         literalmente esta proyección.</p>
+      <div class="tech">
+        <div class="formula">P_pant <span class="op">=</span> P_cam <span class="op">×</span> escala <span class="op">+</span> offset</div>
+        <div class="sep"></div>
+        <div class="row"><span class="lbl">escala</span><span class="val screen" id="sScale">—</span></div>
+        <div class="row"><span class="lbl">P_cam</span><span class="val camera" id="sCam">—</span></div>
+        <div class="row"><span class="lbl">= P_pant</span><span class="val screen" id="sScreen">—</span></div>
+      </div>
+    </section>
+
+    <section class="step" data-step="aspect">
+      <div class="num">05 · relación de aspecto</div>
+      <h2>Cuando la forma no coincide</h2>
+      <p>Si el recorte y el viewport tienen <b>proporciones distintas</b>, hay que decidir qué hacer.
+         Prueba a cambiar el <b>viewport</b> arriba a otra proporción y compara los modos:</p>
+      <p style="margin:0">
+        <b>Letterbox</b>: cabe entero, deja barras negras ·
+        <b>Estirar</b>: lo deforma para llenar ·
+        <b>Cover</b>: llena todo recortando lo que sobra.
+      </p>
+      <div class="mini-note">El modo activo se elige con los botones de <i>Ajuste</i>. Mira las barras
+         o la deformación en la pantalla de abajo.</div>
+    </section>
+
+    <section class="step" data-step="zoom">
+      <div class="num">06 · zoom</div>
+      <h2>Recorte pequeño = se ve grande</h2>
+      <p>El zoom <b>no agranda los objetos</b>: encoge el recorte. Menos mundo dentro del mismo número
+         de píxeles ⇒ cada unidad ocupa más píxeles ⇒ todo se ve más grande. La escala es justo el
+         inverso del tamaño del recorte.</p>
+      <div class="tech">
+        <div class="formula">escala <span class="op">=</span> viewport_px <span class="op">/</span> tamaño_recorte</div>
+        <div class="sep"></div>
+        <div class="row"><span class="lbl">tamaño recorte</span><span class="val camera" id="zCrop">—</span></div>
+        <div class="row"><span class="lbl">→ escala</span><span class="val screen" id="zScale">—</span></div>
+      </div>
+      <div class="mini-note">La cámara está haciendo zoom sola para que lo veas. Usa la rueda del ratón
+         sobre cualquiera de los dos lienzos para controlarlo tú.</div>
+    </section>
+
+    <section class="step" data-step="summary">
+      <div class="num">07 · el pipeline</div>
+      <h2>Los tres espacios, encadenados</h2>
+      <p>Todo punto recorre el mismo camino en cada frame:</p>
+      <div class="tech">
+        <div class="row"><span class="lbl world" style="color:#7ee2a8">① mundo</span><span class="val world" id="fWorld">—</span></div>
+        <div class="formula" style="text-align:center;color:#8e9bb3">↓ − origen cámara</div>
+        <div class="row"><span class="lbl" style="color:#fbc77d">② cámara</span><span class="val camera" id="fCam">—</span></div>
+        <div class="formula" style="text-align:center;color:#8e9bb3">↓ × escala + offset</div>
+        <div class="row"><span class="lbl" style="color:#8fbcff">③ pantalla</span><span class="val screen" id="fScreen">—</span></div>
+      </div>
+      <p style="margin-top:14px">Cambiar de cámara, de zoom o de viewport solo cambia <i>números</i> de
+         esta cadena. El mundo nunca se entera.</p>
+    </section>
+
+    <section class="step" data-step="multi">
+      <div class="num">08 · múltiples viewports</div>
+      <h2>Varias pantallas a la vez</h2>
+      <p>Como cada pantalla es solo <i>una cámara + un trozo de píxeles</i>, nada impide tener
+         <b>muchas</b> en marcha. Cada celda lleva su propio mundo, su propia cámara y su propio
+         viewport — totalmente <span class="hl-screen">independientes</span>. Fíjate en las
+         <span class="hl-camera">líneas de proyección</span>: cada recorte se estira hacia
+         <i>su</i> celda, y cada una se mueve a su ritmo.</p>
+      <p>El bucle de render no cambia: en vez de proyectar una vez, <b>itera N veces</b>, una por celda,
+         cada una con sus propios <span class="hl-world">origen</span>,
+         <span class="hl-camera">recorte</span> y <span class="hl-screen">escala</span>. Mover o hacer
+         zoom en una no toca a las demás (su matriz es suya).</p>
+      <div class="tech">
+        <div class="formula">por cada celda i:  P_pant<sub>i</sub> = (P − origen<sub>i</sub>) × escala<sub>i</sub> + offset<sub>i</sub></div>
+        <div class="sep"></div>
+        <div class="row"><span class="lbl">pantallas activas</span><span class="val screen" id="mCount">—</span></div>
+        <div class="row"><span class="lbl">pipelines / frame</span><span class="val screen" id="mPipes">—</span></div>
+      </div>
+      <div class="tech" id="mCells" style="margin-top:8px"></div>
+      <p style="margin-top:14px">Es la base del <b>split-screen</b> (2 jugadores, 2 cámaras del mismo
+         mundo), del <b>minimapa</b> (una cámara muy alejada en una esquina), de las
+         <b>cámaras de seguridad</b> o de un editor con <b>vista frontal / lateral / cenital</b> a la vez.</p>
+      <div class="mini-note"><b>Selecciona varias escenas</b> arriba (Ctrl/Shift+clic) y míralas
+         animarse cada una por su lado. Arrastra o haz zoom en una celda: las demás ni se enteran.</div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+// ============================================================
+// ESCENAS — cada una con su propio TAMAÑO de mundo. Se dibujan
+// siempre en coordenadas de mundo; quien las mira (dios o cámara)
+// aplica su transformación.
+// ============================================================
+function sky(ctx,w,h,hor,top,bot){ctx.fillStyle=top;ctx.fillRect(0,0,w,hor);ctx.fillStyle=bot;ctx.fillRect(0,hor,w,h-hor);}
+function sun(ctx,x,y,r){ctx.fillStyle='#f8cf3c';ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();
+  ctx.strokeStyle='#f8cf3c';ctx.lineWidth=r*.09;for(let i=0;i<8;i++){const a=i*Math.PI/4;
+  ctx.beginPath();ctx.moveTo(x+Math.cos(a)*r*1.3,y+Math.sin(a)*r*1.3);ctx.lineTo(x+Math.cos(a)*r*1.65,y+Math.sin(a)*r*1.65);ctx.stroke();}}
+function cloud(ctx,x,y,s){ctx.fillStyle='rgba(255,255,255,.92)';ctx.beginPath();
+  ctx.ellipse(x,y,90*s,32*s,0,0,7);ctx.ellipse(x+58*s,y-15*s,58*s,26*s,0,0,7);ctx.ellipse(x-62*s,y-8*s,52*s,22*s,0,0,7);ctx.fill();}
+function tree(ctx,x,gy,s){ctx.fillStyle='#8a5a2b';ctx.fillRect(x-9*s,gy-70*s,18*s,72*s);
+  ctx.fillStyle='#3e8e4f';ctx.beginPath();ctx.arc(x,gy-95*s,50*s,0,7);ctx.arc(x-30*s,gy-65*s,36*s,0,7);ctx.arc(x+30*s,gy-65*s,36*s,0,7);ctx.fill();}
+function house(ctx,x,gy,w,h,col){ctx.fillStyle=col;ctx.fillRect(x,gy-h,w,h);
+  ctx.fillStyle='#c0392b';ctx.beginPath();ctx.moveTo(x-12,gy-h);ctx.lineTo(x+w/2,gy-h-w*.42);ctx.lineTo(x+w+12,gy-h);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#7a4a21';ctx.fillRect(x+w*.18,gy-h*.6,w*.22,h*.6);
+  ctx.fillStyle='#bde3f2';ctx.fillRect(x+w*.55,gy-h*.72,w*.26,h*.3);}
+function hill(ctx,x,gy,w,h,col){ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(x,gy);ctx.lineTo(x+w/2,gy-h);ctx.lineTo(x+w,gy);ctx.closePath();ctx.fill();}
+
+const SCENES = {
+  pueblo: { name:'Pueblo (ancha)', w:2400, h:1000, anchor:{x:760,y:760},
+    draw(ctx){const hor=720;sky(ctx,this.w,this.h,hor,'#b7e3f4','#8fcf8a');
+      sun(ctx,2080,150,66);cloud(ctx,420,180,1);cloud(ctx,1150,130,.85);cloud(ctx,1750,230,1.1);
+      hill(ctx,120,hor,560,300,'#8294ad');hill(ctx,560,hor,720,420,'#7387a0');hill(ctx,1300,hor,640,330,'#8294ad');
+      house(ctx,640,760,210,150,'#e8b04b');house(ctx,1120,770,180,140,'#d98c5a');house(ctx,1560,760,230,160,'#c8a26b');
+      tree(ctx,340,790,1);tree(ctx,980,790,.9);tree(ctx,1430,790,1.1);tree(ctx,1880,790,1);tree(ctx,2180,790,.85);} },
+  torre: { name:'Torre (alta)', w:1000, h:1800, anchor:{x:500,y:430},
+    draw(ctx){const hor=1500;sky(ctx,this.w,this.h,hor,'#acd8ef','#86c986');
+      sun(ctx,820,210,58);cloud(ctx,260,360,.8);cloud(ctx,700,640,.7);cloud(ctx,300,980,.85);cloud(ctx,720,1200,.75);
+      // torre alta
+      ctx.fillStyle='#cf6f4a';ctx.fillRect(400,300,200,1200);
+      ctx.fillStyle='#a8512f';for(let y=360;y<1500;y+=130){ctx.fillRect(400,y,200,10);}
+      ctx.fillStyle='#bde3f2';for(let y=420;y<1460;y+=180)for(let x=440;x<580;x+=70){ctx.fillRect(x,y,40,70);}
+      ctx.fillStyle='#7d3b22';ctx.beginPath();ctx.moveTo(370,300);ctx.lineTo(500,150);ctx.lineTo(630,300);ctx.closePath();ctx.fill();
+      ctx.fillStyle='#f0c23a';ctx.beginPath();ctx.arc(500,140,16,0,7);ctx.fill();
+      tree(ctx,180,1530,1.1);tree(ctx,820,1530,1);house(ctx,720,1520,160,120,'#e8b04b');} },
+  isla: { name:'Isla (cuadrada)', w:1500, h:1300, anchor:{x:760,y:760},
+    draw(ctx){const hor=620;sky(ctx,this.w,this.h,hor,'#bfe6f5','#3f9bd1');
+      sun(ctx,1240,160,62);cloud(ctx,360,160,1);cloud(ctx,950,120,.8);
+      // olas
+      ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=4;
+      for(let y=720;y<this.h;y+=70)for(let x=40;x<this.w;x+=160){ctx.beginPath();ctx.arc(x,y,22,Math.PI,0);ctx.stroke();}
+      // isla
+      ctx.fillStyle='#e9d39a';ctx.beginPath();ctx.ellipse(760,800,420,150,0,0,7);ctx.fill();
+      ctx.fillStyle='#3e8e4f';ctx.beginPath();ctx.ellipse(760,770,300,90,0,0,7);ctx.fill();
+      // palmera
+      ctx.fillStyle='#8a5a2b';ctx.save();ctx.translate(760,760);ctx.rotate(.07);ctx.fillRect(-12,-180,24,180);ctx.restore();
+      ctx.fillStyle='#2e7d4f';for(let i=0;i<5;i++){const a=-Math.PI/2+(i-2)*.55;ctx.save();ctx.translate(760,580);ctx.rotate(a);
+        ctx.beginPath();ctx.ellipse(90,0,95,26,0,0,7);ctx.fill();ctx.restore();}
+      // barca
+      ctx.fillStyle='#b5532f';ctx.beginPath();ctx.moveTo(220,940);ctx.lineTo(360,940);ctx.lineTo(330,990);ctx.lineTo(250,990);ctx.closePath();ctx.fill();
+      ctx.strokeStyle='#7a4a21';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(290,940);ctx.lineTo(290,860);ctx.stroke();
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(290,860);ctx.lineTo(290,930);ctx.lineTo(345,930);ctx.closePath();ctx.fill();} },
+};
+
+// ============================================================
+// ESTADO — cada escena lleva su PROPIA cámara. En modo grid cada
+// celda es un mundo+cámara+viewport independiente.
+// ============================================================
+const state = {
+  sceneKey: 'pueblo',               // escena ACTIVA (la del pipeline) = 1ª seleccionada
+  selected: new Set(['pueblo']),    // conjunto seleccionado; >1 ⇒ modo grid de pantallitas
+  vp: { w: 480, h: 270 },
+  fit: 'letterbox',
+};
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const multiMode = () => state.selected.size > 1;
+const selectedKeys = () => Object.keys(SCENES).filter(k => state.selected.has(k));
+const CAM_ASPECT = 9/16;
+const scene = () => SCENES[state.sceneKey];
+
+// cámara por escena (lazy)
+function ensureCam(k){
+  const S=SCENES[k];
+  if(!S.cam) S.cam={ cx:S.w/2, cy:S.h/2, w:clamp(S.w*0.45,220,2400) };
+  return S.cam;
+}
+const activeCam = ()=>ensureCam(state.sceneKey);
+const camH = cam=>cam.w*CAM_ASPECT;
+const camLeft = cam=>cam.cx-cam.w/2;
+const camTop  = cam=>cam.cy-camH(cam)/2;
+function clampCamera(S,cam){
+  const hw=cam.w/2, hh=camH(cam)/2;
+  cam.cx = cam.w>=S.w ? S.w/2 : clamp(cam.cx,hw,S.w-hw);
+  cam.cy = camH(cam)>=S.h ? S.h/2 : clamp(cam.cy,hh,S.h-hh);
+}
+
+// ============================================================
+// CANVAS / LAYOUT
+// ============================================================
+const DPR = window.devicePixelRatio || 1;
+const worldCv = document.getElementById('worldCanvas');
+const screenCv = document.getElementById('screenCanvas');
+const overlay = document.getElementById('overlay');
+const stage = document.getElementById('stage');
+const worldWrap = document.getElementById('worldWrap');
+const screenWrap = document.getElementById('screenWrap');
+const wctx = worldCv.getContext('2d');
+const sctx = screenCv.getContext('2d');
+const octx = overlay.getContext('2d');
+
+let WCV={w:0,h:0}, SCV={w:0,h:0};
+
+function setupCanvas(cv,ctx,cssW,cssH){
+  cv.style.width=cssW+'px';cv.style.height=cssH+'px';
+  cv.width=Math.round(cssW*DPR);cv.height=Math.round(cssH*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+
+function layout(){
+  const innerW = stage.clientWidth;
+  const innerH = stage.clientHeight;
+  const gap = 8;
+  const worldH = Math.round((innerH-gap)*0.56);
+  const screenAreaH = innerH-gap-worldH;
+  // world canvas ocupa todo el ancho disponible
+  WCV = { w: innerW, h: worldH };
+  worldWrap.style.height = worldH+'px';
+  setupCanvas(worldCv,wctx,WCV.w,WCV.h);
+  // screen canvas mantiene la proporción del viewport dentro de su área
+  const s = Math.min(innerW/state.vp.w, screenAreaH/state.vp.h);
+  SCV = { w: Math.round(state.vp.w*s), h: Math.round(state.vp.h*s) };
+  screenWrap.style.height = screenAreaH+'px';
+  setupCanvas(screenCv,sctx,SCV.w,SCV.h);
+  // overlay cubre el stage entero
+  overlay.style.width=stage.clientWidth+'px';overlay.style.height=stage.clientHeight+'px';
+  overlay.width=Math.round(stage.clientWidth*DPR);overlay.height=Math.round(stage.clientHeight*DPR);
+  octx.setTransform(DPR,0,0,DPR,0,0);
+}
+
+// vista de dios: encajar una escena en un rectángulo de píxeles
+function godFitRect(S,x,y,w,h,fill){
+  const s=Math.min(w/S.w,h/S.h)*fill;
+  return { s, ox:x+(w-S.w*s)/2, oy:y+(h-S.h*s)/2 };
+}
+const godFit = ()=>godFitRect(scene(),0,0,WCV.w,WCV.h,0.9);
+// transformación cámara→viewport (de tamaño vw×vh px) según el ajuste
+function viewTransformFor(cam,vw,vh,fit){
+  const cw=cam.w, ch=camH(cam);
+  if(fit==='stretch') return {sx:vw/cw,sy:vh/ch,ox:0,oy:0};
+  const f=fit==='cover'?Math.max(vw/cw,vh/ch):Math.min(vw/cw,vh/ch);
+  return {sx:f,sy:f,ox:(vw-cw*f)/2,oy:(vh-ch*f)/2};
+}
+const viewTransform = ()=>viewTransformFor(activeCam(),SCV.w,SCV.h,state.fit);
+
+// ============================================================
+// PARÁMETROS DE ANIMACIÓN (driven por scroll). Se interpolan
+// suavemente hacia el "step" activo.
+// ============================================================
+const A = { camOp:.2, conn:0, screenFill:0, sub:0, origin:0, bars:0, autozoom:0, multiAnim:0 };
+const STEP = {
+  intro:        { camOp:.18, conn:0,  screenFill:0,  sub:0, origin:.15, bars:0, autozoom:0 },
+  world:        { camOp:.10, conn:0,  screenFill:0,  sub:0, origin:1,   bars:0, autozoom:0 },
+  camera:       { camOp:1,   conn:.25,screenFill:.5, sub:0, origin:.2,  bars:0, autozoom:0 },
+  camtransform: { camOp:1,   conn:.35,screenFill:.7, sub:1, origin:.4,  bars:0, autozoom:0 },
+  screen:       { camOp:1,   conn:1,  screenFill:1,  sub:.4,origin:.2,  bars:0, autozoom:0 },
+  aspect:       { camOp:1,   conn:.6, screenFill:1,  sub:0, origin:0,   bars:1, autozoom:0 },
+  zoom:         { camOp:1,   conn:.6, screenFill:1,  sub:0, origin:0,   bars:0, autozoom:1 },
+  summary:      { camOp:1,   conn:1,  screenFill:1,  sub:.4,origin:.2,  bars:0, autozoom:0 },
+  multi:        { camOp:1,   conn:1,  screenFill:1,  sub:0, origin:0,   bars:0, autozoom:0, multiAnim:1 },
+};
+let activeStep = 'intro';
+
+// ============================================================
+// RENDER: mundo
+// ============================================================
+function drawGrid(ctx, S, withLabels){
+  ctx.lineWidth=1.2;
+  for(let x=0;x<=S.w;x+=100){ctx.strokeStyle=x%500===0?'rgba(0,0,0,.22)':'rgba(0,0,0,.07)';
+    ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,S.h);ctx.stroke();}
+  for(let y=0;y<=S.h;y+=100){ctx.strokeStyle=y%500===0?'rgba(0,0,0,.22)':'rgba(0,0,0,.07)';
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(S.w,y);ctx.stroke();}
+  if(withLabels){ctx.fillStyle='rgba(0,0,0,.5)';ctx.font='26px ui-monospace,Consolas,monospace';
+    for(let x=500;x<S.w;x+=500)ctx.fillText(x,x+6,34);
+    for(let y=500;y<S.h;y+=500)ctx.fillText(y,6,y-8);}
+}
+function drawAnchorAt(ctx,a,r){ctx.fillStyle='#e23b3b';ctx.strokeStyle='#fff';
+  ctx.lineWidth=r*.28;ctx.beginPath();ctx.arc(a.x,a.y,r,0,7);ctx.fill();ctx.stroke();}
+function labelChip(ctx,txt,x,y){const tw=ctx.measureText(txt).width;
+  ctx.fillStyle='rgba(255,255,255,.88)';ctx.fillRect(x,y,tw+10,16);
+  ctx.fillStyle='#2e7d4f';ctx.fillText(txt,x+5,y+12);}
+
+// dibuja el rectángulo de cámara de una escena dentro de su transform de dios
+function drawCamRect(ctx,S,cam,g,alpha){
+  const rx=g.ox+camLeft(cam)*g.s, ry=g.oy+camTop(cam)*g.s, rw=cam.w*g.s, rh=camH(cam)*g.s;
+  ctx.globalAlpha=alpha;
+  ctx.fillStyle='rgba(217,119,6,.13)';ctx.fillRect(rx,ry,rw,rh);
+  ctx.strokeStyle=getCss('--camera');ctx.lineWidth=2.5;ctx.strokeRect(rx,ry,rw,rh);
+  ctx.fillStyle=getCss('--camera');
+  for(const [hx,hy] of [[rx,ry],[rx+rw,ry],[rx,ry+rh],[rx+rw,ry+rh]]) ctx.fillRect(hx-3.5,hy-3.5,7,7);
+  ctx.globalAlpha=1;
+  return {rx,ry,rw,rh};
+}
+
+// renderiza una escena a través de SU cámara dentro de un viewport (px)
+function renderViewportInto(ctx,S,cam,x,y,vw,vh,fit){
+  const {sx,sy,ox,oy}=viewTransformFor(cam,vw,vh,fit);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.fillStyle='#10141e';ctx.fillRect(x,y,vw,vh);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x+Math.max(0,ox), y+Math.max(0,oy), Math.min(vw,cam.w*sx), Math.min(vh,camH(cam)*sy));
+  ctx.clip();
+  ctx.setTransform(DPR*sx,0,0,DPR*sy, DPR*(x+ox-camLeft(cam)*sx), DPR*(y+oy-camTop(cam)*sy));
+  S.draw(ctx);
+  drawAnchorAt(ctx,S.anchor,13/sx);   // ~13px fijos en pantalla ⇒ 13/sx en mundo
+  ctx.restore();
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+
+// celdas del grid (rellenadas cada frame para hit-testing)
+let worldCells=[], screenCells=[];
+
+// disposición de N celdas dentro de un área
+function gridLayout(n,W,H,pad){
+  const cols=n<=1?1:(n<=4?2:3), rows=Math.ceil(n/cols);
+  const cw=(W-pad*(cols+1))/cols, ch=(H-pad*(rows+1))/rows;
+  return {cols,rows,cw,ch,pad};
+}
+
+// ---------- MUNDO ----------
+function renderWorldGrid(){
+  const keys=selectedKeys(), n=keys.length;
+  wctx.setTransform(DPR,0,0,DPR,0,0);
+  wctx.fillStyle='#eef1f6';wctx.fillRect(0,0,WCV.w,WCV.h);
+  const L=gridLayout(n,WCV.w,WCV.h,10);
+  worldCells=[];
+  keys.forEach((k,i)=>{
+    const S=SCENES[k], cam=ensureCam(k);
+    const cellX=L.pad+(i%L.cols)*(L.cw+L.pad), cellY=L.pad+Math.floor(i/L.cols)*(L.ch+L.pad);
+    const g=godFitRect(S,cellX,cellY,L.cw,L.ch,0.9);
+    wctx.save();wctx.beginPath();wctx.rect(cellX,cellY,L.cw,L.ch);wctx.clip();
+    wctx.setTransform(DPR*g.s,0,0,DPR*g.s,DPR*g.ox,DPR*g.oy);
+    S.draw(wctx);
+    wctx.setTransform(DPR,0,0,DPR,0,0);
+    // cámara + ancla de ESTA escena
+    const cr=drawCamRect(wctx,S,cam,g,1);
+    wctx.fillStyle='#e23b3b';wctx.strokeStyle='#fff';wctx.lineWidth=2.5;
+    wctx.beginPath();wctx.arc(g.ox+S.anchor.x*g.s,g.oy+S.anchor.y*g.s,6,0,7);wctx.fill();wctx.stroke();
+    wctx.restore();
+    wctx.strokeStyle='rgba(0,0,0,.22)';wctx.lineWidth=1.5;wctx.strokeRect(cellX+.5,cellY+.5,L.cw-1,L.ch-1);
+    wctx.font='700 11px system-ui';labelChip(wctx,S.name,cellX+4,cellY+4);
+    worldCells.push({key:k,S,cam,g,cellX,cellY,cw:L.cw,ch:L.ch,camRect:cr});
+  });
+  worldCornersStage=null;
+}
+
+function renderWorld(){
+  if(multiMode()){ renderWorldGrid(); return; }
+  worldCells=[];
+  const S=scene(), cam=activeCam(), g=godFit();
+  wctx.setTransform(DPR,0,0,DPR,0,0);
+  wctx.fillStyle='#eef1f6';wctx.fillRect(0,0,WCV.w,WCV.h);
+
+  wctx.setTransform(DPR*g.s,0,0,DPR*g.s,DPR*g.ox,DPR*g.oy);
+  S.draw(wctx);
+  drawGrid(wctx, S, A.origin>0.5);
+  drawAnchorAt(wctx, S.anchor, 13/g.s + 6);
+
+  wctx.setTransform(DPR,0,0,DPR,0,0);
+  wctx.strokeStyle='rgba(0,0,0,.3)';wctx.lineWidth=1.5;
+  wctx.strokeRect(g.ox-0.5,g.oy-0.5,S.w*g.s+1,S.h*g.s+1);
+
+  if(A.origin>0.02){
+    wctx.globalAlpha=A.origin;wctx.fillStyle=getCss('--world');
+    wctx.beginPath();wctx.arc(g.ox,g.oy,5,0,7);wctx.fill();
+    wctx.strokeStyle=getCss('--world');wctx.lineWidth=2;
+    wctx.beginPath();wctx.moveTo(g.ox,g.oy);wctx.lineTo(g.ox+46,g.oy);wctx.moveTo(g.ox,g.oy);wctx.lineTo(g.ox,g.oy+46);wctx.stroke();
+    wctx.font='700 11px system-ui';wctx.fillText('(0,0)',g.ox+8,g.oy+18);wctx.globalAlpha=1;
+  }
+  if(A.camOp>0.02){
+    const r=drawCamRect(wctx,S,cam,g,A.camOp);
+    if(A.sub>0.02){
+      wctx.globalAlpha=A.camOp*A.sub;wctx.strokeStyle=getCss('--camera');wctx.lineWidth=2;wctx.setLineDash([6,4]);
+      wctx.beginPath();wctx.moveTo(r.rx,r.ry);wctx.lineTo(r.rx+r.rw,r.ry);wctx.moveTo(r.rx,r.ry);wctx.lineTo(r.rx,r.ry+r.rh);wctx.stroke();
+      wctx.setLineDash([]);wctx.fillStyle=getCss('--camera');wctx.font='700 10px ui-monospace,Consolas';
+      wctx.fillText('(0,0) cám',r.rx+5,r.ry+15);
+    }
+    wctx.globalAlpha=A.camOp;wctx.font='700 11px system-ui';wctx.fillStyle=getCss('--camera');
+    wctx.fillText('cámara', r.rx+6, r.ry-6<g.oy+8?r.ry+16:r.ry-6);wctx.globalAlpha=1;
+    worldCornersStage=[
+      [worldWrap.offsetLeft+r.rx,worldWrap.offsetTop+r.ry],
+      [worldWrap.offsetLeft+r.rx+r.rw,worldWrap.offsetTop+r.ry],
+      [worldWrap.offsetLeft+r.rx+r.rw,worldWrap.offsetTop+r.ry+r.rh],
+      [worldWrap.offsetLeft+r.rx,worldWrap.offsetTop+r.ry+r.rh]];
+  } else worldCornersStage=null;
+}
+
+// ---------- PANTALLA ----------
+// grid de pantallitas: cada celda es un viewport independiente
+function renderScreenGrid(){
+  const keys=selectedKeys(), n=keys.length;
+  sctx.setTransform(DPR,0,0,DPR,0,0);
+  sctx.fillStyle='#0b0e15';sctx.fillRect(0,0,SCV.w,SCV.h);
+  const L=gridLayout(n,SCV.w,SCV.h,8);
+  screenCells=[];
+  keys.forEach((k,i)=>{
+    const S=SCENES[k], cam=ensureCam(k);
+    const cellX=L.pad+(i%L.cols)*(L.cw+L.pad), cellY=L.pad+Math.floor(i/L.cols)*(L.ch+L.pad);
+    // la pantallita mantiene la proporción del viewport, centrada en la celda
+    const vs=Math.min(L.cw/state.vp.w, L.ch/state.vp.h);
+    const vw=state.vp.w*vs, vh=state.vp.h*vs;
+    const vx=cellX+(L.cw-vw)/2, vy=cellY+(L.ch-vh)/2;
+    renderViewportInto(sctx,S,cam,vx,vy,vw,vh,state.fit);
+    sctx.setTransform(DPR,0,0,DPR,0,0);
+    sctx.strokeStyle=getCss('--screen');sctx.lineWidth=2;sctx.strokeRect(vx+1,vy+1,vw-2,vh-2);
+    sctx.fillStyle='rgba(255,255,255,.92)';sctx.font='700 10px system-ui';sctx.fillText(S.name,vx+5,vy+13);
+    screenCells.push({key:k,S,cam,vx,vy,vw,vh});
+  });
+  screenCornersStage=null;
+}
+
+function renderScreen(){
+  if(multiMode()){ renderScreenGrid(); return; }
+  screenCells=[];
+  const S=scene(), cam=activeCam();
+  sctx.setTransform(DPR,0,0,DPR,0,0);
+  sctx.fillStyle='#10141e';sctx.fillRect(0,0,SCV.w,SCV.h);
+  const {sx,sy,ox,oy}=viewTransform();
+  if(A.screenFill>0.02){
+    sctx.save();sctx.globalAlpha=A.screenFill;
+    sctx.beginPath();
+    sctx.rect(Math.max(0,ox),Math.max(0,oy),Math.min(SCV.w,cam.w*sx),Math.min(SCV.h,camH(cam)*sy));
+    sctx.clip();
+    sctx.setTransform(DPR*sx,0,0,DPR*sy,DPR*(ox-camLeft(cam)*sx),DPR*(oy-camTop(cam)*sy));
+    S.draw(sctx);drawAnchorAt(sctx,S.anchor,13);
+    sctx.restore();
+  }
+  if(A.bars>0.02 && state.fit==='letterbox'){
+    sctx.setTransform(DPR,0,0,DPR,0,0);sctx.globalAlpha=A.bars*.55;sctx.fillStyle='#000';
+    if(oy>0.5){sctx.fillRect(0,0,SCV.w,oy);sctx.fillRect(0,SCV.h-oy,SCV.w,oy);}
+    if(ox>0.5){sctx.fillRect(0,0,ox,SCV.h);sctx.fillRect(SCV.w-ox,0,ox,SCV.h);}
+    sctx.globalAlpha=1;
+  }
+  sctx.setTransform(DPR,0,0,DPR,0,0);
+  sctx.strokeStyle=getCss('--screen');sctx.lineWidth=2;sctx.strokeRect(1,1,SCV.w-2,SCV.h-2);
+  screenCornersStage=[
+    [screenWrap.offsetLeft+(screenWrap.clientWidth-SCV.w)/2, screenWrap.offsetTop],
+    [screenWrap.offsetLeft+(screenWrap.clientWidth+SCV.w)/2, screenWrap.offsetTop],
+    [screenWrap.offsetLeft+(screenWrap.clientWidth+SCV.w)/2, screenWrap.offsetTop+SCV.h],
+    [screenWrap.offsetLeft+(screenWrap.clientWidth-SCV.w)/2, screenWrap.offsetTop+SCV.h]];
+}
+
+// ============================================================
+// RENDER: conectores cámara→pantalla (overlay)
+// ============================================================
+let worldCornersStage=null, screenCornersStage=null;
+// origen (en coords del stage) de cada lienzo, según su wrap
+function worldCanvasOrigin(){return {x:worldWrap.offsetLeft+(worldWrap.clientWidth-WCV.w)/2, y:worldWrap.offsetTop+(worldWrap.clientHeight-WCV.h)/2};}
+function screenCanvasOrigin(){return {x:screenWrap.offsetLeft+(screenWrap.clientWidth-SCV.w)/2, y:screenWrap.offsetTop+(screenWrap.clientHeight-SCV.h)/2};}
+
+// dibuja UNA proyección cámara→viewport: cuádruple esquinas (TL,TR,BR,BL)
+function drawProjection(wc,sc,alpha){
+  octx.globalAlpha=alpha*.16;
+  const grad=octx.createLinearGradient(wc[0][0],wc[0][1],sc[2][0],sc[2][1]);
+  grad.addColorStop(0,getCss('--camera'));grad.addColorStop(1,getCss('--screen'));
+  octx.fillStyle=grad;
+  octx.beginPath();octx.moveTo(wc[0][0],wc[0][1]);octx.lineTo(wc[1][0],wc[1][1]);
+  octx.lineTo(sc[1][0],sc[1][1]);octx.lineTo(sc[0][0],sc[0][1]);octx.closePath();octx.fill();
+  octx.beginPath();octx.moveTo(wc[3][0],wc[3][1]);octx.lineTo(wc[2][0],wc[2][1]);
+  octx.lineTo(sc[2][0],sc[2][1]);octx.lineTo(sc[3][0],sc[3][1]);octx.closePath();octx.fill();
+  octx.globalAlpha=alpha*.8;octx.lineWidth=1.6;octx.setLineDash([5,4]);
+  for(let i=0;i<4;i++){
+    octx.strokeStyle=i<2?getCss('--camera'):getCss('--screen');
+    octx.beginPath();octx.moveTo(wc[i][0],wc[i][1]);octx.lineTo(sc[i][0],sc[i][1]);octx.stroke();
+  }
+  octx.setLineDash([]);octx.globalAlpha=1;
+}
+function rectCorners(o,x,y,w,h){return [[o.x+x,o.y+y],[o.x+x+w,o.y+y],[o.x+x+w,o.y+y+h],[o.x+x,o.y+y+h]];}
+
+function renderConnectors(){
+  octx.setTransform(DPR,0,0,DPR,0,0);
+  octx.clearRect(0,0,stage.clientWidth,stage.clientHeight);
+  if(A.conn<0.02) return;
+  if(multiMode()){
+    // una proyección POR CELDA: recorte de su cámara → su pantallita
+    const wo=worldCanvasOrigin(), so=screenCanvasOrigin();
+    for(const wcell of worldCells){
+      const scell=screenCells.find(c=>c.key===wcell.key); if(!scell||!wcell.camRect)continue;
+      const r=wcell.camRect;
+      const wc=rectCorners(wo,r.rx,r.ry,r.rw,r.rh);
+      const sc=rectCorners(so,scell.vx,scell.vy,scell.vw,scell.vh);
+      drawProjection(wc,sc,A.conn);
+    }
+    return;
+  }
+  if(!worldCornersStage || !screenCornersStage) return;
+  drawProjection(worldCornersStage, screenCornersStage, A.conn);
+}
+
+// ============================================================
+// READOUTS (números vivos del panel derecho)
+// ============================================================
+const $=id=>document.getElementById(id);
+const f=n=>Math.round(n);
+function updateReadouts(){
+  const S=scene(), a=S.anchor, cam=activeCam();
+  const cx=a.x-camLeft(cam), cy=a.y-camTop(cam);
+  const {sx,sy,ox,oy}=viewTransform();
+  const px=cx*sx+ox, py=cy*sy+oy;
+  const set=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
+  set('wWx',f(a.x));set('wWy',f(a.y));set('wSize',`${S.w}×${S.h}`);
+  set('cOrigin',`(${f(camLeft(cam))}, ${f(camTop(cam))})`);
+  set('cSize',`${f(cam.w)}×${f(camH(cam))}`);
+  set('tWorld',`(${f(a.x)}, ${f(a.y)})`);
+  set('tOrigin',`(${f(camLeft(cam))}, ${f(camTop(cam))})`);
+  set('tCam',`(${f(cx)}, ${f(cy)})`);
+  set('sScale', sx===sy?`×${sx.toFixed(3)}`:`×(${sx.toFixed(3)}, ${sy.toFixed(3)})`);
+  set('sCam',`(${f(cx)}, ${f(cy)})`);
+  set('sScreen',`(${f(px)}, ${f(py)}) px`);
+  set('zCrop',`${f(cam.w)}×${f(camH(cam))} u`);
+  set('zScale',`×${(SCV.w/cam.w).toFixed(3)}`);
+  set('fWorld',`(${f(a.x)}, ${f(a.y)})`);
+  set('fCam',`(${f(cx)}, ${f(cy)})`);
+  set('fScreen',`(${f(px)}, ${f(py)}) px`);
+  // múltiples viewports
+  const n=state.selected.size;
+  set('mCount',`${n}`);
+  set('mPipes',`${n} × (mundo→cám→pantalla)`);
+  const mCells=$('mCells');
+  if(mCells){
+    if(multiMode()){
+      mCells.innerHTML = selectedKeys().map(k=>{
+        const S=SCENES[k], cam=ensureCam(k), sc=screenCells.find(c=>c.key===k);
+        const esc = sc&&sc.vw ? sc.vw/cam.w : 0;
+        return `<div class="row"><span class="lbl" style="color:#fbc77d">${S.name}</span>`+
+          `<span class="val screen">recorte ${f(cam.w)}×${f(camH(cam))} · ×${esc.toFixed(2)}</span></div>`;
+      }).join('');
+    }else{
+      mCells.innerHTML = `<div class="formula" style="color:#8e9bb3">selecciona varias escenas `+
+        `(Ctrl/Shift+clic) para ver N pipelines en paralelo</div>`;
+    }
+  }
+}
+function getCss(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+
+// ============================================================
+// INTERACCIÓN
+// ============================================================
+function mp(cv,e){const r=cv.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};}
+
+// objetivo bajo el cursor en el lienzo del MUNDO → {S,cam,g}
+function worldTargetAt(m){
+  if(multiMode()){
+    const c=worldCells.find(c=>m.x>=c.cellX&&m.x<=c.cellX+c.cw&&m.y>=c.cellY&&m.y<=c.cellY+c.ch);
+    return c?{S:c.S,cam:c.cam,g:c.g}:null;
+  }
+  return {S:scene(),cam:activeCam(),g:godFit()};
+}
+// objetivo bajo el cursor en el lienzo de la PANTALLA → {S,cam,vx,vy,vw,vh}
+function screenTargetAt(m){
+  if(multiMode()){
+    const c=screenCells.find(c=>m.x>=c.vx&&m.x<=c.vx+c.vw&&m.y>=c.vy&&m.y<=c.vy+c.vh);
+    return c?{S:c.S,cam:c.cam,vx:c.vx,vy:c.vy,vw:c.vw,vh:c.vh}:null;
+  }
+  return {S:scene(),cam:activeCam(),vx:0,vy:0,vw:SCV.w,vh:SCV.h};
+}
+
+let dragW=null;
+worldCv.addEventListener('pointerdown',e=>{
+  const m=mp(worldCv,e), t=worldTargetAt(m); if(!t)return;
+  const wx=(m.x-t.g.ox)/t.g.s, wy=(m.y-t.g.oy)/t.g.s;
+  if(Math.hypot(wx-t.S.anchor.x,wy-t.S.anchor.y)<24/t.g.s+10) dragW={k:'anchor',t};
+  else if(wx>=camLeft(t.cam)&&wx<=camLeft(t.cam)+t.cam.w&&wy>=camTop(t.cam)&&wy<=camTop(t.cam)+camH(t.cam))
+    dragW={k:'cam',t,dx:wx-t.cam.cx,dy:wy-t.cam.cy};
+  if(dragW)worldCv.setPointerCapture(e.pointerId);
+});
+worldCv.addEventListener('pointermove',e=>{
+  if(!dragW)return;const m=mp(worldCv,e),t=dragW.t;
+  const wx=(m.x-t.g.ox)/t.g.s, wy=(m.y-t.g.oy)/t.g.s;
+  if(dragW.k==='anchor'){t.S.anchor.x=clamp(wx,0,t.S.w);t.S.anchor.y=clamp(wy,0,t.S.h);}
+  else{t.cam.cx=wx-dragW.dx;t.cam.cy=wy-dragW.dy;clampCamera(t.S,t.cam);if(t.cam===activeCam())zoomEl.value=Math.round(t.cam.w);}
+});
+worldCv.addEventListener('pointerup',()=>dragW=null);
+
+let dragS=null;
+screenCv.addEventListener('pointerdown',e=>{
+  const m=mp(screenCv,e), t=screenTargetAt(m); if(!t)return;
+  const vt=viewTransformFor(t.cam,t.vw,t.vh,state.fit);
+  const wx=(m.x-t.vx-vt.ox)/vt.sx+camLeft(t.cam), wy=(m.y-t.vy-vt.oy)/vt.sy+camTop(t.cam);
+  if(Math.hypot((wx-t.S.anchor.x)*vt.sx,(wy-t.S.anchor.y)*vt.sy)<22) dragS={k:'anchor',t,vt};
+  else dragS={k:'pan',t,vt,lx:m.x,ly:m.y};
+  screenCv.setPointerCapture(e.pointerId);
+});
+screenCv.addEventListener('pointermove',e=>{
+  if(!dragS)return;const m=mp(screenCv,e),t=dragS.t,vt=dragS.vt;
+  if(dragS.k==='anchor'){
+    t.S.anchor.x=clamp((m.x-t.vx-vt.ox)/vt.sx+camLeft(t.cam),0,t.S.w);
+    t.S.anchor.y=clamp((m.y-t.vy-vt.oy)/vt.sy+camTop(t.cam),0,t.S.h);
+  }else{
+    t.cam.cx-=(m.x-dragS.lx)/vt.sx;t.cam.cy-=(m.y-dragS.ly)/vt.sy;dragS.lx=m.x;dragS.ly=m.y;clampCamera(t.S,t.cam);
+  }
+});
+screenCv.addEventListener('pointerup',()=>dragS=null);
+
+function doZoom(cv,m,dy){
+  const t = cv===worldCv ? worldTargetAt(m) : screenTargetAt(m);
+  if(!t)return;
+  t.cam.w=clamp(t.cam.w*(dy>0?1.08:1/1.08),220,2400);clampCamera(t.S,t.cam);
+  if(t.cam===activeCam())zoomEl.value=Math.round(t.cam.w);
+}
+worldCv.addEventListener('wheel',e=>{e.preventDefault();doZoom(worldCv,mp(worldCv,e),e.deltaY);},{passive:false});
+screenCv.addEventListener('wheel',e=>{e.preventDefault();doZoom(screenCv,mp(screenCv,e),e.deltaY);},{passive:false});
+
+// ---- miniaturas de escena (selector visual + multi-selección) ----
+const thumbsBox=$('sceneThumbs');
+const thumbCanvases={};   // key → canvas (para re-render en resize)
+Object.entries(SCENES).forEach(([k,s])=>{
+  const btn=document.createElement('button');
+  btn.className='scene-thumb';btn.dataset.key=k;
+  const cv=document.createElement('canvas');
+  const nm=document.createElement('div');nm.className='name';nm.textContent=s.name;
+  const bd=document.createElement('span');bd.className='badge';bd.textContent='✓';
+  btn.appendChild(cv);btn.appendChild(nm);btn.appendChild(bd);
+  thumbsBox.appendChild(btn);
+  thumbCanvases[k]=cv;
+  btn.addEventListener('click',e=>onThumbClick(k,e));
+});
+
+function onThumbClick(k,e){
+  const multi=e.ctrlKey||e.metaKey||e.shiftKey;
+  if(multi){
+    if(state.selected.has(k)){ if(state.selected.size>1) state.selected.delete(k); }
+    else state.selected.add(k);
+  }else{
+    state.selected=new Set([k]);
+  }
+  // escena activa = primera seleccionada (su cámara alimenta el pipeline)
+  state.sceneKey=selectedKeys()[0];
+  zoomEl.value=Math.round(activeCam().w);
+  syncThumbs();
+}
+function syncThumbs(){
+  thumbsBox.querySelectorAll('.scene-thumb').forEach(b=>{
+    b.classList.toggle('sel', state.selected.has(b.dataset.key));
+  });
+}
+// pinta cada miniatura una vez (estática)
+function paintThumbs(){
+  const dpr=DPR;
+  Object.entries(thumbCanvases).forEach(([k,cv])=>{
+    const cssW=cv.clientWidth||120, cssH=62;
+    cv.width=Math.round(cssW*dpr);cv.height=Math.round(cssH*dpr);
+    const ctx=cv.getContext('2d');
+    const S=SCENES[k];
+    const s=Math.min(cssW/S.w,cssH/S.h);
+    ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#dfe6ef';ctx.fillRect(0,0,cssW,cssH);
+    ctx.setTransform(dpr*s,0,0,dpr*s,dpr*(cssW-S.w*s)/2,dpr*(cssH-S.h*s)/2);
+    S.draw(ctx);
+  });
+}
+syncThumbs();
+const vpSel=$('vpSel');
+vpSel.onchange=e=>{const [w,h]=e.target.value.split('x').map(Number);state.vp={w,h};layout();};
+const zoomEl=$('zoom');
+zoomEl.oninput=()=>{const cam=activeCam();cam.w=+zoomEl.value;clampCamera(scene(),cam);};
+$('fitBtns').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;state.fit=b.dataset.fit;
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b));
+});
+
+// ============================================================
+// SCROLL → step activo (IntersectionObserver banda central)
+// ============================================================
+const sections=[...document.querySelectorAll('section.step')];
+const io=new IntersectionObserver(entries=>{
+  entries.forEach(en=>{
+    if(en.isIntersecting){
+      activeStep=en.target.dataset.step;
+      sections.forEach(s=>s.classList.toggle('active',s===en.target));
+    }
+  });
+},{rootMargin:'-45% 0px -45% 0px',threshold:0});
+sections.forEach(s=>io.observe(s));
+
+// ============================================================
+// BUCLE
+// ============================================================
+let zoomDir=1;
+function tick(){
+  const T=STEP[activeStep]||STEP.intro;
+  for(const k in A) A[k]+=((T[k]??0)-A[k])*0.12;
+
+  if(A.autozoom>0.5 && !multiMode()){
+    const cam=activeCam(), S=scene();
+    cam.w+=zoomDir*4;
+    if(cam.w>S.w*0.6)zoomDir=-1; if(cam.w<S.w*0.18)zoomDir=1;
+    cam.w=clamp(cam.w,220,2400);clampCamera(S,cam);zoomEl.value=Math.round(cam.w);
+  }
+
+  // sección "múltiples viewports": cada cámara orbita SU mundo con su propia
+  // fase ⇒ las pantallitas y sus líneas de proyección se mueven distinto,
+  // dejando claro que son sistemas independientes. La celda que arrastras se
+  // respeta (no se anima).
+  if(A.multiAnim>0.5 && multiMode()){
+    const t=performance.now()/1000;
+    selectedKeys().forEach((k,i)=>{
+      const cam=ensureCam(k), S=SCENES[k];
+      if((dragW&&dragW.t&&dragW.t.cam===cam)||(dragS&&dragS.t&&dragS.t.cam===cam))return;
+      const ph=i*2.3;
+      cam.cx=S.w/2+Math.cos(t*0.45+ph)*S.w*0.16;
+      cam.cy=S.h/2+Math.sin(t*0.58+ph)*S.h*0.13;
+      cam.w =clamp(S.w*(0.34+0.10*Math.sin(t*0.5+ph)),220,2400);
+      clampCamera(S,cam);
+    });
+  }
+
+  renderWorld();
+  renderScreen();
+  renderConnectors();
+  updateReadouts();
+  requestAnimationFrame(tick);
+}
+
+// init
+let ro=new ResizeObserver(()=>{layout();paintThumbs();});
+ro.observe(stage);
+layout();
+// pintar miniaturas tras el primer layout (clientWidth ya disponible)
+requestAnimationFrame(paintThumbs);
+// cámara inicial de la escena activa
+zoomEl.value=Math.round(activeCam().w);
+tick();
+})();
+</script>
+</body>
+</html>

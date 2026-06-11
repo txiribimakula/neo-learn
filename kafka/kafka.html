@@ -319,6 +319,9 @@
   .ga-row .ga-tag.rest{background:#eef2ff;color:#3956d3}
   .ga-row .ga-tag.pub{background:#e8f5ec;color:#2e7d4f}
   .ga-row .ga-target{flex:1;min-width:0;font-size:11px}
+  /* Replica pin on the CALLER side: which pod of the target api this
+     group's requests land on. auto = kube-proxy random pick. */
+  .ga-row .ga-replica{flex:0 0 auto;font-size:10.5px;padding:1px 3px;max-width:64px}
   .ga-row .ga-x{
     background:none;border:none;color:var(--muted2);cursor:pointer;
     font-size:12px;padding:1px 4px;border-radius:3px;
@@ -355,33 +358,6 @@
     display:flex;align-items:center;gap:6px;
   }
   .api-card .api-meta .pill{font-size:9.5px}
-  .api-card .api-callers{
-    font-size:10.5px;color:var(--muted);font-weight:600;
-    display:flex;flex-wrap:wrap;gap:3px;min-height:14px;
-  }
-  .api-card .caller-badge{
-    font-size:9.5px;font-weight:700;color:#fff;padding:1px 5px;border-radius:3px;
-    letter-spacing:.2px;
-  }
-  .api-card .caller-badge.idle{background:#bfc8de;color:#fff;font-style:italic}
-  /* Per-(api, calling-group) override rows on the api card. Each row
-     shows the group name, the time it spends in this api, and a follow-
-     msg toggle — that's the "REST API time per group" the user wants
-     in the api card itself (not on the group's action row). */
-  .api-card .api-group-rows{
-    display:flex;flex-direction:column;gap:4px;margin:2px 0;
-  }
-  .api-card .api-group-row{
-    display:flex;align-items:center;gap:6px;font-size:11px;
-    background:#f8faff;border:1px solid #e2e8f5;border-radius:4px;
-    padding:3px 6px 3px 6px;
-  }
-  .api-card .api-group-row .agr-name{
-    font-weight:700;color:var(--ink);flex:1 1 auto;min-width:0;
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  }
-  .api-card .api-group-row .num{flex:0 0 auto}
-  .api-card .api-group-row .follow-msg-tgl{flex:0 0 auto}
   /* API's own progress bar — fills only while a consumer is in the
      'remote' sub-phase (api crunching the request). Stays at 0% otherwise. */
   .api-bar{
@@ -479,6 +455,31 @@
   .grid-row .row{justify-content:flex-start}
 
   /* Producer */
+  /* Target chips on a producer card — one per destination topic/queue. */
+  .target-chips{
+    display:flex;flex-wrap:wrap;gap:4px;align-items:center;
+  }
+  .target-chip{
+    display:inline-flex;align-items:center;gap:3px;
+    background:#f3f5fa;border:1px solid #d2d8e5;border-radius:11px;
+    padding:1px 3px 1px 6px;font-size:11px;color:var(--ink);
+  }
+  .target-chip.kafka{background:#eef2ff;border-color:#bcc7ee}
+  .target-chip.sb   {background:#e9f3fb;border-color:#b3d0e6}
+  .target-chip .chip-kind{
+    font-size:9px;font-weight:900;color:#fff;border-radius:3px;
+    padding:0 4px;letter-spacing:.3px;flex:0 0 auto;
+  }
+  .target-chip.kafka .chip-kind{background:#3956d3}
+  .target-chip.sb    .chip-kind{background:#0078d4}
+  .target-chip .chip-name{font-weight:600}
+  .target-chip .chip-x{
+    background:none;border:none;color:var(--muted2);cursor:pointer;
+    font-size:14px;line-height:1;padding:0 4px;border-radius:50%;
+  }
+  .target-chip .chip-x:hover:not(:disabled){color:#9c2a2a;background:#fbe9e9}
+  .target-chip .chip-x:disabled{opacity:.3;cursor:not-allowed}
+  .target-chips .topic-add-sel{font-size:11px;padding:1px 4px;height:22px;min-width:120px}
   .prod-card .sent{
     font-size:11px;color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums;
     background:#f3f6fd;border:1px solid #e2e8f5;border-radius:4px;padding:1px 6px;
@@ -495,7 +496,7 @@
      offset chevrons) live in a strip directly below the log. */
   .partitions-row{display:flex;flex-direction:column;gap:5px;padding:2px 0 0}
   .partition{
-    display:grid;grid-template-columns:34px 1fr 60px;gap:8px;align-items:center;
+    display:grid;grid-template-columns:34px 1fr 56px 20px;gap:8px;align-items:center;
     border:1px solid var(--partition-border);background:var(--partition-bg);
     border-radius:6px;padding:5px 8px;position:relative;
     transition:box-shadow .25s ease;
@@ -509,6 +510,15 @@
     font-size:10px;font-weight:700;color:var(--muted);
     text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;
   }
+  /* Empty-partition button — DeleteRecords. Muted until hover so it
+     doesn't compete with the message log for attention. */
+  .partition .p-clear{
+    background:none;border:none;cursor:pointer;padding:2px;border-radius:4px;
+    color:var(--muted2);display:inline-flex;align-items:center;justify-content:center;
+    width:20px;height:20px;flex:0 0 auto;
+  }
+  .partition .p-clear svg{width:14px;height:14px}
+  .partition .p-clear:hover{color:#9c2a2a;background:#fbe9e9}
   .partition .p-track{position:relative;display:flex;flex-direction:column;gap:1px}
   .partition .p-log,
   .sb-lane .p-log{
@@ -920,36 +930,50 @@ function pickPartition(p, topic) {
 // pressing ▶. RR, random and key all DECIDE the partition at send time
 // (counter, RNG, or hash(key) % numPartitions), so there's nothing fixed
 // to draw — the ball itself is what reveals the routing in those cases.
+// Static (sticky-mode) producer→partition routes, by topic. Returns a
+// list of { topic, partitionIdx } so updateLinks can paint one solid
+// line per stuck-to partition across ALL the producer's targets.
 function producerTargets(p) {
-  const topic = state.topics.find(t => t.id === p.topicId);
-  if (!topic) return [];
-  // SB queues have no partitions; the producer→queue connector (if any)
-  // is drawn elsewhere and only when there's actually an in-flight ball.
-  if (topic.kind === 'sb-queue') return [];
-  if (!topic.partitions || topic.partitions.length === 0) return [];
-  if (p.mode !== 'sticky') return [];
-  return [Math.min(p.stickyPart || 0, topic.partitions.length - 1)];
+  const out = [];
+  for (const tid of (p.topicIds || [])) {
+    const topic = state.topics.find(t => t.id === tid);
+    if (!topic) continue;
+    // SB queues have no partitions; the producer→queue connector is
+    // drawn elsewhere (in-flight only).
+    if (topic.kind === 'sb-queue') continue;
+    if (!topic.partitions || topic.partitions.length === 0) continue;
+    if (p.mode !== 'sticky') continue;
+    out.push({
+      topic,
+      partitionIdx: Math.min(p.stickyPart || 0, topic.partitions.length - 1),
+    });
+  }
+  return out;
 }
 
 // ============================================================
 // PRODUCE / CONSUME
 // ============================================================
+// Fan-out: the same logical message gets published to EVERY target the
+// producer points at. sendCount counts logical messages (not per-target
+// fan-outs) so the producer's "▴ N" tally matches what the user clicked.
 function produceMessage(producer) {
-  const topic = state.topics.find(t => t.id === producer.topicId);
-  if (!topic) return;
+  const targets = (producer.topicIds || [])
+    .map(tid => state.topics.find(t => t.id === tid))
+    .filter(Boolean);
+  if (targets.length === 0) return;
   producer.sendCount++;
-  if (topic.kind === 'sb-queue') {
-    // Service Bus has no partitioning exposed to the client. The producer
-    // just appends to the queue's single lane. mode/key are recorded but
-    // don't affect routing.
-    deliverSbMessage(producer, topic, keyForProducer(producer));
-    return;
-  }
-  if (topic.partitions.length === 0) return;
-  const pIdx = pickPartition(producer, topic);
-  if (pIdx < 0) return;
   const key = keyForProducer(producer);
-  deliverMessage(producer, topic, pIdx, key);
+  for (const topic of targets) {
+    if (topic.kind === 'sb-queue') {
+      deliverSbMessage(producer, topic, key);
+      continue;
+    }
+    if (!topic.partitions || topic.partitions.length === 0) continue;
+    const pIdx = pickPartition(producer, topic);
+    if (pIdx < 0) continue;
+    deliverMessage(producer, topic, pIdx, key);
+  }
 }
 
 // Service-Bus variant of deliverMessage: the ball flies producer → queue
@@ -996,11 +1020,15 @@ function deliverSbMessage(producer, topic, key, onAck) {
 // Helper for the silent-mode in-flight connector: count concurrent deliveries
 // per (producer, target-partition) so the dashed line stays visible while
 // ANY ball is mid-flight to that partition. Map<pIdx, count>.
-function bumpInflight(producer, pIdx, delta) {
+// In-flight counter keyed by (topicId, partitionIdx) so a producer
+// fanning the same message out to two topics doesn't share a single
+// counter for "partition 0". Key is the string `${topicId}-${pIdx}`.
+function bumpInflight(producer, topicId, pIdx, delta) {
   if (!producer._inflight) producer._inflight = new Map();
-  const next = (producer._inflight.get(pIdx) || 0) + delta;
-  if (next <= 0) producer._inflight.delete(pIdx);
-  else producer._inflight.set(pIdx, next);
+  const key = topicId + '-' + pIdx;
+  const next = (producer._inflight.get(key) || 0) + delta;
+  if (next <= 0) producer._inflight.delete(key);
+  else producer._inflight.set(key, next);
 }
 
 // Just the "broker takes the request and writes the log" half — split out
@@ -1014,7 +1042,7 @@ function deliverMessage(producer, topic, pIdx, key, onAck) {
   const producerId   = producer.id;
   const topicId      = topic.id;
   const processingMs = producer.msgProcessingMs;
-  bumpInflight(producer, pIdx, +1);
+  bumpInflight(producer, topicId, pIdx, +1);
   spawnFly(producer, topic, pIdx, () => {
     const t = state.topics.find(x => x.id === topicId);
     if (t) {
@@ -1034,7 +1062,7 @@ function deliverMessage(producer, topic, pIdx, key, onAck) {
         if (onAck) onAck(offset);
       }
     }
-    bumpInflight(producer, pIdx, -1);
+    bumpInflight(producer, topicId, pIdx, -1);
   });
 }
 
@@ -1133,7 +1161,14 @@ function computeDecision(producer, topic) {
 
 function startWalkthrough(p) {
   if (p.walk) return;   // already mid-walkthrough; ignore double-click
-  const topic = state.topics.find(t => t.id === p.topicId);
+  // Multi-target fan-out doesn't fit the single-line walkthrough story
+  // (one routing decision per target × possibly different kinds). Fall
+  // through to a silent multi-send so the user still gets a result.
+  if ((p.topicIds || []).length !== 1) {
+    produceMessage(p);
+    return;
+  }
+  const topic = state.topics.find(t => t.id === p.topicIds[0]);
   if (!topic) return;
   if (topic.kind === 'sb-queue') {
     // No partition-selection reasoning to walk through for SB — the
@@ -1617,24 +1652,16 @@ function effectiveConsumerLocalMs(c, g) {
   return gMs;
 }
 
-// Same idea for an api inside a REST sub-phase. Each api stores a per-
-// calling-group override on api.groupOverrides[groupId] = {processingMs,
-// followMsgTime}. That lets two groups hit the same api with different
-// time profiles. The override is visualised on the api card itself (one
-// row per calling group) — group actions are just "use this api", no
-// time fields. Falls back to api.processingMs / api.followMsgTime when
-// the group hasn't been configured yet.
+// Same idea for an api inside a REST sub-phase. Time + follow live on
+// the api itself (its card knobs) and apply to EVERY caller alike.
+// api.groupOverrides only stores the per-group replica pin nowadays —
+// it no longer carries time overrides.
 function effectiveApiMs(api, c, g) {
-  const ovr = g && api.groupOverrides && api.groupOverrides[g.id];
-  const baseMs = ovr && Number.isFinite(ovr.processingMs)
-    ? ovr.processingMs
-    : (api.processingMs || 1);
-  const follow = ovr ? !!ovr.followMsgTime : !!api.followMsgTime;
-  if (follow) {
+  if (api.followMsgTime) {
     const msMsg = currentMessageProcessingMs(c, g);
     if (msMsg != null) return msMsg;
   }
-  return baseMs;
+  return api.processingMs || 1;
 }
 
 function phaseDuration(c, phase, g) {
@@ -1692,6 +1719,8 @@ function consumeSbQueueForGroup(g, topic, dt) {
       if (c.processing) {
         const phaseLen = phaseDuration(c, c.processing.phase, g);
         const oldElapsed = c.processing.elapsed;
+        // Super-linear concurrency penalty on the shared replica (same
+        // model as the Kafka path — see concurrencySlowdown).
         let slowdown = 1;
         if (c.processing.phase === 'process' &&
             c.processing.replicaIdx !== undefined &&
@@ -1699,7 +1728,7 @@ function consumeSbQueueForGroup(g, topic, dt) {
           const api = state.apis.find(a => a.id === c.processing.currentRestApiId);
           if (api && api._replicaState) {
             const st = api._replicaState[c.processing.replicaIdx];
-            slowdown = Math.max(1, st?.inflightCount || 1);
+            slowdown = concurrencySlowdown(st?.inflightCount || 1);
           }
         }
         const need = phaseLen - c.processing.elapsed;
@@ -1730,7 +1759,7 @@ function consumeSbQueueForGroup(g, topic, dt) {
               spawnApiRequestFly(g, c, api, scaled(LATENCY_MS));
             }
             if (oldElapsed < tRemoteStart && newE >= tRemoteStart) {
-              c.processing.replicaIdx = pickReplica(api);
+              c.processing.replicaIdx = pickReplica(api, g);
               c.processing.currentRestApiId = api.id;
             }
             if (oldElapsed < tRespStart && newE >= tRespStart) {
@@ -1926,8 +1955,8 @@ function consumeForGroup(g, dt) {
         const phaseLen = phaseDuration(c, c.processing.phase, g);
         const oldElapsed = c.processing.elapsed;
         // CONCURRENCY SLOWDOWN: while a REST consumer is in 'remote' on a
-        // replica serving N concurrent requests, elapsed advances at 1/N
-        // speed. Faithful to a real backend pod being saturated.
+        // replica serving N concurrent requests, elapsed advances at
+        // 1/N^EXP speed (super-linear thrashing — see concurrencySlowdown).
         let slowdown = 1;
         if (c.processing.phase === 'process' &&
             c.processing.replicaIdx !== undefined &&
@@ -1935,7 +1964,7 @@ function consumeForGroup(g, dt) {
           const api = state.apis.find(a => a.id === c.processing.currentRestApiId);
           if (api && api._replicaState) {
             const st = api._replicaState[c.processing.replicaIdx];
-            slowdown = Math.max(1, st?.inflightCount || 1);
+            slowdown = concurrencySlowdown(st?.inflightCount || 1);
           }
         }
         const need = phaseLen - c.processing.elapsed;
@@ -1970,7 +1999,7 @@ function consumeForGroup(g, dt) {
             }
             // requesting→remote: load-balancer picks a replica
             if (oldElapsed < tRemoteStart && newE >= tRemoteStart) {
-              c.processing.replicaIdx = pickReplica(api);
+              c.processing.replicaIdx = pickReplica(api, g);
               c.processing.currentRestApiId = api.id;
             }
             // remote→responding: release the replica + response ball
@@ -2197,7 +2226,10 @@ function makeTopic(name, parts, kind = 'kafka') {
 }
 function makeProducer(name, color, topicId) {
   return {
-    id: newId(), name, color, topicId,
+    id: newId(), name, color,
+    // A producer can fan out the SAME message to many destinations. The
+    // array always has ≥1 entry; the UI prevents removing the last chip.
+    topicIds: [topicId],
     mode: 'rr', stickyPart: 0, keyPool: 4,
     rate: 2, accum: 0, sendCount: 0,
     auto: false,   // producers default to MANUAL — click ▶ to inject,
@@ -2247,15 +2279,15 @@ function makeApi(name, color) {
   };
 }
 
-// Lazy-init the per-(api, group) override row. Called when a group adds
-// a REST action targeting this api so we can display its own time/follow
-// entry immediately. Idempotent — existing entries are left untouched.
+// Lazy-init the per-(api, group) entry. Nowadays it only stores the
+// replica pin the CALLER set on its action row (null = auto). Time and
+// follow-msg live on the api itself. Idempotent — existing entries are
+// left untouched.
 function ensureApiGroupOverride(api, groupId) {
   if (!api.groupOverrides) api.groupOverrides = {};
   if (!api.groupOverrides[groupId]) {
     api.groupOverrides[groupId] = {
-      processingMs: api.processingMs ?? 1500,
-      followMsgTime: !!api.followMsgTime,
+      replicaIdx: null,   // null = auto (k8s random pick)
     };
   }
 }
@@ -2266,6 +2298,23 @@ function groupCallsApi(api, groupId) {
   const g = state.groups.find(x => x.id === groupId);
   if (!g) return false;
   return (g.actions || []).some(a => a.type === 'rest' && a.apiId === api.id);
+}
+
+// Concurrency penalty for N simultaneous requests sharing ONE replica.
+// A real backend pod doesn't just time-slice fairly (that would make the
+// makespan of a batch equal to running it sequentially) — it THRASHES:
+// context switches, cache eviction, lock contention and GC pressure
+// waste capacity super-linearly as load climbs. We model that with a
+// power law, slowdown = N^EXP:
+//   EXP = 1   → ideal fair-share (concurrent == sequential, no overhead)
+//   EXP > 1   → concurrency is strictly WORSE than sequential (realistic)
+// With EXP = 1.35:
+//   N=1 → 1.0×    N=2 → 2.5×    N=3 → 4.4×    N=4 → 6.5×
+// i.e. two parallel requests finish ~27% later than if they'd run one
+// after the other, three ~47% later, and it degrades from there.
+const CONCURRENCY_EXPONENT = 1.35;
+function concurrencySlowdown(n) {
+  return Math.pow(Math.max(1, n | 0), CONCURRENCY_EXPONENT);
 }
 
 // Lazy-init runtime state for the api's replicas so callers can always
@@ -2282,10 +2331,22 @@ function ensureReplicaState(api) {
 // selection, not strict round-robin). Means two near-simultaneous calls
 // CAN land on the same replica by chance even with N>1 backends — and
 // that's exactly the contention scenario the simulator is meant to show.
-function pickReplica(api) {
+// Pick the replica a call lands on. If the calling group pinned a
+// specific replica (groupOverrides[g.id].replicaIdx), honour it — that
+// models routing the request to a named pod (e.g. a sticky/affinity
+// rule). Otherwise fall back to the random k8s-style pick. An out-of-
+// range pin (replica count shrank) silently degrades to random.
+function pickReplica(api, g) {
   ensureReplicaState(api);
   const n = Math.max(1, api.replicas);
-  const idx = Math.floor(Math.random() * n);
+  let idx;
+  const pin = g && api.groupOverrides && api.groupOverrides[g.id]
+    ? api.groupOverrides[g.id].replicaIdx : null;
+  if (Number.isInteger(pin) && pin >= 0 && pin < n) {
+    idx = pin;
+  } else {
+    idx = Math.floor(Math.random() * n);
+  }
   api._replicaState[idx].inflightCount++;
   return idx;
 }
@@ -2693,9 +2754,9 @@ function updateLinks() {
     const prodEl = document.querySelector(`[data-producer-id="${p.id}"]`);
     if (!prodEl) continue;
     const a = rightMid(prodEl);
-    for (const pi of producerTargets(p)) {
+    for (const t of producerTargets(p)) {
       const partEl = document.querySelector(
-        `[data-topic-id="${p.topicId}"] .partition[data-partition-idx="${pi}"]`
+        `[data-topic-id="${t.topic.id}"] .partition[data-partition-idx="${t.partitionIdx}"]`
       );
       if (!partEl) continue;
       const b = leftMid(partEl);
@@ -2714,13 +2775,17 @@ function updateLinks() {
     const prodEl = document.querySelector(`[data-producer-id="${p.id}"]`);
     if (!prodEl) continue;
     const a = rightMid(prodEl);
-    // Kafka in-flight: dashed to each target partition while a ball flies.
+    // Kafka in-flight: dashed line to each (topic, partition) currently
+    // hosting an in-flight ball. Keys in `_inflight` are `${topicId}-${pIdx}`.
     if (p._inflight && p._inflight.size > 0) {
-      const stickyTargets = new Set(producerTargets(p));
-      for (const pi of p._inflight.keys()) {
-        if (stickyTargets.has(pi)) continue;
+      const stickySet = new Set(producerTargets(p).map(t => t.topic.id + '-' + t.partitionIdx));
+      for (const key of p._inflight.keys()) {
+        if (stickySet.has(key)) continue;       // already a solid line
+        const dash = key.indexOf('-');
+        const tid = key.slice(0, dash);
+        const pi  = key.slice(dash + 1);
         const partEl = document.querySelector(
-          `[data-topic-id="${p.topicId}"] .partition[data-partition-idx="${pi}"]`
+          `[data-topic-id="${tid}"] .partition[data-partition-idx="${pi}"]`
         );
         if (!partEl) continue;
         const b = leftMid(partEl);
@@ -2944,13 +3009,15 @@ function renderProducers() {
 }
 
 function producerMiniHtml(p) {
-  const topic = state.topics.find(t => t.id === p.topicId);
-  const isSb = topic?.kind === 'sb-queue';
-  // SB queues are single-lane — partitioning modes don't affect routing,
-  // so we collapse the mini chip to just "queue" (and rate when Auto is
-  // on). Kafka producers keep the full mode breakdown.
+  const tids = p.topicIds || [];
+  const targets = tids.map(id => state.topics.find(t => t.id === id)).filter(Boolean);
+  const anyKafka = targets.some(t => t.kind !== 'sb-queue');
+  // SB queues are single-lane → no partitioner, so the mode chip only
+  // makes sense if at least one Kafka target exists. With multiple
+  // destinations, prefix with a "×N" so the collapsed card still hints
+  // at fan-out at a glance.
   let modeText;
-  if (isSb) {
+  if (!anyKafka) {
     modeText = 'queue';
   } else {
     modeText =
@@ -2959,32 +3026,53 @@ function producerMiniHtml(p) {
       p.mode === 'sticky' ? `sticky·P${p.stickyPart}` :
       `key·${p.keyPool}`;
   }
-  return p.auto ? `${modeText} · ${p.rate}/s` : modeText;
+  const fanout = tids.length > 1 ? `×${tids.length} · ` : '';
+  return p.auto ? `${fanout}${modeText} · ${p.rate}/s` : `${fanout}${modeText}`;
 }
 
 function producerCard(p) {
   const card = document.createElement('div');
-  const targetTopic = state.topics.find(t => t.id === p.topicId);
-  const isSb = targetTopic?.kind === 'sb-queue';
-  card.className = 'pcard prod-card accented' + (isSb ? ' to-sb' : ' to-kafka') + (state.producersCollapsed ? ' collapsed' : '');
+  const tids = p.topicIds || [];
+  const targetTopics = tids.map(id => state.topics.find(t => t.id === id)).filter(Boolean);
+  const anyKafka = targetTopics.some(t => t.kind !== 'sb-queue');
+  const allSb    = targetTopics.length > 0 && targetTopics.every(t => t.kind === 'sb-queue');
+  // For sticky max we need the SMALLEST partition count across Kafka
+  // targets (so the chosen partition is valid on every Kafka topic the
+  // producer fans out to). SB targets are ignored since they have no
+  // partitioner.
+  const kafkaPartCounts = targetTopics
+    .filter(t => t.kind !== 'sb-queue')
+    .map(t => t.partitions?.length || 0);
+  const stickyMax = kafkaPartCounts.length ? Math.max(0, Math.min(...kafkaPartCounts) - 1) : 0;
+  card.className = 'pcard prod-card accented' + (allSb ? ' to-sb' : ' to-kafka') + (state.producersCollapsed ? ' collapsed' : '');
   card.dataset.producerId = p.id;
-  card.dataset.producerTargetKind = isSb ? 'sb' : 'kafka';
+  card.dataset.producerTargetKind = allSb ? 'sb' : (anyKafka ? 'kafka' : 'mixed');
   card.style.borderLeftColor = p.color;
-  const topicOpts = state.topics.map(t =>
-    `<option value="${t.id}" ${t.id===p.topicId?'selected':''}>${escapeHtml(t.name)}</option>`
-  ).join('');
-  const stickyMax = (targetTopic?.partitions?.length || 1) - 1;
   const sendIconSvg = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>';
-  // SB producers don't show partition-routing controls — there's no
-  // partitioner on a Service Bus queue, so the mode/sticky/keyPool
-  // selectors would be misleading. We still keep `p.mode` and the keys
-  // (informational) but render a frozen explanation instead.
-  const targetLabelHtml = isSb
-    ? '<span class="kind-text sb" title="el target es una Azure Service Bus Queue">→ ASB Queue</span>'
-    : '<span class="kind-text kafka" title="el target es un Kafka topic">→ Kafka</span>';
-  const modeRowHtml = isSb
+  // Chips for each target + a select offering only topics not yet picked.
+  const usedSet = new Set(tids);
+  const availableTopics = state.topics.filter(t => !usedSet.has(t.id));
+  const chipsHtml = targetTopics.map(t => {
+    const isSbT = t.kind === 'sb-queue';
+    const kindCls = isSbT ? 'sb' : 'kafka';
+    const kindIcon = isSbT ? 'Q' : 'K';
+    const onlyOne = tids.length === 1 ? ' disabled' : '';
+    return `<span class="target-chip ${kindCls}" data-topic-id="${t.id}" title="${isSbT?'ASB queue':'Kafka topic'}">
+      <span class="chip-kind">${kindIcon}</span>
+      <span class="chip-name">${escapeHtml(t.name)}</span>
+      <button class="chip-x"${onlyOne} title="${tids.length===1?'el producer necesita al menos un destino':'quitar destino'}">×</button>
+    </span>`;
+  }).join('');
+  const addSelHtml = availableTopics.length ? `
+    <select class="sel topic-add-sel" title="añadir otro destino — el mismo mensaje se publicará a todos">
+      <option value="">+ destino…</option>
+      ${availableTopics.map(t => `<option value="${t.id}">${escapeHtml(t.name)} (${t.kind==='sb-queue'?'Q':'K'})</option>`).join('')}
+    </select>` : '';
+  // Mode/sticky/key only make sense when at least one Kafka target is in
+  // play. With pure-SB fanouts we collapse to the "queue única" hint.
+  const modeRowHtml = !anyKafka
     ? `<span class="small" style="grid-column:span 4;color:var(--muted)" title="ASB queue: una sola lane, sin partitioner — el modo/key del productor no afecta el routing">cola única · sin partitioner</span>`
-    : `<select class="sel mode-sel" style="grid-column:span 4" title="cómo el productor elige partición para cada mensaje">
+    : `<select class="sel mode-sel" style="grid-column:span 4" title="cómo el productor elige partición para cada mensaje (aplica a cada topic Kafka destino)">
          <option value="rr"     ${p.mode==='rr'?'selected':''}>Round-robin (sin key)</option>
          <option value="random" ${p.mode==='random'?'selected':''}>Aleatorio (sin key)</option>
          <option value="sticky" ${p.mode==='sticky'?'selected':''}>Sticky (sin key)</option>
@@ -3014,10 +3102,10 @@ function producerCard(p) {
       </span>
     </div>
     <div class="grid-row expanded-only">
-      <span class="row tight" style="gap:6px;grid-column:span 4">
-        <select class="sel topic-sel" style="flex:1" title="destino">${topicOpts}</select>
-        ${targetLabelHtml}
-      </span>
+      <div class="target-chips" style="grid-column:span 4">
+        ${chipsHtml}
+        ${addSelHtml}
+      </div>
       ${modeRowHtml}
       <div class="row tight" style="grid-column:span 4">
         <span class="num"><button class="rdec">−</button><span class="rval">${p.rate}</span><button class="rinc">+</button></span>
@@ -3039,7 +3127,24 @@ function producerCard(p) {
   };
   card.querySelector('.badge-color').onclick = () => { p.color = pickColor(); render(); };
   card.querySelector('.pname').onchange = e => { p.name = (e.target.value || p.name).trim() || p.name; };
-  card.querySelector('.topic-sel').onchange = e => { p.topicId = +e.target.value; render(); };
+  // Target chips: × removes the destination (unless it's the last one).
+  card.querySelectorAll('.target-chip .chip-x').forEach(btn => {
+    btn.onclick = () => {
+      if (btn.disabled) return;
+      const tid = +btn.closest('.target-chip').dataset.topicId;
+      if ((p.topicIds || []).length <= 1) return;
+      p.topicIds = p.topicIds.filter(id => id !== tid);
+      render();
+    };
+  });
+  // Add-destination select: picking an option appends it to topicIds.
+  const addSel = card.querySelector('.topic-add-sel');
+  if (addSel) addSel.onchange = e => {
+    const tid = +e.target.value;
+    if (!tid) return;
+    if (!p.topicIds.includes(tid)) p.topicIds.push(tid);
+    render();
+  };
   // mode-sel only renders for Kafka producers — guard so SB doesn't crash.
   const modeSel = card.querySelector('.mode-sel');
   if (modeSel) modeSel.onchange = e => { p.mode = e.target.value; render(); };
@@ -3094,9 +3199,9 @@ function producerCard(p) {
     p.msgProcessingMs = Math.min(30000, p.msgProcessingMs + 500);
     mtv.textContent = (p.msgProcessingMs/1000).toFixed(1) + 's';
   };
-  // Partition-routing controls only exist on Kafka producers. SB producers
-  // don't render the sticky/key blocks, so we guard the wire-up.
-  if (!isSb && p.mode === 'sticky') {
+  // Partition-routing controls only exist when at least one Kafka topic
+  // is in the producer's target list. Pure SB fanouts skip these.
+  if (anyKafka && p.mode === 'sticky') {
     const sv = card.querySelector('.sval');
     card.querySelector('.sdec').onclick = () => {
       p.stickyPart = Math.max(0, p.stickyPart - 1); sv.textContent = p.stickyPart;
@@ -3107,7 +3212,7 @@ function producerCard(p) {
       if (miniEl) miniEl.innerHTML = producerMiniHtml(p);
     };
   }
-  if (!isSb && p.mode === 'key') {
+  if (anyKafka && p.mode === 'key') {
     card.querySelector('.kdec').onclick = () => { p.keyPool = Math.max(1, p.keyPool - 1); render(); };
     card.querySelector('.kinc').onclick = () => { p.keyPool = Math.min(20, p.keyPool + 1); render(); };
   }
@@ -3212,7 +3317,14 @@ function topicCard(t) {
   card.querySelector('.close-x').onclick = () => {
     state.topics = state.topics.filter(x => x.id !== t.id);
     const fallback = state.topics[0]?.id;
-    for (const p of state.producers) if (p.topicId === t.id) p.topicId = fallback;
+    // Drop the deleted topic from every producer's target list. If it was
+    // their last target, fall back to the first remaining topic (or drop
+    // the producer if there's nothing left at all).
+    state.producers = state.producers.filter(p => {
+      p.topicIds = (p.topicIds || []).filter(id => id !== t.id);
+      if (p.topicIds.length === 0 && fallback != null) p.topicIds = [fallback];
+      return p.topicIds.length > 0;
+    });
     for (const g of state.groups) {
       if (g.topicId === t.id) {
         g.topicId = fallback;
@@ -3230,6 +3342,7 @@ function partitionCell(topic, partition, idx) {
   const cell = document.createElement('div');
   cell.className = 'partition';
   cell.dataset.partitionIdx = idx;
+  const trashSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>';
   cell.innerHTML = `
     <span class="p-label">P${idx}</span>
     <div class="p-track">
@@ -3237,8 +3350,34 @@ function partitionCell(topic, partition, idx) {
       <div class="markers"></div>
     </div>
     <span class="p-next" title="próximo offset a asignar">∅ 0</span>
+    <button class="p-clear" title="vaciar partición (DeleteRecords): borra los mensajes guardados; los offsets siguen subiendo, no se reinician">${trashSvg}</button>
   `;
+  cell.querySelector('.p-clear').onclick = () => {
+    clearPartition(topic, idx);
+    render();
+  };
   return cell;
+}
+
+// DeleteRecords / retention semantics: drop the stored messages and push
+// the low-water mark (earliestOffset) up to the high-water mark
+// (nextOffset). Offsets are monotonic in Kafka — they never reset — so a
+// freshly emptied partition keeps numbering from where it was. Consumers
+// sitting below the deleted range get fast-forwarded (OffsetOutOfRange →
+// reset to earliest), losing the deleted messages, exactly like the real
+// thing.
+function clearPartition(topic, idx) {
+  const partition = topic.partitions?.[idx];
+  if (!partition) return;
+  partition.earliestOffset = partition.nextOffset;
+  partition.messages = [];
+  partition.flashUntil = performance.now() + 350;
+  for (const g of state.groups) {
+    if (g.topicId !== topic.id) continue;
+    if ((g.offsets[idx] ?? 0) < partition.earliestOffset) {
+      g.offsets[idx] = partition.earliestOffset;
+    }
+  }
 }
 
 // ---------- Consumer groups ----------
@@ -3344,10 +3483,25 @@ function groupCard(g) {
               `<option value="${x.id}" ${x.id===a.apiId?'selected':''}>${escapeHtml(x.name)}</option>`
             ).join('');
             // Time + follow live on the API card (one row per calling
-            // group) — keep the action row minimal: just target + ✕.
+            // group). The REPLICA pin lives HERE — the caller decides
+            // which pod its requests hit, the receiver just serves them.
+            // Only rendered when the target api has >1 replica.
+            const targetApi = state.apis.find(x => x.id === a.apiId);
+            let replicaSel = '';
+            if (targetApi && targetApi.replicas > 1) {
+              const ovr = targetApi.groupOverrides?.[g.id];
+              const pin = ovr && Number.isInteger(ovr.replicaIdx) && ovr.replicaIdx < targetApi.replicas
+                ? ovr.replicaIdx : null;
+              replicaSel = `<select class="sel ga-replica" title="a qué réplica del api van las llamadas de este grupo — auto = la elige kube-proxy al azar">
+                <option value="" ${pin===null?'selected':''}>auto</option>
+                ${Array.from({length: targetApi.replicas}, (_, i) =>
+                  `<option value="${i}" ${pin===i?'selected':''}>R${i}</option>`).join('')}
+              </select>`;
+            }
             return `<div class="ga-row" data-action-id="${a.id}">
               <span class="ga-tag rest">→ REST</span>
               <select class="sel ga-target" data-kind="rest">${apiOpts}</select>
+              ${replicaSel}
               <button class="ga-x" title="quitar acción">✕</button>
             </div>`;
           }
@@ -3440,6 +3594,18 @@ function groupCard(g) {
       else if (action.type === 'publish') action.topicId = +e.target.value;
       render();
     };
+    // Replica pin — set on the CALLER (this action row), stored on the
+    // (api, group) override so pickReplica routes accordingly.
+    const repSel = rowEl.querySelector('.ga-replica');
+    if (repSel) repSel.onchange = e => {
+      const action = (g.actions || []).find(a => a.id === aid);
+      if (!action || action.type !== 'rest') return;
+      const api = state.apis.find(x => x.id === action.apiId);
+      if (!api) return;
+      ensureApiGroupOverride(api, g.id);
+      api.groupOverrides[g.id].replicaIdx = e.target.value === '' ? null : +e.target.value;
+      scheduleSave();
+    };
   });
 
   card.querySelector('.close-x').onclick = () => {
@@ -3505,27 +3671,7 @@ function apiCard(api) {
   card.dataset.apiId = api.id;
   card.style.color = api.color;
   const fmtSecs = ms => (ms / 1000).toFixed(1) + 's';
-  // Groups that have a REST action pointing at this api. The PER-GROUP
-  // time/follow override row is rendered for each — this is where the
-  // user configures how long the api takes for THAT group's calls. The
-  // api's own time/follow act as defaults (template for groups added
-  // later); they don't affect already-configured groups.
-  const callingGroups = state.groups.filter(g =>
-    (g.actions || []).some(a => a.type === 'rest' && a.apiId === api.id)
-  );
   if (!api.groupOverrides) api.groupOverrides = {};
-  const perGroupRows = callingGroups.map(g => {
-    const ovr = api.groupOverrides[g.id] || {};
-    const ms = Number.isFinite(ovr.processingMs) ? ovr.processingMs : (api.processingMs ?? 1500);
-    const follow = !!ovr.followMsgTime;
-    return `<div class="api-group-row" data-group-id="${g.id}" style="border-left:3px solid ${g.color}">
-      <span class="agr-name" title="grupo que llama">${escapeHtml(g.name)}</span>
-      ${follow ? '' : `<span class="num" title="tiempo fijo de este api cuando lo llama este grupo">
-        <button class="agr-tdec">−</button><span class="agr-tval">${fmtSecs(ms)}</span><button class="agr-tinc">+</button>
-      </span>`}
-      <button class="mini-btn follow-msg-tgl agr-follow ${follow?'tgl-on':'tgl-off'}" title="ON = el api tarda lo que indique el mensaje del consumer del grupo (m.processingMs); OFF = tiempo fijo">⏱ msg: ${follow?'ON':'OFF'}</button>
-    </div>`;
-  }).join('');
   card.innerHTML = `
     <div class="ahead">
       <span class="drag-handle" draggable="true" data-drag-type="api" title="arrastrar para reordenar">⋮⋮</span>
@@ -3533,18 +3679,15 @@ function apiCard(api) {
       <input class="name-input aname" value="${escapeHtml(api.name)}" spellcheck="false">
       <button class="close-x" title="quitar api">✕</button>
     </div>
-    <div class="api-meta" title="valores por defecto al añadir nuevas (api, grupo). Los grupos ya conectados conservan los suyos.">
+    <div class="api-meta" title="tiempo que cada request gasta dentro del api">
       ${api.followMsgTime ? '' : `<span class="num">
         <button class="adec">−</button><span class="aval">${fmtSecs(api.processingMs)}</span><button class="ainc">+</button>
       </span>`}
-      <button class="mini-btn follow-msg-tgl ${api.followMsgTime?'tgl-on':'tgl-off'}">⏱ msg: ${api.followMsgTime?'ON':'OFF'}</button>
+      <button class="mini-btn follow-msg-tgl ${api.followMsgTime?'tgl-on':'tgl-off'}" title="ON = el api tarda lo que indique el mensaje del consumer (m.processingMs); OFF = tiempo fijo">⏱ msg: ${api.followMsgTime?'ON':'OFF'}</button>
       <span class="num" title="réplicas" style="margin-left:auto">
         <button class="rdec">−</button><span class="rval">${api.replicas}</span><button class="rinc">+</button>
         <span class="small" style="margin-left:4px">×</span>
       </span>
-    </div>
-    <div class="api-group-rows">
-      ${perGroupRows || '<div class="empty-hint" style="margin:0;padding:4px 6px;font-size:10.5px">sin grupos llamando — añade una acción REST en un grupo</div>'}
     </div>
     <div class="api-replicas">${
       Array.from({length: api.replicas}, (_, i) =>
@@ -3579,7 +3722,17 @@ function apiCard(api) {
     av.textContent = fmtSecs(api.processingMs);
   };
   card.querySelector('.rdec').onclick = () => {
-    if (api.replicas > 1) { api.replicas--; render(); }
+    if (api.replicas > 1) {
+      api.replicas--;
+      // Any group pinned to a replica that no longer exists falls back to
+      // auto so the UI + routing stay consistent.
+      for (const ovr of Object.values(api.groupOverrides || {})) {
+        if (Number.isInteger(ovr.replicaIdx) && ovr.replicaIdx >= api.replicas) {
+          ovr.replicaIdx = null;
+        }
+      }
+      render();
+    }
   };
   card.querySelector('.rinc').onclick = () => {
     api.replicas++;
@@ -3590,33 +3743,6 @@ function apiCard(api) {
     api.followMsgTime = !api.followMsgTime;
     render();
   };
-  // Per-(api, group) override rows. The stepper is omitted when ⏱ msg
-  // is ON, so guard each querySelector.
-  card.querySelectorAll('.api-group-row').forEach(rowEl => {
-    const gid = +rowEl.dataset.groupId;
-    if (!api.groupOverrides[gid]) ensureApiGroupOverride(api, gid);
-    const tval = rowEl.querySelector('.agr-tval');
-    const tdec = rowEl.querySelector('.agr-tdec');
-    const tinc = rowEl.querySelector('.agr-tinc');
-    if (tdec) tdec.onclick = () => {
-      const ovr = api.groupOverrides[gid];
-      if (!ovr) return;
-      ovr.processingMs = Math.max(100, (ovr.processingMs ?? 1500) - 500);
-      tval.textContent = fmtSecs(ovr.processingMs);
-    };
-    if (tinc) tinc.onclick = () => {
-      const ovr = api.groupOverrides[gid];
-      if (!ovr) return;
-      ovr.processingMs = Math.min(30000, (ovr.processingMs ?? 1500) + 500);
-      tval.textContent = fmtSecs(ovr.processingMs);
-    };
-    rowEl.querySelector('.agr-follow').onclick = () => {
-      const ovr = api.groupOverrides[gid];
-      if (!ovr) return;
-      ovr.followMsgTime = !ovr.followMsgTime;
-      render();
-    };
-  });
   return card;
 }
 
@@ -3951,7 +4077,12 @@ function renderLive() {
       if (status) {
         if (n === 0)      status.textContent = 'idle';
         else if (n === 1) status.textContent = '1 req · ritmo normal';
-        else              status.textContent = `${n} reqs en paralelo · ${n}× más lento`;
+        else {
+          const factor = concurrencySlowdown(n);
+          // Overhead vs running them sequentially (which would be n×).
+          const vsSeq = Math.round((factor / n - 1) * 100);
+          status.textContent = `${n} reqs en paralelo · ${factor.toFixed(1)}× más lento (+${vsSeq}% vs secuencial)`;
+        }
       }
       const queue = box.querySelector('.rqueue');
       if (queue) {
@@ -4299,7 +4430,8 @@ function serializeState() {
       };
     }),
     producers: state.producers.map(p => ({
-      id: p.id, name: p.name, color: p.color, topicId: p.topicId,
+      id: p.id, name: p.name, color: p.color,
+      topicIds: Array.isArray(p.topicIds) ? p.topicIds : [p.topicId],
       mode: p.mode, stickyPart: p.stickyPart, keyPool: p.keyPool,
       rate: p.rate, sendCount: p.sendCount, auto: !!p.auto,
       msgProcessingMs: p.msgProcessingMs,
@@ -4374,7 +4506,11 @@ function hydrateFromParsed(parsed) {
     groupOverrides: (a.groupOverrides && typeof a.groupOverrides === 'object') ? a.groupOverrides : {},
   }));
   state.producers = (parsed.producers || []).map(p => ({
-    id: p.id, name: p.name, color: p.color, topicId: p.topicId,
+    id: p.id, name: p.name, color: p.color,
+    // Migration: accept either the new `topicIds` array or the legacy
+    // single `topicId`. Filter to topics that actually exist so deleted
+    // ones don't leave dangling references.
+    topicIds: (Array.isArray(p.topicIds) ? p.topicIds : (p.topicId != null ? [p.topicId] : [])).filter(id => state.topics.some(t => t.id === id)),
     mode: p.mode || 'rr',
     stickyPart: p.stickyPart | 0,
     keyPool: Math.max(1, p.keyPool | 0 || 4),
@@ -4384,6 +4520,9 @@ function hydrateFromParsed(parsed) {
     auto: !!p.auto,
     msgProcessingMs: p.msgProcessingMs ?? 1500,
   }));
+  // Drop producers that ended up with zero valid targets after migration
+  // (their target topic was deleted).
+  state.producers = state.producers.filter(p => p.topicIds.length > 0);
   // Backward-compat: derive section-level collapse from either the explicit
   // flag, or "all producers were collapsed" in an older per-producer save.
   state.producersCollapsed = !!parsed.producersCollapsed
