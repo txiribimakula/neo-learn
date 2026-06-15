@@ -133,6 +133,13 @@
     border:1px solid var(--card-border);background:#fff;color:var(--muted);
   }
   .fitbtns button.on{background:var(--screen);color:#fff;border-color:var(--screen)}
+  /* insertar props (rectángulos) en la escena activa — solo modo single */
+  .add-prop{
+    font:inherit;font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;cursor:pointer;
+    border:1px solid var(--world);background:#fff;color:var(--world);
+  }
+  .add-prop:hover{background:var(--world);color:#fff}
+  .add-prop:disabled{opacity:.4;cursor:not-allowed;border-color:var(--card-border);color:var(--muted)}
 </style>
 </head>
 <body>
@@ -163,6 +170,8 @@
             <button data-fit="cover">cover</button>
           </span>
         </label>
+        <span class="divider"></span>
+        <button id="addProp" class="add-prop" title="inserta un rectángulo en el centro de la cámara — arrástralo para moverlo, usa el asa para rotarlo, doble clic para borrarlo">+ rectángulo</button>
       </div>
 
       <div class="stage" id="stage">
@@ -221,8 +230,31 @@
       </div>
     </section>
 
+    <section class="step" data-step="model">
+      <div class="num">02 · espacio local → mundo</div>
+      <h2>Los objetos llevan su propio espacio</h2>
+      <p>Un objeto se define en su <b>espacio local</b>: sus esquinas se miden desde su propio
+         <code>(0,&nbsp;0)</code>, sin saber nada del mundo. Colocarlo en la escena es aplicar su
+         <b>transformación de modelo</b>: <span class="hl-world">rotar</span> y luego
+         <span class="hl-world">trasladar</span>.</p>
+      <p>Mira el rectángulo: lleva <b>sus ejes encima</b> y giran con él. Para la cámara no hay nada
+         especial — una vez en el mundo, es escena como cualquier otra. La cadena completa queda:
+         <i>local → mundo → cámara → pantalla</i>.</p>
+      <div class="tech">
+        <div class="formula">P_mundo <span class="op">=</span> R(θ) <span class="op">·</span> P_local <span class="op">+</span> posición</div>
+        <div class="sep"></div>
+        <div class="row"><span class="lbl">posición</span><span class="val world" id="prPos">—</span></div>
+        <div class="row"><span class="lbl">ángulo θ</span><span class="val world" id="prAng">—</span></div>
+        <div class="row"><span class="lbl">esquina local</span><span class="val camera" id="prLocal">—</span></div>
+        <div class="row"><span class="lbl">→ en el mundo</span><span class="val world" id="prWorld">—</span></div>
+      </div>
+      <div class="mini-note">Pulsa <b>+ rectángulo</b> arriba para insertar más. <b>Arrástralo</b> para
+         moverlo, gira con el <b>asa circular</b>, <b>doble clic</b> para borrarlo. El de demo rota solo
+         para que veas el ángulo cambiar en la fórmula.</div>
+    </section>
+
     <section class="step" data-step="camera">
-      <div class="num">02 · la cámara</div>
+      <div class="num">03 · la cámara</div>
       <h2>La cámara es un recorte</h2>
       <p>El rectángulo <span class="hl-camera">ámbar</span> selecciona una región del mundo. Eso —y solo
          eso— es lo que se proyectará a la pantalla. Mover la cámara <b>no mueve el mundo</b>: cambia qué
@@ -235,7 +267,7 @@
     </section>
 
     <section class="step" data-step="camtransform">
-      <div class="num">03 · mundo → cámara</div>
+      <div class="num">04 · mundo → cámara</div>
       <h2>Restar el origen de la cámara</h2>
       <p>Para saber dónde cae un punto <i>dentro</i> del recorte, le restamos la esquina de la cámara.
          Así el origen pasa a ser la esquina del recuadro: lo mismo expresado <b>en relativo</b>.</p>
@@ -251,7 +283,7 @@
     </section>
 
     <section class="step" data-step="screen">
-      <div class="num">04 · cámara → pantalla</div>
+      <div class="num">05 · cámara → pantalla</div>
       <h2>Escalar para caber en los píxeles</h2>
       <p>El recorte mide en unidades de mundo; la pantalla, en píxeles. Multiplicamos por una
          <span class="hl-screen">escala</span> = <code>píxeles / unidades</code> y sumamos un
@@ -267,7 +299,7 @@
     </section>
 
     <section class="step" data-step="aspect">
-      <div class="num">05 · relación de aspecto</div>
+      <div class="num">06 · relación de aspecto</div>
       <h2>Cuando la forma no coincide</h2>
       <p>Si el recorte y el viewport tienen <b>proporciones distintas</b>, hay que decidir qué hacer.
          Prueba a cambiar el <b>viewport</b> arriba a otra proporción y compara los modos:</p>
@@ -281,7 +313,7 @@
     </section>
 
     <section class="step" data-step="zoom">
-      <div class="num">06 · zoom</div>
+      <div class="num">07 · zoom</div>
       <h2>Recorte pequeño = se ve grande</h2>
       <p>El zoom <b>no agranda los objetos</b>: encoge el recorte. Menos mundo dentro del mismo número
          de píxeles ⇒ cada unidad ocupa más píxeles ⇒ todo se ve más grande. La escala es justo el
@@ -297,7 +329,7 @@
     </section>
 
     <section class="step" data-step="summary">
-      <div class="num">07 · el pipeline</div>
+      <div class="num">08 · el pipeline</div>
       <h2>Los tres espacios, encadenados</h2>
       <p>Todo punto recorre el mismo camino en cada frame:</p>
       <div class="tech">
@@ -312,7 +344,7 @@
     </section>
 
     <section class="step" data-step="multi">
-      <div class="num">08 · múltiples viewports</div>
+      <div class="num">09 · múltiples viewports</div>
       <h2>Varias pantallas a la vez</h2>
       <p>Como cada pantalla es solo <i>una cámara + un trozo de píxeles</i>, nada impide tener
          <b>muchas</b> en marcha. Cada celda lleva su propio mundo, su propia cámara y su propio
@@ -430,6 +462,47 @@ function clampCamera(S,cam){
   cam.cy = camH(cam)>=S.h ? S.h/2 : clamp(cam.cy,hh,S.h-hh);
 }
 
+// ---------- props insertables (rectángulos del usuario) ----------
+// Cada prop vive en coordenadas DE MUNDO con su transformación de modelo:
+//   { x, y (centro en mundo), w, h (tamaño local), angle (rad), color }
+// Se dibujan después de la escena base, así aparecen en la vista de dios,
+// en la pantalla y en las celdas del grid por igual.
+const PROP_COLORS=['#7c4dff','#c0397f','#1e90b8','#d8821a','#2e8b57'];
+function ensureProps(S){ if(!S.props) S.props=[]; return S.props; }
+function addProp(){
+  const S=scene(), cam=activeCam(), props=ensureProps(S);
+  props.push({
+    x:cam.cx, y:cam.cy,
+    w:Math.round(S.w*0.13), h:Math.round(S.w*0.075),
+    angle:-0.35,
+    color:PROP_COLORS[props.length%PROP_COLORS.length],
+  });
+}
+// escena base + props — usar SIEMPRE esto en lugar de S.draw directo
+function drawScene(S,ctx){
+  S.draw(ctx);
+  for(const p of ensureProps(S)){
+    ctx.save();
+    ctx.translate(p.x,p.y);ctx.rotate(p.angle);
+    ctx.fillStyle=p.color;
+    ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);
+    ctx.strokeStyle='rgba(255,255,255,.8)';ctx.lineWidth=Math.max(2,p.w*.03);
+    ctx.strokeRect(-p.w/2,-p.h/2,p.w,p.h);
+    ctx.restore();
+  }
+}
+// punto del mundo → ¿dentro del prop? (des-rotando alrededor del centro)
+function pointInProp(p,wx,wy){
+  const dx=wx-p.x, dy=wy-p.y, c=Math.cos(p.angle), s=Math.sin(p.angle);
+  const rx=dx*c+dy*s, ry=-dx*s+dy*c;
+  return Math.abs(rx)<=p.w/2 && Math.abs(ry)<=p.h/2;
+}
+// posición del asa de rotación (px de panel) para un prop bajo godFit g
+function propHandlePos(p,g){
+  const d=(p.h/2)*g.s+20;
+  return { x:g.ox+p.x*g.s+d*Math.sin(p.angle), y:g.oy+p.y*g.s-d*Math.cos(p.angle) };
+}
+
 // ============================================================
 // CANVAS / LAYOUT
 // ============================================================
@@ -492,10 +565,11 @@ const viewTransform = ()=>viewTransformFor(activeCam(),SCV.w,SCV.h,state.fit);
 // PARÁMETROS DE ANIMACIÓN (driven por scroll). Se interpolan
 // suavemente hacia el "step" activo.
 // ============================================================
-const A = { camOp:.2, conn:0, screenFill:0, sub:0, origin:0, bars:0, autozoom:0, multiAnim:0 };
+const A = { camOp:.2, conn:0, screenFill:0, sub:0, origin:0, bars:0, autozoom:0, multiAnim:0, propHl:0, autoRot:0 };
 const STEP = {
   intro:        { camOp:.18, conn:0,  screenFill:0,  sub:0, origin:.15, bars:0, autozoom:0 },
   world:        { camOp:.10, conn:0,  screenFill:0,  sub:0, origin:1,   bars:0, autozoom:0 },
+  model:        { camOp:.15, conn:0,  screenFill:.5, sub:0, origin:.35, bars:0, autozoom:0, propHl:1, autoRot:1 },
   camera:       { camOp:1,   conn:.25,screenFill:.5, sub:0, origin:.2,  bars:0, autozoom:0 },
   camtransform: { camOp:1,   conn:.35,screenFill:.7, sub:1, origin:.4,  bars:0, autozoom:0 },
   screen:       { camOp:1,   conn:1,  screenFill:1,  sub:.4,origin:.2,  bars:0, autozoom:0 },
@@ -547,7 +621,7 @@ function renderViewportInto(ctx,S,cam,x,y,vw,vh,fit){
   ctx.rect(x+Math.max(0,ox), y+Math.max(0,oy), Math.min(vw,cam.w*sx), Math.min(vh,camH(cam)*sy));
   ctx.clip();
   ctx.setTransform(DPR*sx,0,0,DPR*sy, DPR*(x+ox-camLeft(cam)*sx), DPR*(y+oy-camTop(cam)*sy));
-  S.draw(ctx);
+  drawScene(S,ctx);
   drawAnchorAt(ctx,S.anchor,13/sx);   // ~13px fijos en pantalla ⇒ 13/sx en mundo
   ctx.restore();
   ctx.setTransform(DPR,0,0,DPR,0,0);
@@ -576,7 +650,7 @@ function renderWorldGrid(){
     const g=godFitRect(S,cellX,cellY,L.cw,L.ch,0.9);
     wctx.save();wctx.beginPath();wctx.rect(cellX,cellY,L.cw,L.ch);wctx.clip();
     wctx.setTransform(DPR*g.s,0,0,DPR*g.s,DPR*g.ox,DPR*g.oy);
-    S.draw(wctx);
+    drawScene(S,wctx);
     wctx.setTransform(DPR,0,0,DPR,0,0);
     // cámara + ancla de ESTA escena
     const cr=drawCamRect(wctx,S,cam,g,1);
@@ -598,7 +672,7 @@ function renderWorld(){
   wctx.fillStyle='#eef1f6';wctx.fillRect(0,0,WCV.w,WCV.h);
 
   wctx.setTransform(DPR*g.s,0,0,DPR*g.s,DPR*g.ox,DPR*g.oy);
-  S.draw(wctx);
+  drawScene(S,wctx);
   drawGrid(wctx, S, A.origin>0.5);
   drawAnchorAt(wctx, S.anchor, 13/g.s + 6);
 
@@ -629,6 +703,31 @@ function renderWorld(){
       [worldWrap.offsetLeft+r.rx+r.rw,worldWrap.offsetTop+r.ry+r.rh],
       [worldWrap.offsetLeft+r.rx,worldWrap.offsetTop+r.ry+r.rh]];
   } else worldCornersStage=null;
+
+  // overlays de props: asa de rotación siempre (modo single); ejes locales
+  // solo durante el step "model" (A.propHl) — el objeto lleva su (0,0) encima
+  for(const p of ensureProps(S)){
+    const cx=g.ox+p.x*g.s, cy=g.oy+p.y*g.s;
+    const hnd=propHandlePos(p,g);
+    // asa: tallo + círculo
+    wctx.strokeStyle=p.color;wctx.lineWidth=1.6;
+    wctx.beginPath();wctx.moveTo(cx+(p.h/2)*g.s*Math.sin(p.angle),cy-(p.h/2)*g.s*Math.cos(p.angle));
+    wctx.lineTo(hnd.x,hnd.y);wctx.stroke();
+    wctx.fillStyle='#fff';wctx.strokeStyle=p.color;wctx.lineWidth=2.2;
+    wctx.beginPath();wctx.arc(hnd.x,hnd.y,6,0,7);wctx.fill();wctx.stroke();
+    if(A.propHl>0.02){
+      const c=Math.cos(p.angle), s=Math.sin(p.angle), L=34;
+      wctx.globalAlpha=A.propHl;
+      wctx.lineWidth=2.4;
+      wctx.strokeStyle='#c0392b';        // eje x local
+      wctx.beginPath();wctx.moveTo(cx,cy);wctx.lineTo(cx+c*L,cy+s*L);wctx.stroke();
+      wctx.strokeStyle='#2e7d4f';        // eje y local
+      wctx.beginPath();wctx.moveTo(cx,cy);wctx.lineTo(cx-s*L,cy+c*L);wctx.stroke();
+      wctx.fillStyle='#1d2230';wctx.font='700 10px ui-monospace,Consolas';
+      wctx.fillText('(0,0) local',cx+6,cy-6);
+      wctx.globalAlpha=1;
+    }
+  }
 }
 
 // ---------- PANTALLA ----------
@@ -668,7 +767,7 @@ function renderScreen(){
     sctx.rect(Math.max(0,ox),Math.max(0,oy),Math.min(SCV.w,cam.w*sx),Math.min(SCV.h,camH(cam)*sy));
     sctx.clip();
     sctx.setTransform(DPR*sx,0,0,DPR*sy,DPR*(ox-camLeft(cam)*sx),DPR*(oy-camTop(cam)*sy));
-    S.draw(sctx);drawAnchorAt(sctx,S.anchor,13);
+    drawScene(S,sctx);drawAnchorAt(sctx,S.anchor,13);
     sctx.restore();
   }
   if(A.bars>0.02 && state.fit==='letterbox'){
@@ -745,6 +844,20 @@ function updateReadouts(){
   const px=cx*sx+ox, py=cy*sy+oy;
   const set=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
   set('wWx',f(a.x));set('wWy',f(a.y));set('wSize',`${S.w}×${S.h}`);
+  // espacio local → mundo (último prop insertado)
+  {
+    const props=ensureProps(S), pr=props[props.length-1];
+    if(pr){
+      const deg=((pr.angle*180/Math.PI)%360+360)%360;
+      const lx=pr.w/2, ly=-pr.h/2, c=Math.cos(pr.angle), s2=Math.sin(pr.angle);
+      set('prPos',`(${f(pr.x)}, ${f(pr.y)})`);
+      set('prAng',`${deg.toFixed(0)}°`);
+      set('prLocal',`(${f(lx)}, ${f(ly)})`);
+      set('prWorld',`(${f(pr.x+lx*c-ly*s2)}, ${f(pr.y+lx*s2+ly*c)})`);
+    }else{
+      set('prPos','—');set('prAng','—');set('prLocal','—');set('prWorld','—');
+    }
+  }
   set('cOrigin',`(${f(camLeft(cam))}, ${f(camTop(cam))})`);
   set('cSize',`${f(cam.w)}×${f(camH(cam))}`);
   set('tWorld',`(${f(a.x)}, ${f(a.y)})`);
@@ -806,7 +919,17 @@ worldCv.addEventListener('pointerdown',e=>{
   const m=mp(worldCv,e), t=worldTargetAt(m); if(!t)return;
   const wx=(m.x-t.g.ox)/t.g.s, wy=(m.y-t.g.oy)/t.g.s;
   if(Math.hypot(wx-t.S.anchor.x,wy-t.S.anchor.y)<24/t.g.s+10) dragW={k:'anchor',t};
-  else if(wx>=camLeft(t.cam)&&wx<=camLeft(t.cam)+t.cam.w&&wy>=camTop(t.cam)&&wy<=camTop(t.cam)+camH(t.cam))
+  // props (solo modo single): asa de rotación primero, luego el cuerpo —
+  // el último insertado tiene prioridad (está dibujado encima)
+  if(!dragW && !multiMode()){
+    const props=ensureProps(t.S);
+    for(let i=props.length-1;i>=0;i--){
+      const p=props[i], hnd=propHandlePos(p,t.g);
+      if(Math.hypot(m.x-hnd.x,m.y-hnd.y)<10){dragW={k:'prop-rot',t,p};break;}
+      if(pointInProp(p,wx,wy)){dragW={k:'prop',t,p,dx:wx-p.x,dy:wy-p.y};break;}
+    }
+  }
+  if(!dragW && wx>=camLeft(t.cam)&&wx<=camLeft(t.cam)+t.cam.w&&wy>=camTop(t.cam)&&wy<=camTop(t.cam)+camH(t.cam))
     dragW={k:'cam',t,dx:wx-t.cam.cx,dy:wy-t.cam.cy};
   if(dragW)worldCv.setPointerCapture(e.pointerId);
 });
@@ -814,9 +937,27 @@ worldCv.addEventListener('pointermove',e=>{
   if(!dragW)return;const m=mp(worldCv,e),t=dragW.t;
   const wx=(m.x-t.g.ox)/t.g.s, wy=(m.y-t.g.oy)/t.g.s;
   if(dragW.k==='anchor'){t.S.anchor.x=clamp(wx,0,t.S.w);t.S.anchor.y=clamp(wy,0,t.S.h);}
+  else if(dragW.k==='prop'){
+    dragW.p.x=clamp(wx-dragW.dx,0,t.S.w);dragW.p.y=clamp(wy-dragW.dy,0,t.S.h);
+  }
+  else if(dragW.k==='prop-rot'){
+    // el asa vive en dirección angle−90° desde el centro ⇒ θ = atan2 + 90°
+    const cx=t.g.ox+dragW.p.x*t.g.s, cy=t.g.oy+dragW.p.y*t.g.s;
+    dragW.p.angle=Math.atan2(m.y-cy,m.x-cx)+Math.PI/2;
+  }
   else{t.cam.cx=wx-dragW.dx;t.cam.cy=wy-dragW.dy;clampCamera(t.S,t.cam);if(t.cam===activeCam())zoomEl.value=Math.round(t.cam.w);}
 });
 worldCv.addEventListener('pointerup',()=>dragW=null);
+// doble clic sobre un prop = borrarlo (solo single)
+worldCv.addEventListener('dblclick',e=>{
+  if(multiMode())return;
+  const m=mp(worldCv,e), t=worldTargetAt(m); if(!t)return;
+  const wx=(m.x-t.g.ox)/t.g.s, wy=(m.y-t.g.oy)/t.g.s;
+  const props=ensureProps(t.S);
+  for(let i=props.length-1;i>=0;i--){
+    if(pointInProp(props[i],wx,wy)){props.splice(i,1);break;}
+  }
+});
 
 let dragS=null;
 screenCv.addEventListener('pointerdown',e=>{
@@ -863,6 +1004,7 @@ Object.entries(SCENES).forEach(([k,s])=>{
 });
 
 function onThumbClick(k,e){
+  state._autoMulti=false;   // el usuario toma el control de la selección
   const multi=e.ctrlKey||e.metaKey||e.shiftKey;
   if(multi){
     if(state.selected.has(k)){ if(state.selected.size>1) state.selected.delete(k); }
@@ -879,6 +1021,8 @@ function syncThumbs(){
   thumbsBox.querySelectorAll('.scene-thumb').forEach(b=>{
     b.classList.toggle('sel', state.selected.has(b.dataset.key));
   });
+  // insertar props solo tiene sentido con UNA escena activa
+  const ap=$('addProp'); if(ap) ap.disabled=multiMode();
 }
 // pinta cada miniatura una vez (estática)
 function paintThumbs(){
@@ -903,6 +1047,7 @@ $('fitBtns').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;state.fit=b.dataset.fit;
   [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b));
 });
+$('addProp').onclick=()=>{ if(!multiMode()) addProp(); };
 
 // ============================================================
 // SCROLL → step activo (IntersectionObserver banda central)
@@ -913,6 +1058,28 @@ const io=new IntersectionObserver(entries=>{
     if(en.isIntersecting){
       activeStep=en.target.dataset.step;
       sections.forEach(s=>s.classList.toggle('active',s===en.target));
+      // step "model" sin props → insertar uno de demo para que la sección
+      // tenga algo que enseñar (rota solo vía A.autoRot)
+      if(activeStep==='model' && !multiMode() && ensureProps(scene()).length===0) addProp();
+      // step "multi": seleccionar TODAS las escenas automáticamente para
+      // que el grid se enseñe solo. Al salir del step se restaura la
+      // selección previa — pero solo si fue esta automatización quien la
+      // cambió (si el usuario toca las miniaturas, mandan sus clics).
+      if(activeStep==='multi'){
+        if(!multiMode()){
+          state._prevSel=[...state.selected];
+          state.selected=new Set(Object.keys(SCENES));
+          state._autoMulti=true;
+          state.sceneKey=selectedKeys()[0];
+          syncThumbs();
+        }
+      }else if(state._autoMulti){
+        state.selected=new Set(state._prevSel&&state._prevSel.length?state._prevSel:[state.sceneKey]);
+        state._autoMulti=false;
+        state.sceneKey=selectedKeys()[0];
+        zoomEl.value=Math.round(activeCam().w);
+        syncThumbs();
+      }
     }
   });
 },{rootMargin:'-45% 0px -45% 0px',threshold:0});
@@ -931,6 +1098,15 @@ function tick(){
     cam.w+=zoomDir*4;
     if(cam.w>S.w*0.6)zoomDir=-1; if(cam.w<S.w*0.18)zoomDir=1;
     cam.w=clamp(cam.w,220,2400);clampCamera(S,cam);zoomEl.value=Math.round(cam.w);
+  }
+
+  // sección "espacio local → mundo": el último prop insertado rota solo
+  // para que se vea el ángulo θ cambiar en la fórmula. Se respeta si lo
+  // estás arrastrando o rotando tú.
+  if(A.autoRot>0.5 && !multiMode()){
+    const props=ensureProps(scene());
+    const p=props[props.length-1];
+    if(p && !(dragW&&dragW.p===p)) p.angle+=0.005;
   }
 
   // sección "múltiples viewports": cada cámara orbita SU mundo con su propia

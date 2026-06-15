@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Widths · How controls share the available width</title>
+<style>
+  :root{
+    --bg:#f3efe6; --card:#ffffff; --card-border:#e4dfd2;
+    --ink:#23272f; --muted:#6b7280; --muted2:#9aa1ad;
+    --accent:#3956d3;
+    /* code-color per mode (consistent across the WHOLE page) */
+    --full:#7c3aed;     /* purple — MAX (100%) */
+    --remain:#2e7d4f;   /* green  — REMAINING (flex-grow) */
+    --fixed:#d97706;    /* amber  — FIXED (px) */
+    --percent:#2563eb;  /* blue   — PERCENT (%) */
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+
+  /* ---------- master layout: 2/3 viz · 1/3 narrative ---------- */
+  .page{display:grid;grid-template-columns:2fr 1fr;align-items:start;gap:0}
+
+  .viz{position:sticky;top:0;height:100vh;border-right:1px solid var(--card-border);
+       background:linear-gradient(180deg,#faf8f3,#efeadf)}
+  .viz-inner{position:relative;height:100%;display:flex;flex-direction:column;
+             padding:14px 16px;gap:10px;min-height:0}
+
+  .viz-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex:0 0 auto}
+  .viz-head .t{font-size:12px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
+  .viz-head .cw{font-size:11.5px;color:var(--muted2);font-variant-numeric:tabular-nums}
+  .viz-head .cw b{color:var(--ink)}
+
+  /* ---------- toolbar ---------- */
+  .toolbar{display:flex;flex-wrap:wrap;gap:7px 9px;align-items:center;flex:0 0 auto}
+  .toolbar button, .toolbar .preset{
+    font:inherit;font-size:12px;font-weight:700;cursor:pointer;
+    border:1px solid var(--card-border);background:#fff;color:var(--ink);
+    border-radius:7px;padding:5px 10px;transition:border-color .15s,box-shadow .15s,transform .1s;
+  }
+  .toolbar button:hover,.toolbar .preset:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .toolbar .add{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .toolbar .add:hover{box-shadow:0 3px 10px rgba(57,86,211,.3)}
+  .toolbar .ghost{color:var(--muted)}
+  .toolbar .sep{width:1px;height:20px;background:var(--card-border);margin:0 2px}
+  .toolbar .presets-lbl{font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2)}
+  .toolbar .slider{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);font-weight:600}
+  .toolbar input[type=range]{width:120px;accent-color:var(--accent)}
+  .toolbar .slider b{color:var(--ink);font-variant-numeric:tabular-nums;min-width:46px;display:inline-block}
+
+  /* ---------- stage: resizable container ---------- */
+  .stage{flex:1 1 auto;display:flex;flex-direction:column;gap:10px;min-height:0}
+  .frame-wrap{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:auto;
+              border-radius:10px;border:1px dashed var(--card-border);background:
+              repeating-linear-gradient(45deg,#fbfaf6,#fbfaf6 10px,#f6f3ec 10px,#f6f3ec 20px);
+              padding:22px 14px}
+  /* the "container" whose width we share out */
+  .container{
+    position:relative;margin:0 auto;background:var(--card);border:1px solid var(--card-border);
+    border-radius:10px;box-shadow:0 4px 16px rgba(20,30,60,.08);padding:16px;
+    display:flex;flex-direction:column;gap:26px;align-items:stretch;
+    min-height:120px;transition:width .12s ease;
+  }
+  .container .ruler{
+    position:absolute;left:0;right:0;top:-15px;height:11px;border-left:1px solid var(--muted2);
+    border-right:1px solid var(--muted2);
+  }
+  .container .ruler::after{
+    content:attr(data-w);position:absolute;top:-3px;left:50%;transform:translateX(-50%);
+    background:var(--bg);padding:0 6px;font-size:10px;font-weight:800;color:var(--muted2);
+    font-variant-numeric:tabular-nums;
+  }
+  /* one visual row = one flex row (we pack rows ourselves) */
+  .row{display:flex;align-items:flex-start;width:100%}
+
+  /* ---------- each control (fake form field) ---------- */
+  .field{
+    position:relative;min-width:0;cursor:pointer;
+    border-radius:8px;padding:6px;background:#fff;
+    border:2px solid transparent;transition:border-color .12s,box-shadow .12s;
+  }
+  .field .cap{display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;
+              color:var(--muted);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .field .cap .dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+  .field .box{height:30px;border-radius:6px;border:1.5px solid;display:flex;align-items:center;
+              padding:0 9px;font-size:11px;font-weight:600;background:#fff;
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .field .wb{position:absolute;bottom:-9px;right:6px;font-size:9.5px;font-weight:800;color:#fff;
+             border-radius:10px;padding:1px 6px;font-variant-numeric:tabular-nums;
+             box-shadow:0 1px 3px rgba(0,0,0,.18)}
+  .field.sel{box-shadow:0 0 0 3px rgba(57,86,211,.18)}
+  .field.sel{border-color:var(--accent)}
+
+  .field.full   .dot{background:var(--full)}    .field.full   .box{border-color:var(--full);background:#f7f3ff}    .field.full   .wb{background:var(--full)}
+  .field.remain .dot{background:var(--remain)}  .field.remain .box{border-color:var(--remain);background:#eef9f1}  .field.remain .wb{background:var(--remain)}
+  .field.fixed  .dot{background:var(--fixed)}   .field.fixed  .box{border-color:var(--fixed);background:#fff6ea}   .field.fixed  .wb{background:var(--fixed)}
+  .field.percent .dot{background:var(--percent)} .field.percent .box{border-color:var(--percent);background:#eef4ff} .field.percent .wb{background:var(--percent)}
+
+  .empty-hint{margin:auto;color:var(--muted2);font-size:12.5px;text-align:center;line-height:1.6}
+
+  /* ---------- inspector for the selected control ---------- */
+  .inspector{flex:0 0 auto;border:1px solid var(--card-border);border-radius:10px;background:#fff;
+             padding:9px 11px;display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;min-height:46px}
+  .inspector .who{font-size:12px;font-weight:800;color:var(--ink);display:inline-flex;align-items:center;gap:6px}
+  .inspector .who .dot{width:9px;height:9px;border-radius:50%}
+  .inspector .modes{display:inline-flex;gap:4px;background:#f4f2ec;border-radius:8px;padding:3px}
+  .inspector .modes button{font:inherit;font-size:11.5px;font-weight:700;cursor:pointer;border:0;
+                           background:transparent;color:var(--muted);border-radius:6px;padding:4px 9px}
+  .inspector .modes button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .inspector .modes button[data-m=full].on{color:var(--full)}
+  .inspector .modes button[data-m=remain].on{color:var(--remain)}
+  .inspector .modes button[data-m=fixed].on{color:var(--fixed)}
+  .inspector .modes button[data-m=percent].on{color:var(--percent)}
+  .inspector .val{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);font-weight:600}
+  .inspector .val input[type=range]{width:110px;accent-color:var(--accent)}
+  .inspector .val input.num{width:56px;font:inherit;font-size:11.5px;font-weight:700;text-align:right;
+                            border:1px solid var(--card-border);border-radius:6px;padding:3px 6px;
+                            color:var(--ink);font-variant-numeric:tabular-nums;background:#fff}
+  .inspector .val input.num:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(57,86,211,.15)}
+  .inspector .val .unit{color:var(--muted2);font-weight:800;margin-left:-2px}
+  .inspector .val b{color:var(--ink);font-variant-numeric:tabular-nums;min-width:48px}
+  .inspector .val.off{display:none}
+  .inspector .rm{margin-left:auto;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer;
+                 border:1px solid var(--card-border);background:#fff;color:#b91c1c;border-radius:7px;padding:4px 9px}
+  .inspector .rm:hover{border-color:#b91c1c}
+  .inspector.none{color:var(--muted2);font-size:12px;justify-content:center}
+
+  /* ---------- live code panel ---------- */
+  .code{flex:0 0 auto;background:#1d2230;color:#e6e9f2;border-radius:10px;padding:11px 13px;
+        font-family:ui-monospace,"SF Mono",Consolas,monospace;font-size:11.5px;line-height:1.6;
+        max-height:30vh;overflow:auto}
+  .code .ln{white-space:pre}
+  .code .sel-line{background:rgba(120,140,255,.16);border-radius:4px;margin:0 -6px;padding:0 6px}
+  .code .sel{color:#8fbcff}.code .prop{color:#c7cede}.code .cmt{color:#7d8aa6}
+  .code .v-full{color:#c6a8ff}.code .v-remain{color:#7ee2a8}.code .v-fixed{color:#fbc77d}.code .v-percent{color:#8fbcff}
+
+  /* ---------- narrative ---------- */
+  .narrative{padding:0 0 40vh}
+  .hero{padding:64px 34px 20px}
+  .hero h1{font-size:24px;font-weight:800;letter-spacing:-.3px;margin:0 0 10px;line-height:1.2}
+  .hero p{font-size:13.5px;color:var(--muted);line-height:1.6;margin:0}
+  .hero p b{color:var(--ink)}
+  .legend{display:flex;flex-direction:column;gap:8px;margin:20px 0 0}
+  .legend .chip{font-size:12px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:9px}
+  .legend .chip .sw{width:13px;height:13px;border-radius:4px;flex:0 0 auto}
+  .legend .chip b{color:var(--ink);font-weight:800}
+  .scroll-hint{margin-top:26px;font-size:11.5px;color:var(--muted2);display:flex;align-items:center;gap:8px}
+  .scroll-hint .arrow{animation:bob 1.4s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+
+  section.step{min-height:80vh;display:flex;flex-direction:column;justify-content:center;padding:30px 34px}
+  section.step .num{font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;color:var(--accent)}
+  section.step h2{font-size:19px;font-weight:800;margin:0 0 12px;line-height:1.25;letter-spacing:-.2px}
+  section.step p{font-size:13.5px;color:#3b4250;line-height:1.65;margin:0 0 12px}
+  section.step p b{color:var(--ink)}
+  .hl-full{color:var(--full);font-weight:800}
+  .hl-remain{color:var(--remain);font-weight:800}
+  .hl-fixed{color:var(--fixed);font-weight:800}
+  .hl-percent{color:var(--percent);font-weight:800}
+
+  .tech{background:#1d2230;color:#e6e9f2;border-radius:9px;padding:12px 14px;margin-top:6px;
+        font-family:ui-monospace,"SF Mono",Consolas,monospace;font-size:12px;line-height:1.7}
+  .tech .cmt{color:#7d8aa6}.tech .sel{color:#8fbcff}.tech .prop{color:#c7cede}
+  .tech .v-full{color:#c6a8ff}.tech .v-remain{color:#7ee2a8}.tech .v-fixed{color:#fbc77d}.tech .v-percent{color:#8fbcff}
+
+  .try{display:inline-flex;align-items:center;gap:7px;margin-top:4px;font:inherit;font-size:12px;font-weight:700;
+       cursor:pointer;border:1px solid var(--card-border);background:#fff;color:var(--accent);border-radius:8px;padding:6px 12px}
+  .try:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(57,86,211,.18)}
+
+  @media (max-width:880px){
+    .page{grid-template-columns:1fr}
+    .viz{position:relative;height:auto;border-right:0;border-bottom:1px solid var(--card-border)}
+    .viz-inner{height:auto}
+    .code{max-height:none}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ================= LEFT: PLAYGROUND ================= -->
+  <div class="viz">
+    <div class="viz-inner">
+      <div class="viz-head">
+        <span class="t">Sandbox · share the width</span>
+        <span class="cw">container: <b id="cwLabel">720</b> px</span>
+      </div>
+
+      <div class="toolbar">
+        <button class="add" id="addBtn">＋ Add control</button>
+        <button class="ghost" id="clearBtn">Clear</button>
+        <span class="sep"></span>
+        <span class="presets-lbl">Examples</span>
+        <button class="preset" data-preset="5050">50 / 50</button>
+        <button class="preset" data-preset="labelfield">label + field</button>
+        <button class="preset" data-preset="search">search</button>
+        <button class="preset" data-preset="form">form</button>
+        <span class="sep"></span>
+        <label class="slider">container
+          <input type="range" id="cwRange" min="280" max="940" step="10" value="720">
+          <b id="cwVal">720px</b>
+        </label>
+        <label class="slider">gap
+          <input type="range" id="gapRange" min="0" max="32" step="2" value="0">
+          <b id="gapVal">0px</b>
+        </label>
+      </div>
+
+      <div class="stage">
+        <div class="frame-wrap">
+          <div class="container" id="container">
+            <div class="ruler" id="ruler" data-w="720px"></div>
+          </div>
+        </div>
+
+        <div class="inspector none" id="inspector">
+          Select a control to change how it takes width.
+        </div>
+
+        <div class="code" id="code"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= RIGHT: NARRATIVE ================= -->
+  <div class="narrative">
+    <div class="hero">
+      <h1>How do controls decide how much width to take?</h1>
+      <p>You drop two boxes and want each one at <b>50%</b>. Or a <b>fixed</b> label
+      next to a field that <b>fills whatever is left</b>. Behind that intuition there
+      are just <b>four ways</b> to ask for width. See them all here, live — and find
+      out they're plain <b>flexbox</b>.</p>
+
+      <div class="legend">
+        <div class="chip"><span class="sw" style="background:var(--full)"></span><b>Max</b> — takes the whole row by itself (100%)</div>
+        <div class="chip"><span class="sw" style="background:var(--fixed)"></span><b>Fixed</b> — a number of pixels, no matter what</div>
+        <div class="chip"><span class="sw" style="background:var(--percent)"></span><b>Percent</b> — a fraction of the container</div>
+        <div class="chip"><span class="sw" style="background:var(--remain)"></span><b>Remaining</b> — fills whatever space is left</div>
+      </div>
+
+      <div class="scroll-hint"><span class="arrow">↓</span> Play on the left while you read</div>
+    </div>
+
+    <section class="step">
+      <div class="num">01 · the starting point</div>
+      <h2>Every control is born taking the <span class="hl-full">max</span></h2>
+      <p>When you insert a new control it asks for <b>100%</b> of the width by
+      default: it sits alone on its row and pushes the next one below. It's the
+      safest behavior — nothing gets squeezed — and from there you decide whether to
+      share the row.</p>
+      <p>Hit <b>＋ Add control</b> a couple of times and watch each one stack under
+      the previous one.</p>
+      <div class="tech"><span class="cmt">/* Max = a whole row just for me */</span><br>
+        <span class="sel">.field</span> { <span class="prop">flex</span>: <span class="v-full">0 0 100%</span>; }</div>
+      <button class="try" data-preset="full3">▶ Three controls at Max</button>
+    </section>
+
+    <section class="step">
+      <div class="num">02 · pixels that don't move</div>
+      <h2>The <span class="hl-fixed">fixed</span> width: you set the pixels</h2>
+      <p>Sometimes you want an exact width: a <b>90px</b> button, a <b>120px</b>
+      label. The control is <b>always the same size</b> even if the container grows
+      or shrinks. Select a control, pick <b>Fixed</b> and drag the slider.</p>
+      <p>To see it: drag the <b>“container”</b> slider up top. Fixed
+      <span class="hl-fixed">doesn't flinch</span>; everything else does.</p>
+      <div class="tech"><span class="sel">.button</span> { <span class="prop">flex</span>: <span class="v-fixed">0 0 90px</span>; }</div>
+    </section>
+
+    <section class="step">
+      <div class="num">03 · a fraction of the whole</div>
+      <h2>The <span class="hl-percent">percentage</span>: scales with the container</h2>
+      <p>Here's your “each one at 50%”. A control at <b>50%</b> is always half the
+      container: if it goes from 700 to 900px, the control grows with it. Two at 50%
+      fill the row; three don't fit and the third <b>drops to a new line</b>.</p>
+      <p>Drag the <b>“container”</b> slider and notice: percentages keep their
+      proportion while everything else changes size.</p>
+      <div class="tech"><span class="sel">.col</span> { <span class="prop">flex</span>: <span class="v-percent">0 0 50%</span>; }</div>
+      <button class="try" data-preset="5050">▶ Load 50 / 50</button>
+    </section>
+
+    <section class="step">
+      <div class="num">04 · whatever is left is mine</div>
+      <h2>The <span class="hl-remain">remaining</span>: fills the leftover</h2>
+      <p>This is the clever one. It doesn't ask for a concrete width: it grabs
+      <b>everything left over</b> in its row. A fixed 120px label + a
+      <b>remaining</b> field = the field stretches by itself to the edge, whatever
+      the container measures.</p>
+      <p><b>The rule:</b> a <span class="hl-remain">remaining</span> control
+      <b>owns its row</b> — it can share it with <b>at most one</b>
+      <span class="hl-fixed">fixed</span> control and nothing else. Anything else
+      (a <span class="hl-percent">percentage</span>, a second fixed, another
+      remaining) <b>jumps to a new line</b>. That way a remaining always has a clear,
+      predictable leftover to fill.</p>
+      <div class="tech"><span class="cmt">/* basis 0 + grow 1 = "give me the rest" */</span><br>
+        <span class="sel">.field</span> { <span class="prop">flex</span>: <span class="v-remain">1 1 0</span>; }</div>
+      <button class="try" data-preset="labelfield">▶ Fixed label + remaining field</button>
+    </section>
+
+    <section class="step">
+      <div class="num">05 · how a row fills up</div>
+      <h2>The packing rules, step by step</h2>
+      <p>When several controls share a row, the container fills it like this:</p>
+      <p>1 · Place <span class="hl-fixed">fixed</span> and
+      <span class="hl-percent">percent</span> controls left to right while they fit —
+      those already know their size.<br>
+      2 · A <span class="hl-full">max</span> control always takes a whole row by
+      itself.<br>
+      3 · A <span class="hl-remain">remaining</span> control grabs the leftover of
+      its row — it shares that row with <b>at most one fixed control</b> and nothing
+      else; everything else starts a new row.<br>
+      4 · If something doesn't fit, it <b>wraps</b> to the next line.</p>
+      <button class="try" data-preset="search">▶ Search bar (remaining + fixed button)</button>
+    </section>
+
+    <section class="step">
+      <div class="num">06 · the secret</div>
+      <h2>It's <b>flexbox</b>, nothing more</h2>
+      <p>No magic: each row is a <code>display:flex</code> row, and every mode is a
+      recipe for the <code>flex</code> shorthand (grow · shrink · basis):</p>
+      <div class="tech">
+        <span class="sel">.row</span> { <span class="prop">display</span>:flex; }<br><br>
+        <span class="cmt">/* Max       */</span> <span class="prop">flex</span>: <span class="v-full">0 0 100%</span>;<br>
+        <span class="cmt">/* Fixed     */</span> <span class="prop">flex</span>: <span class="v-fixed">0 0 120px</span>;<br>
+        <span class="cmt">/* Percent   */</span> <span class="prop">flex</span>: <span class="v-percent">0 0 50%</span>;<br>
+        <span class="cmt">/* Remaining */</span> <span class="prop">flex</span>: <span class="v-remain">1 1 0</span>;
+      </div>
+      <p>Every time you change a mode on the left, the code panel below shows
+      <b>exactly</b> which <code>flex</code> applies, grouped by row. Copy it into
+      your own form and it works the same.</p>
+      <button class="try" data-preset="form">▶ Build a full form</button>
+    </section>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+(function(){
+
+  // ---------- state (lives in closure) ----------
+  const state = {
+    items: [],          // {id, name, mode:'full'|'fixed'|'percent'|'remain', px, pct}
+    selId: null,
+    containerW: 720,
+    gap: 0,
+    seq: 0,
+  };
+
+  const MODES = {
+    full:    { label:'Max',       css:'0 0 100%' },
+    fixed:   { label:'Fixed',     css:i=>`0 0 ${i.px}px` },
+    percent: { label:'Percent',   css:i=>`0 0 ${i.pct}%` },
+    remain:  { label:'Remaining', css:'1 1 0' },
+  };
+  const PAD = 32; // container horizontal padding (16*2)
+
+  const $ = id => document.getElementById(id);
+  const container = $('container');
+  const ruler     = $('ruler');
+  const inspector = $('inspector');
+  const codeEl    = $('code');
+
+  function flexValue(it){
+    const c = MODES[it.mode].css;
+    return typeof c === 'function' ? c(it) : c;
+  }
+
+  function addItem(mode='full', opts={}){
+    state.seq++;
+    const it = {
+      id:'c'+state.seq, name:'Field '+state.seq, mode,
+      px: opts.px ?? 160, pct: opts.pct ?? 50,
+    };
+    state.items.push(it);
+    state.selId = it.id;
+    render();
+    return it;
+  }
+
+  function removeItem(id){
+    const i = state.items.findIndex(x=>x.id===id);
+    if(i<0) return;
+    state.items.splice(i,1);
+    if(state.selId===id) state.selId = state.items.length ? state.items[Math.min(i,state.items.length-1)].id : null;
+    render();
+  }
+
+  // ---------- row packing (our own, so we can enforce the rules) ----------
+  // Rules:
+  //  - Max always sits alone on its own row.
+  //  - A row with a Remaining accepts ONLY Fixed siblings (no percent, no 2nd remaining).
+  //  - A Remaining only joins a row that has fixed-only items so far.
+  //  - Fixed/Percent pack left-to-right while they fit (basis + gaps <= container width).
+  function computeRows(){
+    const inner = Math.max(0, state.containerW - PAD);
+    const gap = state.gap;
+    const basisPx = it => it.mode==='fixed' ? it.px
+                        : it.mode==='percent' ? it.pct/100*inner
+                        : 0; // remaining / full contribute no fixed basis
+    const used = row => row.items.reduce((s,it)=>s+basisPx(it),0)
+                        + Math.max(0,row.items.length-1)*gap;
+
+    const rows = [];
+    let cur = null;
+    for(const it of state.items){
+      if(it.mode==='full'){
+        rows.push({items:[it], hasRemain:false});
+        cur = null;
+        continue;
+      }
+      if(!cur){
+        cur = {items:[it], hasRemain: it.mode==='remain'};
+        rows.push(cur);
+        continue;
+      }
+      const hasRemain  = cur.hasRemain;
+      const hasPercent = cur.items.some(x=>x.mode==='percent');
+      const fixedCount = cur.items.reduce((n,x)=>n+(x.mode==='fixed'?1:0),0);
+      let join = true;
+      if(it.mode==='remain'){
+        // a remaining shares its row with AT MOST ONE fixed, nothing else
+        if(hasRemain || hasPercent || fixedCount > 1) join = false;
+      } else if(it.mode==='percent'){
+        if(hasRemain) join = false;                   // no percent in a remaining row
+      } else if(it.mode==='fixed'){
+        if(hasRemain && fixedCount >= 1) join = false; // remaining row already has its one fixed
+      }
+      if(join){
+        const next = used(cur) + gap + basisPx(it);   // would-be row width
+        if(next > inner + 0.5) join = false;          // doesn't fit -> wrap
+      }
+      if(join){
+        cur.items.push(it);
+        if(it.mode==='remain') cur.hasRemain = true;
+      } else {
+        cur = {items:[it], hasRemain: it.mode==='remain'};
+        rows.push(cur);
+      }
+    }
+    return rows;
+  }
+
+  // ---------- render ----------
+  // skipInspector=true rebuilds only the fields + code (keeps the inspector DOM,
+  // so a number input / slider being edited doesn't lose focus mid-keystroke).
+  function render(skipInspector){
+    container.style.width = state.containerW + 'px';
+    ruler.dataset.w = state.containerW + 'px';
+
+    [...container.querySelectorAll('.row,.empty-hint')].forEach(n=>n.remove());
+
+    if(!state.items.length){
+      const hint = document.createElement('div');
+      hint.className='empty-hint';
+      hint.innerHTML='Empty.<br>Hit <b>＋ Add control</b> or load an example.';
+      container.appendChild(hint);
+      if(!skipInspector) renderInspector();
+      renderCode([]);
+      return;
+    }
+
+    const rows = computeRows();
+    rows.forEach(row=>{
+      const rEl = document.createElement('div');
+      rEl.className='row';
+      rEl.style.gap = state.gap + 'px';
+      row.items.forEach(it=>{
+        const el = document.createElement('div');
+        el.className = 'field '+it.mode + (it.id===state.selId?' sel':'');
+        el.dataset.id = it.id;
+        el.style.flex = flexValue(it);
+        el.innerHTML =
+          `<div class="cap"><span class="dot"></span>${it.name}</div>`+
+          `<div class="box">${MODES[it.mode].label}</div>`+
+          `<div class="wb"></div>`;
+        rEl.appendChild(el);
+      });
+      container.appendChild(rEl);
+    });
+
+    if(!skipInspector) renderInspector();
+    renderCode(rows);
+    requestAnimationFrame(measure);
+  }
+
+  function measure(){
+    const cw = container.clientWidth - PAD;
+    state.items.forEach(it=>{
+      const el = container.querySelector(`.field[data-id="${it.id}"]`);
+      if(!el) return;
+      const w = Math.round(el.getBoundingClientRect().width);
+      const pct = cw>0 ? Math.round(w/cw*100) : 0;
+      const wb = el.querySelector('.wb');
+      if(wb) wb.textContent = `${w}px · ${pct}%`;
+    });
+  }
+
+  // ---------- inspector ----------
+  function renderInspector(){
+    const it = state.items.find(x=>x.id===state.selId);
+    if(!it){
+      inspector.className='inspector none';
+      inspector.textContent='Select a control to change how it takes width.';
+      return;
+    }
+    inspector.className='inspector';
+    const modeBtns = Object.keys(MODES).map(m=>
+      `<button data-m="${m}" class="${m===it.mode?'on':''}">${MODES[m].label}</button>`).join('');
+
+    const editsPx = it.mode==='fixed', editable = editsPx || it.mode==='percent';
+    let valHtml = '<div class="val off"></div>';
+    if(editable){
+      const cur  = editsPx ? it.px : it.pct;
+      const max  = editsPx ? 600 : 100;
+      const min  = editsPx ? 0 : 1;
+      const step = editsPx ? 5 : 1;
+      const unit = editsPx ? 'px' : '%';
+      valHtml =
+        `<label class="val">`+
+        `<input type="range" id="valR" min="${editsPx?40:min}" max="${max}" step="${step}" value="${cur}">`+
+        `<input type="number" id="valN" class="num" min="${min}" max="${max}" step="${step}" value="${cur}">`+
+        `<span class="unit">${unit}</span></label>`;
+    }
+
+    inspector.innerHTML =
+      `<span class="who"><span class="dot" style="background:var(--${it.mode})"></span>${it.name}</span>`+
+      `<span class="modes">${modeBtns}</span>`+
+      valHtml+
+      `<button class="rm">Remove</button>`;
+
+    inspector.querySelector('.modes').addEventListener('click', e=>{
+      const b = e.target.closest('button'); if(!b) return;
+      it.mode = b.dataset.m; render();
+    });
+    inspector.querySelector('.rm').addEventListener('click', ()=>removeItem(it.id));
+
+    if(editable){
+      const vr = inspector.querySelector('#valR');
+      const vn = inspector.querySelector('#valN');
+      const clamp = v => editsPx ? Math.max(0, Math.round(v))
+                                 : Math.max(1, Math.min(100, Math.round(v)));
+      const get  = () => editsPx ? it.px : it.pct;
+      // apply a typed/dragged value without rebuilding the inspector (keeps focus)
+      const apply = (v, syncRange, syncNum) => {
+        if(!isFinite(v)) return;
+        const c = clamp(v);
+        if(editsPx) it.px = c; else it.pct = c;
+        if(syncRange) vr.value = c;
+        if(syncNum)   vn.value = c;
+        render(true);
+      };
+      vr.addEventListener('input', e => apply(+e.target.value, false, true));
+      vn.addEventListener('input', e => apply(+e.target.value, true, false));
+      // on blur, normalize the typed text to the clamped value
+      vn.addEventListener('change', () => { vn.value = get(); });
+    }
+  }
+
+  // ---------- live code panel (grouped by row) ----------
+  function renderCode(rows){
+    const slug = it => it.name.toLowerCase().replace(/\s+/g,'-');
+    const lines = [];
+    lines.push(`<div class="ln"><span class="sel">.row</span> { <span class="prop">display</span>:flex; <span class="prop">gap</span>:${state.gap}px; }</div>`);
+    rows.forEach((row,i)=>{
+      lines.push(`<div class="ln"> </div>`);
+      lines.push(`<div class="ln"><span class="cmt">/* row ${i+1} */</span></div>`);
+      row.items.forEach(it=>{
+        const sel = state.selId===it.id;
+        const cmt = `<span class="cmt">/* ${MODES[it.mode].label} */</span>`;
+        const val = `<span class="v-${it.mode}">${flexValue(it)}</span>`;
+        lines.push(`<div class="ln ${sel?'sel-line':''}"><span class="sel">.${slug(it)}</span> { <span class="prop">flex</span>: ${val}; }  ${cmt}</div>`);
+      });
+    });
+    codeEl.innerHTML = lines.join('');
+  }
+
+  // ---------- presets ----------
+  const PRESETS = {
+    full3:      ()=>load([['full'],['full'],['full']]),
+    '5050':     ()=>load([['percent',{pct:50}],['percent',{pct:50}]]),
+    labelfield: ()=>load([['fixed',{px:120}],['remain']]),
+    search:     ()=>load([['remain'],['fixed',{px:90}]]),
+    form:       ()=>load([['full'],['percent',{pct:50}],['percent',{pct:50}],['fixed',{px:120}],['remain'],['full']]),
+  };
+  function load(defs){
+    state.items=[]; state.seq=0;
+    defs.forEach(([mode,opts])=>addItem(mode,opts||{}));
+    state.selId = state.items.length ? state.items[0].id : null;
+    render();
+  }
+
+  // ---------- events ----------
+  $('addBtn').addEventListener('click', ()=>addItem('full'));
+  $('clearBtn').addEventListener('click', ()=>{ state.items=[]; state.selId=null; render(); });
+
+  container.addEventListener('click', e=>{
+    const f = e.target.closest('.field');
+    if(f){ state.selId = f.dataset.id; render(); }
+  });
+
+  document.querySelectorAll('[data-preset]').forEach(b=>
+    b.addEventListener('click', ()=>{ const p=PRESETS[b.dataset.preset]; if(p) p(); }));
+
+  $('cwRange').addEventListener('input', e=>{
+    state.containerW=+e.target.value;
+    $('cwVal').textContent=state.containerW+'px';
+    $('cwLabel').textContent=state.containerW;
+    render();
+  });
+  $('gapRange').addEventListener('input', e=>{
+    state.gap=+e.target.value; $('gapVal').textContent=state.gap+'px'; render();
+  });
+
+  window.addEventListener('resize', ()=>requestAnimationFrame(measure));
+  // the container width animates (transition); re-measure once it settles
+  container.addEventListener('transitionend', e=>{ if(e.propertyName==='width') measure(); });
+
+  // ---------- boot ----------
+  PRESETS.labelfield();   // start with something illustrative
+})();
+</script>
+</body>
+</html>

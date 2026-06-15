@@ -560,6 +560,11 @@
     from{transform:translateX(22px) scaleX(.2);opacity:0}
     to{transform:none;opacity:1}
   }
+  /* Subtle "fully consumed" hint: when EVERY group reading this partition
+     has committed past a message, dim it a touch so the eye can tell at a
+     glance what's already settled vs. what's still pending. Not greyed out
+     — just enough to read as "done, no longer interesting". */
+  .msg.consumed{opacity:.42;filter:saturate(.65)}
   /* A message currently being processed by a consumer — pulses with the
      consumer's colour. The offset is NOT yet committed; once the consumer
      finishes (after its processingMs window), the group's offset advances
@@ -574,15 +579,18 @@
   }
   .p-empty{color:var(--muted2);font-size:10px;text-align:center;padding:6px 2px}
 
-  /* Markers strip — sits directly under the log. Each marker is a small
-     UP-chevron in the group's colour, horizontally aligned with the
-     next-to-consume message in that partition. If lag > visible window
-     the marker stays at the leftmost visible column and shows a "+N" chip. */
+  /* Markers strip — sits directly under the log. Each group reading the
+     partition gets its OWN ROW: a horizontal trail bar in the group's
+     colour stretching from the left edge up to a small UP-chevron aligned
+     with the next-to-consume message ("consumed up to here"). A caught-up
+     group shows a full-width bar with no chevron. If lag > visible window
+     the chevron stays at the leftmost visible column and shows a "+N" chip.
+     Strip height is set inline (one row per group). */
   .markers{
     position:relative;height:11px;width:100%;pointer-events:none;
   }
   .marker{
-    position:absolute;bottom:1px;
+    position:absolute;
     width:0;height:0;
     border-left:5px solid transparent;border-right:5px solid transparent;
     border-bottom:7px solid currentColor;
@@ -590,6 +598,12 @@
     transform:translateX(50%);
     transition:right .22s ease;
   }
+  .trail{
+    position:absolute;left:1px;height:3px;border-radius:2px;
+    background:currentColor;opacity:.85;
+    transition:right .22s ease;
+  }
+  .trail.caught-up{right:1px;opacity:.55}
   .marker .lagchip{
     position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
     font-size:8.5px;font-weight:800;color:currentColor;background:#fff;
@@ -3943,6 +3957,29 @@ function renderLive() {
         }
       }
 
+      // "Fully consumed" hint: a message is past the committed offset of
+      // EVERY group reading this partition. If no group reads it, nothing
+      // is dimmed (no one cares yet). Toggled every frame on the visible
+      // messages without rebuilding the inner.
+      let minCommitted = Infinity;
+      let anyReader = false;
+      for (const grp of state.groups) {
+        if (grp.topicId !== t.id) continue;
+        // Only groups that actually have this partition assigned count —
+        // otherwise an orphan group with stale offsets would never advance
+        // and freeze the visual at "nothing consumed".
+        const owners = Object.values(grp.assignments || {});
+        const owned = owners.some(arr => arr.includes(idx));
+        if (!owned) continue;
+        anyReader = true;
+        const off = grp.offsets[idx] ?? 0;
+        if (off < minCommitted) minCommitted = off;
+      }
+      for (const el of inner.querySelectorAll('.msg')) {
+        const off = +el.dataset.offset;
+        el.classList.toggle('consumed', anyReader && off < minCommitted);
+      }
+
       // Group offset markers under the partition log.
       //
       //   newest msg is rightmost, oldest leftmost
@@ -3960,22 +3997,36 @@ function renderLive() {
         g.assignments &&
         Object.values(g.assignments).some(arr => arr.includes(idx))
       );
-      // Stagger slightly when two groups share the same offset position so
-      // both colours are visible side-by-side instead of one hiding the other.
-      const positions = new Map();
-      for (const g of overlap) {
+      // One row per group: trail bar ("consumed up to here") + chevron at
+      // the next-to-consume message. Row layout removes the need to stagger
+      // colliding chevrons — each group owns its own vertical slot.
+      const MARKER_ROW_H = 8;
+      markerLayer.style.height =
+        Math.max(11, 4 + overlap.length * MARKER_ROW_H) + 'px';
+      overlap.forEach((g, row) => {
         const committed = g.offsets[idx] ?? 0;
         const lag = Math.max(0, partition.nextOffset - committed);
-        if (lag <= 0) continue;
+        const top = 1 + row * MARKER_ROW_H;
+        const trail = document.createElement('div');
+        trail.className = 'trail';
+        trail.style.color = g.color;
+        trail.style.top = (top + 3) + 'px';
+        if (lag <= 0) {
+          // Caught up — full-width bar, no chevron.
+          trail.classList.add('caught-up');
+          trail.title = `${g.name} · al día (lag=0)`;
+          markerLayer.appendChild(trail);
+          return;
+        }
         const k = Math.min(lag - 1, visibleCount - 1);
-        const baseRight = LOG_PAD + MSG_W/2 + k * ROW_W;
-        const stack = positions.get(k) || 0;
-        positions.set(k, stack + 1);
-        const right = baseRight - stack * 5;
+        const right = LOG_PAD + MSG_W/2 + k * ROW_W;
+        trail.style.right = right + 'px';
+        markerLayer.appendChild(trail);
         const m = document.createElement('div');
         m.className = 'marker';
         m.style.color = g.color;
         m.style.right = right + 'px';
+        m.style.top = (top - 1) + 'px';
         m.title = `${g.name} · offset=${committed} · lag=${lag}`;
         if (lag > visibleCount) {
           const chip = document.createElement('span');
@@ -3984,7 +4035,7 @@ function renderLive() {
           m.appendChild(chip);
         }
         markerLayer.appendChild(m);
-      }
+      });
     }
     const tot = document.getElementById('tot-' + t.id);
     if (tot) tot.textContent = total;
