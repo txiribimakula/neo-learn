@@ -27,7 +27,7 @@
 
   .viz{position:sticky;top:0;height:100vh;border-right:1px solid var(--card-border);
        background:linear-gradient(180deg,#faf8f3,#efeadf)}
-  .viz-inner{position:relative;height:100%;display:flex;flex-direction:column;
+  .viz-inner{position:relative;height:100vh;display:flex;flex-direction:column;
              padding:14px 16px;gap:10px;min-height:0}
 
   .viz-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex:0 0 auto}
@@ -101,6 +101,19 @@
   .field.percent .dot{background:var(--percent)} .field.percent .box{border-color:var(--percent);background:#eef4ff} .field.percent .wb{background:var(--percent)}
 
   .empty-hint{margin:auto;color:var(--muted2);font-size:12.5px;text-align:center;line-height:1.6}
+
+  /* ---------- collapsible panels (inspector + code) ---------- */
+  .panel{flex:0 0 auto;display:flex;flex-direction:column;gap:6px;min-height:0}
+  .panel-head{
+    align-self:flex-start;font:inherit;font-size:10.5px;font-weight:800;letter-spacing:.6px;
+    text-transform:uppercase;color:var(--muted);cursor:pointer;border:0;background:transparent;
+    padding:2px 0;display:inline-flex;align-items:center;gap:6px;
+  }
+  .panel-head:hover{color:var(--accent)}
+  .panel-head .chev{display:inline-block;transition:transform .15s;font-size:9px;color:var(--muted2)}
+  .panel.collapsed .chev{transform:rotate(-90deg)}
+  .panel.collapsed > .inspector,
+  .panel.collapsed > .code{display:none}
 
   /* ---------- inspector for the selected control ---------- */
   .inspector{flex:0 0 auto;border:1px solid var(--card-border);border-radius:10px;background:#fff;
@@ -217,11 +230,17 @@
           </div>
         </div>
 
-        <div class="inspector none" id="inspector">
-          Select a control to change how it takes width.
+        <div class="panel" id="inspPanel">
+          <button class="panel-head" data-target="inspPanel"><span class="chev">▾</span> Inspector</button>
+          <div class="inspector none" id="inspector">
+            Select a control to change how it takes width.
+          </div>
         </div>
 
-        <div class="code" id="code"></div>
+        <div class="panel" id="codePanel">
+          <button class="panel-head" data-target="codePanel"><span class="chev">▾</span> CSS output</button>
+          <div class="code" id="code"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -601,6 +620,10 @@
     const f = e.target.closest('.field');
     if(f){ state.selId = f.dataset.id; render(); }
   });
+
+  // collapsible bottom panels (free up room for the preview)
+  document.querySelectorAll('.panel-head').forEach(h=>
+    h.addEventListener('click', ()=>$(h.dataset.target).classList.toggle('collapsed')));
 
   document.querySelectorAll('[data-preset]').forEach(b=>
     b.addEventListener('click', ()=>{ const p=PRESETS[b.dataset.preset]; if(p) p(); }));
