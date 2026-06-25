@@ -75,8 +75,17 @@ lag / rebalance".
   igual** (`api.processingMs`, `api.followMsgTime`).
 - **Pin de réplica por (api, grupo)**: se edita en la **acción REST del grupo** (el
   caller), no en el API. Se guarda en `api.groupOverrides[groupId].replicaIdx`
-  (`null` = auto/k8s-random). `pickReplica(api, g)` lo respeta; clamp a auto si la
-  réplica deja de existir.
+  (`null` = auto/k8s-random). `pickReplica(api, g, c, action)` lo respeta; clamp a
+  auto si la réplica deja de existir.
+- **Override REST por consumer** (encima de las acciones del grupo): el grupo define
+  la **lista ordenada** de acciones REST; cada consumer puede redirigir una llamada
+  concreta a **otra API** y/o **fijar réplica**, guardado en
+  `c.restOverrides[actionId] = {apiId?, replicaIdx?}` (campos ausentes/`null` =
+  heredan del grupo). Se edita en la fila del consumer (bloque `.consumer-routing`,
+  una línea por acción REST del grupo). Resolución: `resolveActionApi(c, action)` (qué
+  API llama de verdad) y `pickReplica` con prioridad consumer-pin → group-pin (solo si
+  NO redirige; redirigir resetea a auto) → aleatorio. Limpieza: `pruneConsumerOverrides(g)`
+  al quitar acción/API; clamp de pins al reducir réplicas.
 - Resolución de tiempos: `effectiveConsumerLocalMs(c,g)` y `effectiveApiMs(api,c,g)`
   centralizan "follow-msg-time o valor fijo", con fallback si el mensaje no estaba
   estampado.
@@ -84,7 +93,7 @@ lag / rebalance".
 ## REST APIs + réplicas
 
 - N réplicas por API (`api.replicas`, `api._replicaState[i].inflightCount`).
-- `pickReplica` aleatorio (estilo kube-proxy) salvo pin por grupo.
+- `pickReplica` aleatorio (estilo kube-proxy) salvo pin por grupo o por consumer.
 - **Penalización de concurrencia super-lineal** (thrashing): `slowdown = N^1.35`
   (`concurrencySlowdown(n)`, `CONCURRENCY_EXPONENT`). Con N reqs en una réplica
   cada una avanza a `1/N^1.35` → concurrente es **peor** que secuencial (N=2 ≈ +27%,
@@ -118,7 +127,8 @@ lag / rebalance".
 - `localStorage`, debounce ~600ms (`scheduleSave`). `STORAGE_KEY`. Export/Import JSON.
 - Hidratación tolerante con migraciones: `producer.topicId`→`topicIds`,
   tiempo de consumer per-consumer→per-grupo, tiempo de acción REST→`api.groupOverrides`,
-  `api.groupOverrides` ahora solo guarda `replicaIdx`.
+  `api.groupOverrides` ahora solo guarda `replicaIdx`. `c.restOverrides` se persiste y
+  rehidrata por consumer (default `{}`).
 
 ## Convenciones al editar
 

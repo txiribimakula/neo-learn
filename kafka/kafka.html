@@ -340,6 +340,29 @@
   .ga-row .ga-row-time .num{flex:0 0 auto}
   .ga-row .ga-row-time .follow-msg-tgl{margin-left:auto}
 
+  /* Per-consumer REST routing — compact siblings to the group's action
+     list, but living ON the consumer row. One line per group REST action:
+     [idx] [→ REST] [api select] [replica select?]. The api select defaults
+     to "↳ grupo (name)" = inherit; picking a concrete api redirects only
+     THIS consumer's call. The replica select appears when the resolved api
+     has >1 replica. */
+  .consumer-routing{
+    display:flex;flex-direction:column;gap:3px;margin-top:4px;
+    border-top:1px dashed #d2d8e5;padding-top:5px;
+  }
+  .consumer-routing:empty{display:none}
+  .cr-row{display:flex;align-items:center;gap:5px;min-width:0}
+  .cr-idx{
+    font-size:9px;font-weight:800;color:var(--muted2);
+    min-width:12px;text-align:center;font-variant-numeric:tabular-nums;flex:0 0 auto;
+  }
+  .cr-tag{
+    font-size:9.5px;font-weight:800;letter-spacing:.3px;flex:0 0 auto;
+    background:#eef2ff;color:#3956d3;padding:1px 5px;border-radius:3px;
+  }
+  .cr-api{flex:1 1 auto;min-width:0;font-size:11px;padding:1px 4px;height:22px}
+  .cr-replica{flex:0 0 auto;font-size:10.5px;padding:1px 3px;max-width:64px;height:22px}
+
   /* REST API card — standalone endpoint that can receive requests from
      consumers (or future producers). Visually similar to a producer card
      but with its own role marker. .busy lights up while ANY consumer is
@@ -1607,6 +1630,24 @@ function groupRestActions(g) {
   return (g.actions || []).filter(a => a.type === 'rest');
 }
 
+// Per-consumer override for a given group REST action (or undefined).
+function consumerActionOverride(c, action) {
+  return (c && c.restOverrides && action) ? c.restOverrides[action.id] : undefined;
+}
+// Resolve the api THIS consumer actually calls for a group REST action.
+// A consumer may redirect a call to a different service (override.apiId);
+// otherwise it inherits the group action's apiId. Falls back to the group
+// default if the override points at a deleted api.
+function resolveActionApi(c, action) {
+  if (!action) return null;
+  const ovr = consumerActionOverride(c, action);
+  if (ovr && ovr.apiId != null) {
+    const api = state.apis.find(a => a.id === ovr.apiId);
+    if (api) return api;
+  }
+  return state.apis.find(a => a.id === action.apiId) || null;
+}
+
 // Resolve the message the consumer is currently busy with — needed by the
 // "follow msg time" mode so consumer + api can pull processingMs out of it.
 // Returns the stamped value or undefined when there's no message in flight
@@ -1683,7 +1724,7 @@ function phaseDuration(c, phase, g) {
   if (phase === 'process') {
     let total = effectiveConsumerLocalMs(c, g);
     for (const a of groupRestActions(g || {})) {
-      const api = state.apis.find(x => x.id === a.apiId);
+      const api = resolveActionApi(c, a);
       if (api) total += 2 * LATENCY_MS + effectiveApiMs(api, c, g);
     }
     return Math.max(1, total);
@@ -1705,7 +1746,7 @@ function consumerSubPhase(c, g) {
   e -= t1;
   const rests = groupRestActions(g || {});
   for (let i = 0; i < rests.length; i++) {
-    const api = state.apis.find(a => a.id === rests[i].apiId);
+    const api = resolveActionApi(c, rests[i]);
     if (!api) continue;
     const remDur = effectiveApiMs(api, c, g);
     if (e < LATENCY_MS) return { kind: 'requesting', actionIdx: i, api };
@@ -1763,7 +1804,7 @@ function consumeSbQueueForGroup(g, topic, dt) {
           const newE = c.processing.elapsed;
           for (let i = 0; i < rests.length; i++) {
             const action = rests[i];
-            const api = state.apis.find(a => a.id === action.apiId);
+            const api = resolveActionApi(c, action);
             if (!api) continue;
             const tReqStart = cursor;
             const tRemoteStart = tReqStart + LATENCY_MS;
@@ -1773,7 +1814,7 @@ function consumeSbQueueForGroup(g, topic, dt) {
               spawnApiRequestFly(g, c, api, scaled(LATENCY_MS));
             }
             if (oldElapsed < tRemoteStart && newE >= tRemoteStart) {
-              c.processing.replicaIdx = pickReplica(api, g);
+              c.processing.replicaIdx = pickReplica(api, g, c, action);
               c.processing.currentRestApiId = api.id;
             }
             if (oldElapsed < tRespStart && newE >= tRespStart) {
@@ -2001,7 +2042,7 @@ function consumeForGroup(g, dt) {
           const newE = c.processing.elapsed;
           for (let i = 0; i < rests.length; i++) {
             const action = rests[i];
-            const api = state.apis.find(a => a.id === action.apiId);
+            const api = resolveActionApi(c, action);
             if (!api) continue;
             const tReqStart = cursor;
             const tRemoteStart = tReqStart + LATENCY_MS;
@@ -2013,7 +2054,7 @@ function consumeForGroup(g, dt) {
             }
             // requesting→remote: load-balancer picks a replica
             if (oldElapsed < tRemoteStart && newE >= tRemoteStart) {
-              c.processing.replicaIdx = pickReplica(api, g);
+              c.processing.replicaIdx = pickReplica(api, g, c, action);
               c.processing.currentRestApiId = api.id;
             }
             // remote→responding: release the replica + response ball
@@ -2314,6 +2355,19 @@ function groupCallsApi(api, groupId) {
   return (g.actions || []).some(a => a.type === 'rest' && a.apiId === api.id);
 }
 
+// Drop per-consumer REST overrides whose action no longer exists in the
+// group's REST action list (action removed, or its target api deleted).
+// Keeps saves tidy; resolution already tolerates stale entries at runtime.
+function pruneConsumerOverrides(g) {
+  const valid = new Set(groupRestActions(g).map(a => a.id));
+  for (const c of g.consumers) {
+    if (!c.restOverrides) continue;
+    for (const aid of Object.keys(c.restOverrides)) {
+      if (!valid.has(+aid)) delete c.restOverrides[aid];
+    }
+  }
+}
+
 // Concurrency penalty for N simultaneous requests sharing ONE replica.
 // A real backend pod doesn't just time-slice fairly (that would make the
 // makespan of a batch equal to running it sequentially) — it THRASHES:
@@ -2345,22 +2399,27 @@ function ensureReplicaState(api) {
 // selection, not strict round-robin). Means two near-simultaneous calls
 // CAN land on the same replica by chance even with N>1 backends — and
 // that's exactly the contention scenario the simulator is meant to show.
-// Pick the replica a call lands on. If the calling group pinned a
-// specific replica (groupOverrides[g.id].replicaIdx), honour it — that
-// models routing the request to a named pod (e.g. a sticky/affinity
-// rule). Otherwise fall back to the random k8s-style pick. An out-of-
-// range pin (replica count shrank) silently degrades to random.
-function pickReplica(api, g) {
+// Pick the replica a call lands on. Pin priority:
+//   1) the CONSUMER's own pin for this action (restOverrides[aid].replicaIdx)
+//   2) the GROUP's pin (groupOverrides[g.id].replicaIdx) — but only while
+//      the consumer still calls the group's default api; a redirect to a
+//      different service resets to auto (the group pin was for the old api).
+//   3) random k8s-style pick.
+// An out-of-range pin (replica count shrank) silently degrades to random.
+function pickReplica(api, g, c, action) {
   ensureReplicaState(api);
   const n = Math.max(1, api.replicas);
-  let idx;
-  const pin = g && api.groupOverrides && api.groupOverrides[g.id]
-    ? api.groupOverrides[g.id].replicaIdx : null;
-  if (Number.isInteger(pin) && pin >= 0 && pin < n) {
-    idx = pin;
-  } else {
-    idx = Math.floor(Math.random() * n);
+  let pin = null;
+  const ovr = consumerActionOverride(c, action);
+  const redirected = !!(ovr && ovr.apiId != null);
+  if (ovr && Number.isInteger(ovr.replicaIdx)) {
+    pin = ovr.replicaIdx;                       // (1) consumer pin
+  } else if (!redirected && g && api.groupOverrides && api.groupOverrides[g.id]) {
+    pin = api.groupOverrides[g.id].replicaIdx;  // (2) inherited group pin
   }
+  const idx = (Number.isInteger(pin) && pin >= 0 && pin < n)
+    ? pin
+    : Math.floor(Math.random() * n);            // (3) random
   api._replicaState[idx].inflightCount++;
   return idx;
 }
@@ -2515,6 +2574,12 @@ function makeConsumer(name, color) {
     followMsgTime: false,
     processing: null,    // { partition, offset, phase, elapsed } while busy
     rrIdx: 0, lastActive: 0,
+    // Per-consumer REST routing overrides, keyed by group ACTION id:
+    //   { [actionId]: { apiId?:number|null, replicaIdx?:number|null } }
+    // The GROUP owns the ordered REST action list; each consumer may
+    // redirect an individual call to a different api and/or pin a replica.
+    // Absent / null fields inherit the group's choice for that action.
+    restOverrides: {},
   };
 }
 function pickColor() {
@@ -3586,6 +3651,8 @@ function groupCard(g) {
         if (api && api.groupOverrides && !groupCallsApi(api, g.id)) {
           delete api.groupOverrides[g.id];
         }
+        // Drop any per-consumer override that targeted this removed action.
+        pruneConsumerOverrides(g);
       }
       render();
     };
@@ -3718,6 +3785,15 @@ function apiCard(api) {
     // Drop any group action pointing at this api.
     for (const g of state.groups) {
       g.actions = (g.actions || []).filter(a => !(a.type === 'rest' && a.apiId === api.id));
+      // A consumer may have redirected an individual call TO this api; drop
+      // those overrides, then prune any now-orphaned action entries.
+      for (const c of g.consumers) {
+        if (!c.restOverrides) continue;
+        for (const aid of Object.keys(c.restOverrides)) {
+          if (c.restOverrides[aid]?.apiId === api.id) delete c.restOverrides[aid];
+        }
+      }
+      pruneConsumerOverrides(g);
     }
     render();
   };
@@ -3743,6 +3819,20 @@ function apiCard(api) {
       for (const ovr of Object.values(api.groupOverrides || {})) {
         if (Number.isInteger(ovr.replicaIdx) && ovr.replicaIdx >= api.replicas) {
           ovr.replicaIdx = null;
+        }
+      }
+      // Same clamp for any per-consumer pin that resolves to THIS api.
+      for (const g of state.groups) {
+        for (const c of g.consumers) {
+          if (!c.restOverrides) continue;
+          for (const a of groupRestActions(g)) {
+            const ovr = c.restOverrides[a.id];
+            if (ovr && Number.isInteger(ovr.replicaIdx)
+                && ovr.replicaIdx >= api.replicas
+                && resolveActionApi(c, a) === api) {
+              ovr.replicaIdx = null;
+            }
+          }
         }
       }
       render();
@@ -3797,9 +3887,47 @@ function consumerRow(g, c, topic) {
     ? 'mensaje (seq) que está procesando ahora'
     : 'partición · offset que está procesando ahora';
 
+  // Per-consumer REST routing. The group owns the ordered REST action
+  // list; here each consumer can redirect an individual call to another
+  // api and/or pin a replica. Defaults inherit the group's choice. Only
+  // rendered when the group actually has REST actions configured.
+  const restActions = groupRestActions(g);
+  let routingHtml = '';
+  if (restActions.length) {
+    const rows = restActions.map((a, i) => {
+      const groupApi = state.apis.find(x => x.id === a.apiId);
+      const groupApiName = groupApi ? groupApi.name : '—';
+      const ovr = c.restOverrides?.[a.id];
+      const selApiId = (ovr && ovr.apiId != null) ? ovr.apiId : '';
+      const resolved = resolveActionApi(c, a);
+      const apiOpts =
+        `<option value="" ${selApiId===''?'selected':''}>↳ grupo (${escapeHtml(groupApiName)})</option>` +
+        state.apis.map(x =>
+          `<option value="${x.id}" ${x.id===selApiId?'selected':''}>${escapeHtml(x.name)}</option>`
+        ).join('');
+      let replicaSel = '';
+      if (resolved && resolved.replicas > 1) {
+        const pin = (ovr && Number.isInteger(ovr.replicaIdx) && ovr.replicaIdx < resolved.replicas)
+          ? ovr.replicaIdx : null;
+        replicaSel = `<select class="sel cr-replica" title="a qué réplica de ${escapeHtml(resolved.name)} van las llamadas de este consumer — auto = hereda del grupo o aleatorio">
+          <option value="" ${pin===null?'selected':''}>auto</option>
+          ${Array.from({length: resolved.replicas}, (_, r) =>
+            `<option value="${r}" ${pin===r?'selected':''}>R${r}</option>`).join('')}
+        </select>`;
+      }
+      return `<div class="cr-row" data-action-id="${a.id}">
+        <span class="cr-idx" title="orden de la acción REST en el grupo">${i+1}</span>
+        <span class="cr-tag">→ REST</span>
+        <select class="sel cr-api" title="a qué REST API va esta llamada para este consumer (por defecto, la del grupo)">${apiOpts}</select>
+        ${replicaSel}
+      </div>`;
+    }).join('');
+    routingHtml = `<div class="consumer-routing expanded-only" title="ruta REST de ESTE consumer — sobrescribe a qué API/réplica va cada llamada del grupo">${rows}</div>`;
+  }
+
   // Per-consumer time + follow-toggle are GONE — they live on the group
   // card now so every consumer/receiver of the group shares one profile.
-  // The row keeps only identity + role/partition + close.
+  // The row keeps only identity + role/partition + close (+ REST routing).
   row.innerHTML = `
     <div class="crow">
       <span class="drag-handle expanded-only" draggable="true" data-drag-type="consumer" title="arrastrar para reordenar">⋮⋮</span>
@@ -3815,12 +3943,43 @@ function consumerRow(g, c, topic) {
       <span class="proc-eta" title="tiempo que falta para terminar">${g?.followMsgTime ? '' : fmtSecs(g?.processingMs ?? c.processingMs ?? 2000)}</span>
     </div>
     ${isSb ? '' : '<div class="rebalance-slot"></div>'}
+    ${routingHtml}
   `;
   row.querySelector('.x').onclick = () => {
     g.consumers = g.consumers.filter(x => x.id !== c.id);
     reassign(g);
     render();
   };
+  // Wire per-consumer REST routing selects (api redirect + replica pin).
+  row.querySelectorAll('.cr-row').forEach(rowEl => {
+    const aid = +rowEl.dataset.actionId;
+    const apiSel = rowEl.querySelector('.cr-api');
+    if (apiSel) apiSel.onchange = e => {
+      if (!c.restOverrides) c.restOverrides = {};
+      const cur = c.restOverrides[aid] || {};
+      if (e.target.value === '') {
+        // Back to inherit — also drop the replica pin (it referenced the
+        // overridden api and is meaningless once inheriting again).
+        delete cur.apiId; delete cur.replicaIdx;
+      } else {
+        const newApiId = +e.target.value;
+        if (cur.apiId !== newApiId) delete cur.replicaIdx;  // reset pin on api change
+        cur.apiId = newApiId;
+      }
+      if (cur.apiId == null && cur.replicaIdx == null) delete c.restOverrides[aid];
+      else c.restOverrides[aid] = cur;
+      render();   // replica options depend on the chosen api
+    };
+    const repSel = rowEl.querySelector('.cr-replica');
+    if (repSel) repSel.onchange = e => {
+      if (!c.restOverrides) c.restOverrides = {};
+      const cur = c.restOverrides[aid] || {};
+      cur.replicaIdx = e.target.value === '' ? null : +e.target.value;
+      if (cur.apiId == null && cur.replicaIdx == null) delete c.restOverrides[aid];
+      else c.restOverrides[aid] = cur;
+      scheduleSave();   // value already reflected in the select; no re-render
+    };
+  });
   return row;
 }
 
@@ -4060,7 +4219,7 @@ function renderLive() {
         const rests = groupRestActions(g);
         for (let i = 0; i < rests.length; i++) {
           if (i !== sub.actionIdx) {
-            const aPrev = state.apis.find(x => x.id === rests[i].apiId);
+            const aPrev = resolveActionApi(c, rests[i]);
             if (aPrev) cursor += 2 * LATENCY_MS + effectiveApiMs(aPrev, c, g);
             continue;
           }
@@ -4103,7 +4262,7 @@ function renderLive() {
         let cursor = effectiveConsumerLocalMs(c, g);
         let progress = 0;
         for (let i = 0; i < rests.length; i++) {
-          const aRest = state.apis.find(x => x.id === rests[i].apiId);
+          const aRest = resolveActionApi(c, rests[i]);
           if (!aRest) continue;
           if (aRest.id === api.id) {
             const tRemoteStart = cursor + LATENCY_MS;
@@ -4506,6 +4665,7 @@ function serializeState() {
         // We keep writing it so older readers don't lose it on round-trip.
         processingMs: c.processingMs,
         processing: c.processing,   // preserve in-flight; consumeForGroup is tolerant
+        restOverrides: c.restOverrides || {},
       })),
       assignments: g.assignments,
       offsets: g.offsets,
@@ -4642,6 +4802,7 @@ function hydrateFromParsed(parsed) {
           processingMs: c.processingMs ?? groupMs,
           processing: proc,
           rrIdx: 0, lastActive: 0,
+          restOverrides: (c.restOverrides && typeof c.restOverrides === 'object') ? c.restOverrides : {},
         };
       }),
       assignments: g.assignments || {},

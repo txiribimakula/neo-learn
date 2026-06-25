@@ -37,15 +37,16 @@ imponer reglas que flexbox solo no permite. Cada fila se renderiza como su propi
 `.row` (`display:flex`). Reglas:
 
 - **Max** siempre va solo en su fila.
-- Una fila con un **Remaining** solo puede contener **el remaining + como máximo UN
-  Fixed** (2 elementos máx.). Nada más: ni percent, ni un 2º fixed, ni un 2º
-  remaining → saltan a una fila nueva. (`fixedCount` en `computeRows()` impone el
-  tope de un solo fixed en ambos sentidos.)
+- **Remaining** es SIEMPRE el último elemento de su fila y **la cierra**: nada puede
+  ir detrás. Solo formas válidas: `[remain]` o `[fixed, remain]` (un único fixed
+  delante). Un percent, un 2º fixed o un 2º remaining → fila nueva. En
+  `computeRows()`: `if(hasRemain) join=false` (sella la fila) + tope de un fixed
+  antes del remaining (`hasPercent || fixedCount>1`).
 - **Fixed/Percent** se empaquetan de izq. a der. mientras quepan
   (`basis + gaps ≤ ancho interior`); si no, hacen wrap.
 
-Esta regla del remaining fue petición explícita del usuario: «cuando hay un
-remaining en una fila, solo puede haber otro elemento fixed y él mismo, nadie más».
+Regla del remaining, por petición iterativa del usuario: «un remaining solo puede
+estar al final; si hay un remaining esa fila queda completa».
 
 ## Cómo correr / verificar
 

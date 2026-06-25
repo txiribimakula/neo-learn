@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ABI · ¿qué cambio en un .h rompe la compatibilidad binaria?</title>
+<style>
+  :root{
+    --bg:#f3efe6; --card:#fff; --border:#e4dfd2;
+    --ink:#23272f; --muted:#6b7280;
+    --ok:#2e7d4f; --break:#c0392b; --silent:#d97706;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);line-height:1.55;
+       font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:760px;margin:0 auto;padding:40px 22px 80px}
+  h1{font-size:23px;font-weight:800;letter-spacing:-.3px;margin:0 0 12px}
+  .lede{font-size:14px;color:var(--muted);margin:0 0 22px}
+  .lede b{color:var(--ink)}
+  .legend{display:flex;flex-wrap:wrap;gap:8px 16px;margin:0 0 26px;font-size:12.5px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .dot.ok{background:var(--ok)} .dot.break{background:var(--break)} .dot.silent{background:var(--silent)}
+  h2{font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
+     color:var(--muted);margin:30px 0 10px}
+  .row{display:flex;gap:12px;align-items:baseline;border:1px solid var(--border);
+       border-radius:9px;background:var(--card);padding:10px 13px;margin:7px 0;border-left-width:4px}
+  .row.ok{border-left-color:var(--ok)} .row.break{border-left-color:var(--break)} .row.silent{border-left-color:var(--silent)}
+  .row .chg{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;font-weight:700;
+            flex:0 0 38%}
+  .row .why{font-size:12.5px;color:#3b4250;flex:1}
+  .row .why b{color:var(--ink)}
+  @media(max-width:560px){.row{flex-direction:column;gap:4px}.row .chg{flex-basis:auto}}
+  .note{margin-top:30px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--border);padding-top:16px}
+  .note code{background:#eee9df;border-radius:4px;padding:1px 5px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Cambias un <code>.h</code> de B. ¿Sigue funcionando A sin recompilar?</h1>
+  <p class="lede">A depende de la biblioteca B. Cambias una cabecera de B, recompilas
+  <b>solo B</b> y entregas su binario (<code>.so</code>/<code>.dll</code>) bajo un A que
+  <b>no</b> recompilas. La pregunta es de <b>ABI</b>, no de API. A grabó tres cosas de B:
+  los <b>offsets/tamaño</b> de los objetos, los <b>índices de la vtable</b> y los
+  <b>nombres mangled</b> de las funciones. Un cambio rompe cuando invalida alguna.</p>
+
+  <div class="legend">
+    <span><i class="dot ok"></i> No rompe</span>
+    <span><i class="dot break"></i> Rompe (no carga / corrupción / método equivocado)</span>
+    <span><i class="dot silent"></i> Enlaza pero incoherente (valor viejo grabado en A)</span>
+  </div>
+
+  <h2>Disposición en memoria (offsets / sizeof)</h2>
+  <div class="row break"><span class="chg">+ int z; (al final)</span><span class="why">cambia <b>sizeof</b>; A reserva objetos demasiado pequeños</span></div>
+  <div class="row break"><span class="chg">int z; (en medio)</span><span class="why">mueve los <b>offsets</b>; A lee el campo equivocado</span></div>
+  <div class="row break"><span class="chg">float → double</span><span class="why">cambia tamaño y alineación → mueve offset y sizeof</span></div>
+  <div class="row ok"><span class="chg">+ static int n;</span><span class="why">no vive dentro del objeto; sizeof no cambia</span></div>
+  <div class="row ok"><span class="chg">private → public</span><span class="why">es chequeo de compilación; no mueve nada</span></div>
+
+  <h2>Funciones virtuales (vtable)</h2>
+  <div class="row break"><span class="chg">+ virtual f();</span><span class="why">desplaza los <b>índices</b>; A llama el slot equivocado</span></div>
+  <div class="row break"><span class="chg">reordenar virtuales</span><span class="why">cambian los índices; A ejecuta otra función</span></div>
+
+  <h2>Funciones no virtuales (símbolos mangled)</h2>
+  <div class="row ok"><span class="chg">+ método nuevo</span><span class="why">símbolo nuevo; no toca lo que A ya usa</span></div>
+  <div class="row ok"><span class="chg">+ getter / setter</span><span class="why">igual: símbolos nuevos</span></div>
+  <div class="row ok"><span class="chg">cambiar el cuerpo (.cpp)</span><span class="why">mismo símbolo; <b>para esto existen</b> las libs dinámicas</span></div>
+  <div class="row break"><span class="chg">setValue(float)→(double)</span><span class="why">cambia el <b>símbolo</b>; el que A pide no existe → no resuelto</span></div>
+  <div class="row break"><span class="chg">eliminar método usado</span><span class="why">símbolo no resuelto al cargar</span></div>
+  <div class="row ok"><span class="chg">+ argumento por defecto</span><span class="why">el default se rellena en la llamada (vive en A)</span></div>
+
+  <h2>Grabado en compilación (incoherencia silenciosa)</h2>
+  <div class="row silent"><span class="chg">cambiar tipo de retorno</span><span class="why">no entra en el mangling → mismo símbolo, A interpreta mal el valor</span></div>
+  <div class="row silent"><span class="chg">cambiar una constante</span><span class="why">A grabó el valor viejo; enlaza pero no cuadra</span></div>
+
+  <p class="note">Regla práctica: si el cambio <b>solo añade</b> cosas nuevas o
+  <b>cambia cuerpos</b> sin tocar prototipos, es seguro. Si toca <b>campos</b>,
+  <b>virtuales</b> o <b>firmas existentes</b>, recompila A. &nbsp;Ejemplos reales que
+  compilan y demuestran cada caso en <code>examples/</code>.</p>
+
+</div>
+</body>
+</html>

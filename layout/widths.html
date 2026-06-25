@@ -289,12 +289,12 @@
       <b>everything left over</b> in its row. A fixed 120px label + a
       <b>remaining</b> field = the field stretches by itself to the edge, whatever
       the container measures.</p>
-      <p><b>The rule:</b> a <span class="hl-remain">remaining</span> control
-      <b>owns its row</b> — it can share it with <b>at most one</b>
-      <span class="hl-fixed">fixed</span> control and nothing else. Anything else
-      (a <span class="hl-percent">percentage</span>, a second fixed, another
-      remaining) <b>jumps to a new line</b>. That way a remaining always has a clear,
-      predictable leftover to fill.</p>
+      <p><b>The rule:</b> a <span class="hl-remain">remaining</span> control is
+      always the <b>last thing on its row</b> and <b>seals it</b> — nothing can
+      follow. It either stands alone, or sits right after a single
+      <span class="hl-fixed">fixed</span> control (label + field). Anything that would
+      come after it <b>jumps to a new line</b>. That way a remaining always has a
+      clear, predictable leftover to fill.</p>
       <div class="tech"><span class="cmt">/* basis 0 + grow 1 = "give me the rest" */</span><br>
         <span class="sel">.field</span> { <span class="prop">flex</span>: <span class="v-remain">1 1 0</span>; }</div>
       <button class="try" data-preset="labelfield">▶ Fixed label + remaining field</button>
@@ -309,11 +309,12 @@
       those already know their size.<br>
       2 · A <span class="hl-full">max</span> control always takes a whole row by
       itself.<br>
-      3 · A <span class="hl-remain">remaining</span> control grabs the leftover of
-      its row — it shares that row with <b>at most one fixed control</b> and nothing
-      else; everything else starts a new row.<br>
+      3 · A <span class="hl-remain">remaining</span> control grabs the leftover and
+      <b>closes the row</b>: it's always the last element on its line (at most one
+      <span class="hl-fixed">fixed</span> control may precede it). Anything after it
+      starts a new row.<br>
       4 · If something doesn't fit, it <b>wraps</b> to the next line.</p>
-      <button class="try" data-preset="search">▶ Search bar (remaining + fixed button)</button>
+      <button class="try" data-preset="search">▶ Search box (fixed icon + remaining field)</button>
     </section>
 
     <section class="step">
@@ -421,14 +422,13 @@
       const hasPercent = cur.items.some(x=>x.mode==='percent');
       const fixedCount = cur.items.reduce((n,x)=>n+(x.mode==='fixed'?1:0),0);
       let join = true;
-      if(it.mode==='remain'){
-        // a remaining shares its row with AT MOST ONE fixed, nothing else
-        if(hasRemain || hasPercent || fixedCount > 1) join = false;
-      } else if(it.mode==='percent'){
-        if(hasRemain) join = false;                   // no percent in a remaining row
-      } else if(it.mode==='fixed'){
-        if(hasRemain && fixedCount >= 1) join = false; // remaining row already has its one fixed
+      if(hasRemain){
+        join = false;                                 // a remaining is always last: its row is sealed
+      } else if(it.mode==='remain'){
+        // a remaining closes the row; it may sit after AT MOST one fixed, nothing else
+        if(hasPercent || fixedCount > 1) join = false;
       }
+      // fixed / percent into a non-remaining row: pack normally (capacity check below)
       if(join){
         const next = used(cur) + gap + basisPx(it);   // would-be row width
         if(next > inner + 0.5) join = false;          // doesn't fit -> wrap
@@ -583,7 +583,7 @@
     full3:      ()=>load([['full'],['full'],['full']]),
     '5050':     ()=>load([['percent',{pct:50}],['percent',{pct:50}]]),
     labelfield: ()=>load([['fixed',{px:120}],['remain']]),
-    search:     ()=>load([['remain'],['fixed',{px:90}]]),
+    search:     ()=>load([['fixed',{px:90}],['remain']]),
     form:       ()=>load([['full'],['percent',{pct:50}],['percent',{pct:50}],['fixed',{px:120}],['remain'],['full']]),
   };
   function load(defs){
