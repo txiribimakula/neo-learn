@@ -440,29 +440,73 @@
       background: #211d16;
     }
 
+    .char-diff-line,
     .line-diff {
       display: block;
-      min-height: 20px;
+      width: fit-content;
+      max-width: 100%;
       padding: 3px 6px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, .08);
+      font-family: Consolas, "SFMono-Regular", monospace;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .char-diff-line {
+      color: #efe9dd;
+      background: #302b23;
+    }
+
+    .diff-frag {
       border-radius: 4px;
-      font-family: Consolas, "Cascadia Mono", Menlo, monospace;
-      font-size: 11px;
-      line-height: 1.28;
-      white-space: pre;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      padding: 1px 0;
+      white-space: pre-wrap;
+    }
+
+    .diff-frag.ws {
+      display: inline-block;
+      min-width: .72em;
+      padding-left: 2px;
+      padding-right: 2px;
+      text-align: center;
+      font-weight: 800;
+      letter-spacing: .08em;
+    }
+
+    .diff-frag.neutral {
+      background: rgba(255, 255, 255, .05);
+      color: #efe9dd;
+    }
+
+    .diff-frag.del {
+      background: #ffe3df;
+      color: #7f1d1d;
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
+    }
+
+    .diff-frag.add {
+      background: #e1f7e6;
+      color: #14532d;
+      font-weight: 700;
     }
 
     .line-diff.del {
       background: #ffe3df;
-      color: #8a1f14;
-      border: 1px solid #f1b5ad;
+      color: #7f1d1d;
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
+    }
+
+    .line-diff.del.full-line {
+      opacity: .58;
     }
 
     .line-diff.add {
       background: #e1f7e6;
-      color: #155f2a;
-      border: 1px solid #a9dcb7;
+      color: #14532d;
+      font-weight: 700;
     }
     .matrix {
       display: grid;
@@ -665,7 +709,7 @@
                   <div class="attrib" data-mode-result="smart"><span class="blame-chip alice">Alice</span></div>
                 </div>
                 <div class="inline-row" role="row">
-                  <div class="line-no">2</div><div class="source-code diff-source"><span class="line-diff del">-    a = data + 1</span><span class="line-diff add">+  a = data + 1</span></div>
+                  <div class="line-no">2</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios sin cambios">&middot;&middot;</span><span class="diff-frag neutral">a = data + 1</span></span></div>
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip mallory">Mallory</span><span class="cell-note">ruido</span></div>
                   <div class="attrib" data-mode-result="w"><span class="blame-chip alice">Alice</span></div>
                   <div class="attrib" data-mode-result="m"><span class="blame-chip mallory">Mallory</span><span class="cell-note">no ayuda</span></div>
@@ -673,7 +717,7 @@
                   <div class="attrib" data-mode-result="smart"><span class="blame-chip alice">Alice</span><span class="cell-note">pela espacios</span></div>
                 </div>
                 <div class="inline-row" role="row">
-                  <div class="line-no">3</div><div class="source-code diff-source"><span class="line-diff del">-    b = a * 2</span><span class="line-diff add">+  b = a * 2</span></div>
+                  <div class="line-no">3</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios sin cambios">&middot;&middot;</span><span class="diff-frag neutral">b = a * 2</span></span></div>
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip mallory">Mallory</span><span class="cell-note">ruido</span></div>
                   <div class="attrib" data-mode-result="w"><span class="blame-chip alice">Alice</span></div>
                   <div class="attrib" data-mode-result="m"><span class="blame-chip mallory">Mallory</span><span class="cell-note">no ayuda</span></div>
@@ -681,7 +725,7 @@
                   <div class="attrib" data-mode-result="smart"><span class="blame-chip alice">Alice</span><span class="cell-note">pela espacios</span></div>
                 </div>
                 <div class="inline-row" role="row">
-                  <div class="line-no">4</div><div class="source-code diff-source"><span class="line-diff del">-    c = b - 300</span><span class="line-diff del">-    c = b - 30</span><span class="line-diff add">+  c = b - 330</span></div>
+                  <div class="line-no">4</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios sin cambios">&middot;&middot;</span><span class="diff-frag neutral">c = b - </span><span class="diff-frag del">300</span><span class="diff-frag neutral"> / </span><span class="diff-frag del">30</span><span class="diff-frag add">330</span></span></div>
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip mallory">Mallory</span><span class="cell-note">real</span></div>
                   <div class="attrib" data-mode-result="w"><span class="blame-chip mallory">Mallory</span><span class="cell-note">real</span></div>
                   <div class="attrib" data-mode-result="m"><span class="blame-chip mallory">Mallory</span><span class="cell-note">real</span></div>
@@ -689,7 +733,7 @@
                   <div class="attrib" data-mode-result="smart"><span class="blame-chip mallory">Mallory</span><span class="cell-note">real</span></div>
                 </div>
                 <div class="inline-row" role="row">
-                  <div class="line-no">5</div><div class="source-code diff-source"><span class="line-diff del">-    d = c / 4</span><span class="line-diff add">+  d = c / 4</span></div>
+                  <div class="line-no">5</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios sin cambios">&middot;&middot;</span><span class="diff-frag neutral">d = c / 4</span></span></div>
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip mallory">Mallory</span><span class="cell-note">ruido</span></div>
                   <div class="attrib" data-mode-result="w"><span class="blame-chip alice">Alice</span></div>
                   <div class="attrib" data-mode-result="m"><span class="blame-chip mallory">Mallory</span><span class="cell-note">no ayuda</span></div>
@@ -697,7 +741,7 @@
                   <div class="attrib" data-mode-result="smart"><span class="blame-chip alice">Alice</span><span class="cell-note">pela espacios</span></div>
                 </div>
                 <div class="inline-row" role="row">
-                  <div class="line-no">6</div><div class="source-code diff-source"><span class="line-diff del">-    e = d + 5</span><span class="line-diff add">+  e = d + 5</span></div>
+                  <div class="line-no">6</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios sin cambios">&middot;&middot;</span><span class="diff-frag neutral">e = d + 5</span></span></div>
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip mallory">Mallory</span><span class="cell-note">ruido</span></div>
                   <div class="attrib" data-mode-result="w"><span class="blame-chip alice">Alice</span></div>
                   <div class="attrib" data-mode-result="m"><span class="blame-chip mallory">Mallory</span><span class="cell-note">no ayuda</span></div>
@@ -705,7 +749,7 @@
                   <div class="attrib" data-mode-result="smart"><span class="blame-chip alice">Alice</span><span class="cell-note">pela espacios</span></div>
                 </div>
                 <div class="inline-row" role="row">
-                  <div class="line-no">7</div><div class="source-code diff-source"><span class="line-diff del">-    return e</span><span class="line-diff add">+  return e</span></div>
+                  <div class="line-no">7</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios sin cambios">&middot;&middot;</span><span class="diff-frag neutral">return e</span></span></div>
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip mallory">Mallory</span><span class="cell-note">ruido</span></div>
                   <div class="attrib" data-mode-result="w"><span class="blame-chip alice">Alice</span></div>
                   <div class="attrib" data-mode-result="m"><span class="blame-chip mallory">Mallory</span><span class="cell-note">no ayuda</span></div>
@@ -731,7 +775,7 @@
                   <div class="attrib" data-mode-result="smart"><span class="blame-chip alice">Alice</span></div>
                 </div>
                 <div class="inline-row" role="row">
-                  <div class="line-no">10</div><div class="source-code diff-source"><span class="line-diff del">-    host = config["host"]</span><span class="line-diff add">+  host    = config["host"]</span></div>
+                  <div class="line-no">10</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios sin cambios">&middot;&middot;</span><span class="diff-frag neutral">host</span><span class="diff-frag neutral ws" title="1 espacio sin cambios">&middot;</span><span class="diff-frag add ws" title="3 espacios anadidos">&middot;&middot;&middot;</span><span class="diff-frag neutral">= config["host"]</span></span></div>
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip dana">Dana</span><span class="cell-note">formato</span></div>
                   <div class="attrib" data-mode-result="w"><span class="blame-chip alice">Alice</span><span class="cell-note">lo borra</span></div>
                   <div class="attrib" data-mode-result="m"><span class="blame-chip dana">Dana</span><span class="cell-note">formato</span></div>
@@ -739,7 +783,7 @@
                   <div class="attrib" data-mode-result="smart"><span class="blame-chip dana">Dana</span><span class="cell-note">lo conserva</span></div>
                 </div>
                 <div class="inline-row" role="row">
-                  <div class="line-no">11</div><div class="source-code diff-source"><span class="line-diff del">-    port = config["port"]</span><span class="line-diff add">+  port    = config["port"]</span></div>
+                  <div class="line-no">11</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios sin cambios">&middot;&middot;</span><span class="diff-frag neutral">port</span><span class="diff-frag neutral ws" title="1 espacio sin cambios">&middot;</span><span class="diff-frag add ws" title="3 espacios anadidos">&middot;&middot;&middot;</span><span class="diff-frag neutral">= config["port"]</span></span></div>
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip dana">Dana</span><span class="cell-note">formato</span></div>
                   <div class="attrib" data-mode-result="w"><span class="blame-chip alice">Alice</span><span class="cell-note">lo borra</span></div>
                   <div class="attrib" data-mode-result="m"><span class="blame-chip dana">Dana</span><span class="cell-note">formato</span></div>
@@ -747,7 +791,7 @@
                   <div class="attrib" data-mode-result="smart"><span class="blame-chip dana">Dana</span><span class="cell-note">lo conserva</span></div>
                 </div>
                 <div class="inline-row" role="row">
-                  <div class="line-no">12</div><div class="source-code diff-source"><span class="line-diff del">-    secure = config["secure"]</span><span class="line-diff add">+  secure  = config["secure"]</span></div>
+                  <div class="line-no">12</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios sin cambios">&middot;&middot;</span><span class="diff-frag neutral">secure</span><span class="diff-frag neutral ws" title="1 espacio sin cambios">&middot;</span><span class="diff-frag add ws" title="1 espacio anadido">&middot;</span><span class="diff-frag neutral">= config["secure"]</span></span></div>
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip dana">Dana</span><span class="cell-note">formato</span></div>
                   <div class="attrib" data-mode-result="w"><span class="blame-chip alice">Alice</span><span class="cell-note">lo borra</span></div>
                   <div class="attrib" data-mode-result="m"><span class="blame-chip dana">Dana</span><span class="cell-note">formato</span></div>
@@ -755,7 +799,7 @@
                   <div class="attrib" data-mode-result="smart"><span class="blame-chip dana">Dana</span><span class="cell-note">lo conserva</span></div>
                 </div>
                 <div class="inline-row" role="row">
-                  <div class="line-no">13</div><div class="source-code diff-source"><span class="line-diff del">-    retries = config["retries"]</span><span class="line-diff add">+  retries = config["retries"]</span></div>
+                  <div class="line-no">13</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios sin cambios">&middot;&middot;</span><span class="diff-frag neutral">retries = config["retries"]</span></span></div>
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip dana">Dana</span><span class="cell-note">formato</span></div>
                   <div class="attrib" data-mode-result="w"><span class="blame-chip alice">Alice</span><span class="cell-note">lo borra</span></div>
                   <div class="attrib" data-mode-result="m"><span class="blame-chip dana">Dana</span><span class="cell-note">formato</span></div>
@@ -763,7 +807,7 @@
                   <div class="attrib" data-mode-result="smart"><span class="blame-chip dana">Dana</span><span class="cell-note">lo conserva</span></div>
                 </div>
                 <div class="inline-row" role="row">
-                  <div class="line-no">14</div><div class="source-code diff-source"><span class="line-diff del">-    return (host, port, secure, retries)</span><span class="line-diff add">+  return (host, port, secure, retries)</span></div>
+                  <div class="line-no">14</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios sin cambios">&middot;&middot;</span><span class="diff-frag neutral">return (host, port, secure, retries)</span></span></div>
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip dana">Dana</span><span class="cell-note">formato</span></div>
                   <div class="attrib" data-mode-result="w"><span class="blame-chip alice">Alice</span><span class="cell-note">lo borra</span></div>
                   <div class="attrib" data-mode-result="m"><span class="blame-chip dana">Dana</span><span class="cell-note">formato</span></div>
@@ -823,7 +867,7 @@
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip alice">Alice</span></div><div class="attrib" data-mode-result="w"><span class="blame-chip alice">Alice</span></div><div class="attrib" data-mode-result="m"><span class="blame-chip alice">Alice</span></div><div class="attrib" data-mode-result="cc"><span class="blame-chip alice">Alice</span></div><div class="attrib" data-mode-result="smart"><span class="blame-chip alice">Alice</span></div>
                 </div>
                 <div class="inline-row" role="row">
-                  <div class="line-no">3</div><div class="source-code diff-source"><span class="line-diff del">-middle line</span><span class="line-diff add">+middle line edited</span></div>
+                  <div class="line-no">3</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag neutral">middle line</span><span class="diff-frag add ws" title="1 espacio anadido">&middot;</span><span class="diff-frag add">edited</span></span></div>
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip carol">Carol</span><span class="cell-note">edicion</span></div><div class="attrib" data-mode-result="w"><span class="blame-chip carol">Carol</span></div><div class="attrib" data-mode-result="m"><span class="blame-chip carol">Carol</span></div><div class="attrib" data-mode-result="cc"><span class="blame-chip carol">Carol</span></div><div class="attrib" data-mode-result="smart"><span class="blame-chip carol">Carol</span></div>
                 </div>
                 <div class="inline-row" role="row">
@@ -836,15 +880,15 @@
                 </div>
                 <div class="region-row">Bloque movido: la diferencia ya no va de whitespace, va de detectar origen.</div>
                 <div class="inline-row" role="row">
-                  <div class="line-no">6</div><div class="source-code diff-source"><span class="line-diff del">-BLOCK alpha</span><span class="line-diff add">+BLOCK alpha</span></div>
+                  <div class="line-no">6</div><div class="source-code diff-source"><span class="line-diff del full-line">-BLOCK alpha</span><span class="line-diff add full-line">+BLOCK alpha</span></div>
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip bob">Bob</span><span class="cell-note">lo movio</span></div><div class="attrib" data-mode-result="w"><span class="blame-chip bob">Bob</span></div><div class="attrib" data-mode-result="m"><span class="blame-chip alice">Alice</span><span class="cell-note">origen</span></div><div class="attrib" data-mode-result="cc"><span class="blame-chip alice">Alice</span><span class="cell-note">origen</span></div><div class="attrib" data-mode-result="smart"><span class="blame-chip bob">Bob</span><span class="cell-note">sin -M</span></div>
                 </div>
                 <div class="inline-row" role="row">
-                  <div class="line-no">7</div><div class="source-code diff-source"><span class="line-diff del">-BLOCK beta</span><span class="line-diff add">+BLOCK beta</span></div>
+                  <div class="line-no">7</div><div class="source-code diff-source"><span class="line-diff del full-line">-BLOCK beta</span><span class="line-diff add full-line">+BLOCK beta</span></div>
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip bob">Bob</span><span class="cell-note">lo movio</span></div><div class="attrib" data-mode-result="w"><span class="blame-chip bob">Bob</span></div><div class="attrib" data-mode-result="m"><span class="blame-chip alice">Alice</span><span class="cell-note">origen</span></div><div class="attrib" data-mode-result="cc"><span class="blame-chip alice">Alice</span><span class="cell-note">origen</span></div><div class="attrib" data-mode-result="smart"><span class="blame-chip bob">Bob</span><span class="cell-note">sin -M</span></div>
                 </div>
                 <div class="inline-row" role="row">
-                  <div class="line-no">8</div><div class="source-code diff-source"><span class="line-diff del">-BLOCK gamma</span><span class="line-diff add">+BLOCK gamma</span></div>
+                  <div class="line-no">8</div><div class="source-code diff-source"><span class="line-diff del full-line">-BLOCK gamma</span><span class="line-diff add full-line">+BLOCK gamma</span></div>
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip bob">Bob</span><span class="cell-note">lo movio</span></div><div class="attrib" data-mode-result="w"><span class="blame-chip bob">Bob</span></div><div class="attrib" data-mode-result="m"><span class="blame-chip alice">Alice</span><span class="cell-note">origen</span></div><div class="attrib" data-mode-result="cc"><span class="blame-chip alice">Alice</span><span class="cell-note">origen</span></div><div class="attrib" data-mode-result="smart"><span class="blame-chip bob">Bob</span><span class="cell-note">sin -M</span></div>
                 </div>
               </div>
@@ -896,15 +940,15 @@
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip alice">Alice</span></div><div class="attrib" data-mode-result="w"><span class="blame-chip alice">Alice</span></div><div class="attrib" data-mode-result="m"><span class="blame-chip alice">Alice</span></div><div class="attrib" data-mode-result="cc"><span class="blame-chip alice">Alice</span></div><div class="attrib" data-mode-result="smart"><span class="blame-chip alice">Alice</span></div>
                 </div>
                 <div class="inline-row" role="row">
-                  <div class="line-no">3</div><div class="source-code diff-source"><span class="line-diff del">-config.port = 8080</span><span class="line-diff add">+config.port = 9090</span></div>
+                  <div class="line-no">3</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag neutral">config.port = </span><span class="diff-frag del">8080</span><span class="diff-frag add">9090</span></span></div>
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip bob">Bob</span></div><div class="attrib" data-mode-result="w"><span class="blame-chip bob">Bob</span></div><div class="attrib" data-mode-result="m"><span class="blame-chip bob">Bob</span></div><div class="attrib" data-mode-result="cc"><span class="blame-chip bob">Bob</span></div><div class="attrib" data-mode-result="smart"><span class="blame-chip bob">Bob</span></div>
                 </div>
                 <div class="inline-row" role="row">
-                  <div class="line-no">4</div><div class="source-code diff-source"><span class="line-diff del">-config.debug = false</span><span class="line-diff add">+config.debug = true</span></div>
+                  <div class="line-no">4</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag neutral">config.debug = </span><span class="diff-frag del">false</span><span class="diff-frag add">true</span></span></div>
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip mallory">Mallory</span><span class="cell-note">merge real</span></div><div class="attrib" data-mode-result="w"><span class="blame-chip mallory">Mallory</span><span class="cell-note">no espacio</span></div><div class="attrib" data-mode-result="m"><span class="blame-chip mallory">Mallory</span><span class="cell-note">real</span></div><div class="attrib" data-mode-result="cc"><span class="blame-chip mallory">Mallory</span><span class="cell-note">real</span></div><div class="attrib" data-mode-result="smart"><span class="blame-chip mallory">Mallory</span><span class="cell-note">conserva</span></div>
                 </div>
                 <div class="inline-row" role="row">
-                  <div class="line-no">5</div><div class="source-code diff-source"><span class="line-diff del">-config.retries = 3</span><span class="line-diff add">+config.retries = 5</span></div>
+                  <div class="line-no">5</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag neutral">config.retries = </span><span class="diff-frag del">3</span><span class="diff-frag add">5</span></span></div>
                   <div class="attrib" data-mode-result="plain"><span class="blame-chip carol">Carol</span></div><div class="attrib" data-mode-result="w"><span class="blame-chip carol">Carol</span></div><div class="attrib" data-mode-result="m"><span class="blame-chip carol">Carol</span></div><div class="attrib" data-mode-result="cc"><span class="blame-chip carol">Carol</span></div><div class="attrib" data-mode-result="smart"><span class="blame-chip carol">Carol</span></div>
                 </div>
                 <div class="inline-row" role="row">
