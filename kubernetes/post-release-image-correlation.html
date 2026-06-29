@@ -1,0 +1,721 @@
+﻿<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Post-release test visual</title>
+<style>
+  :root{
+    --bg:#eef3f7;
+    --panel:#ffffff;
+    --ink:#1f2937;
+    --muted:#6b7280;
+    --line:#cbd5e1;
+    --blue:#2f5f8f;
+    --blue-soft:#e7eff8;
+    --old:#64748b;
+    --old-soft:#eef1f5;
+    --new:#0f8a74;
+    --new-soft:#def7ef;
+    --pass:#28794d;
+    --pass-soft:#dcf7e6;
+    --fail:#b84242;
+    --fail-soft:#fee2e2;
+    --warn:#b87521;
+    --warn-soft:#fff2d9;
+    --shadow:0 18px 44px rgba(30,41,59,.12);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.9), rgba(255,255,255,.4) 38%, rgba(255,255,255,0)),
+      var(--bg);
+    color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  }
+
+  .page{
+    width:min(1180px, calc(100vw - 28px));
+    margin:0 auto;
+    padding:22px 0 34px;
+  }
+
+  .top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    margin-bottom:14px;
+  }
+
+  h1{
+    margin:0;
+    font-size:clamp(24px, 4vw, 44px);
+    line-height:1;
+    letter-spacing:0;
+  }
+
+  .controls{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+
+  button{
+    min-height:36px;
+    border:1px solid var(--line);
+    border-radius:7px;
+    background:#fff;
+    color:var(--ink);
+    padding:7px 12px;
+    font:inherit;
+    font-size:13px;
+    font-weight:800;
+    cursor:pointer;
+  }
+
+  button:hover{border-color:var(--blue)}
+  button.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+  button.mode.active{background:var(--blue-soft);border-color:#9bb8d5;color:var(--blue)}
+
+  .scene{
+    position:relative;
+    height:min(720px, calc(100vh - 104px));
+    min-height:620px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:
+      linear-gradient(180deg, #fbfdff, #f2f6fa),
+      radial-gradient(circle at 20% 20%, rgba(47,95,143,.08), transparent 30%);
+    overflow:hidden;
+    box-shadow:var(--shadow);
+  }
+
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:24px;
+    padding:3px 8px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:900;
+    letter-spacing:.02em;
+    white-space:nowrap;
+  }
+
+  .badge.old{background:var(--old-soft);color:#45566d}
+  .badge.new{background:var(--new-soft);color:#066653}
+  .badge.pass{background:var(--pass-soft);color:var(--pass)}
+  .badge.fail{background:var(--fail-soft);color:var(--fail)}
+  .badge.warn{background:var(--warn-soft);color:var(--warn)}
+
+  .artifact,
+  .runner,
+  .result,
+  .lb,
+  .pod{
+    position:absolute;
+    border:1px solid var(--line);
+    background:var(--panel);
+    border-radius:8px;
+    box-shadow:0 12px 28px rgba(30,41,59,.09);
+  }
+
+  .artifact{
+    left:5%;
+    top:7%;
+    width:210px;
+    min-height:92px;
+    padding:12px;
+    display:grid;
+    gap:8px;
+    align-content:center;
+  }
+
+  .cube{
+    width:44px;
+    height:38px;
+    border-radius:7px;
+    background:linear-gradient(135deg, #38b99e, #0f766e);
+    box-shadow:inset -10px -8px 0 rgba(0,0,0,.12);
+  }
+
+  .artifact-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+
+  .mini-title{
+    font-size:12px;
+    color:var(--muted);
+    font-weight:800;
+    text-transform:uppercase;
+  }
+
+  .id{
+    font-family:"Cascadia Mono",Consolas,monospace;
+    font-size:12px;
+    font-weight:900;
+  }
+
+  .cluster{
+    position:absolute;
+    left:24%;
+    top:16%;
+    width:52%;
+    height:48%;
+    border:2px dashed #b8c7d9;
+    border-radius:10px;
+    background:rgba(255,255,255,.42);
+  }
+
+  .cluster-label{
+    position:absolute;
+    left:16px;
+    top:12px;
+    color:var(--muted);
+    font-size:12px;
+    font-weight:900;
+    text-transform:uppercase;
+  }
+
+  .pod{
+    top:30%;
+    width:205px;
+    min-height:168px;
+    padding:14px;
+    display:grid;
+    gap:10px;
+    align-content:start;
+    border-left-width:6px;
+  }
+
+  .pod.old{
+    left:8%;
+    border-left-color:var(--old);
+  }
+
+  .pod.new{
+    right:8%;
+    border-left-color:var(--new);
+    opacity:0;
+    transform:translateY(-20px) scale(.96);
+  }
+
+  .scene.run .pod.new{
+    animation:newPodIn .55s ease .35s forwards;
+  }
+
+  .pod-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+  }
+
+  .pod-name{
+    font-weight:950;
+    font-size:18px;
+  }
+
+  .screen{
+    height:58px;
+    border:1px solid #d9e2ee;
+    border-radius:7px;
+    background:linear-gradient(180deg, #f8fafc, #edf3f8);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    overflow:hidden;
+  }
+
+  .pod.old .screen::before{
+    content:"";
+    width:14px;
+    height:14px;
+    border-radius:50%;
+    background:var(--pass);
+    box-shadow:0 0 0 5px rgba(40,121,77,.12);
+  }
+
+  .spinner{
+    width:23px;
+    height:23px;
+    border-radius:50%;
+    border:3px solid rgba(15,138,116,.24);
+    border-top-color:var(--new);
+    animation:spin .8s linear infinite;
+  }
+
+  .bar{
+    height:8px;
+    border-radius:999px;
+    background:#e5edf5;
+    overflow:hidden;
+  }
+
+  .bar span{
+    display:block;
+    height:100%;
+    width:0;
+    background:var(--new);
+  }
+
+  .scene.run .bar span{animation:build 5s ease .7s forwards}
+
+  .lb{
+    left:47%;
+    bottom:22%;
+    width:74px;
+    height:74px;
+    transform:rotate(45deg);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#f8fbff;
+  }
+
+  .lb span{
+    transform:rotate(-45deg);
+    font-weight:950;
+    color:var(--blue);
+  }
+
+  .runner{
+    left:6%;
+    bottom:8%;
+    width:230px;
+    min-height:112px;
+    padding:14px;
+    display:grid;
+    gap:10px;
+    align-content:center;
+  }
+
+  .runner-main{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+
+  .runner-icon{
+    width:44px;
+    height:44px;
+    border-radius:8px;
+    background:linear-gradient(180deg, #315f8f, #204869);
+    position:relative;
+  }
+
+  .runner-icon::after{
+    content:"";
+    position:absolute;
+    left:10px;
+    right:10px;
+    top:12px;
+    height:4px;
+    background:#fff;
+    box-shadow:0 9px 0 rgba(255,255,255,.8), 0 18px 0 rgba(255,255,255,.56);
+  }
+
+  .result{
+    right:5%;
+    bottom:8%;
+    width:270px;
+    min-height:140px;
+    padding:16px;
+    display:grid;
+    gap:10px;
+    align-content:center;
+    opacity:.35;
+    transform:translateY(12px);
+  }
+
+  .scene.run .result{animation:resultIn .45s ease 3.45s forwards}
+
+  .result-main{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+  }
+
+  .result-word{
+    font-size:44px;
+    line-height:.9;
+    font-weight:1000;
+    letter-spacing:0;
+    color:var(--pass);
+  }
+
+  .mode-id .result-word{
+    font-size:34px;
+    color:var(--warn);
+  }
+
+  .raw-only,
+  .id-only{display:none}
+  .mode-raw .raw-only{display:inline-flex}
+  .mode-id .id-only{display:inline-flex}
+  .mode-raw .result .raw-only,
+  .mode-id .result .id-only{display:block}
+
+  .mode-id .raw-status{display:none}
+  .mode-raw .id-status{display:none}
+
+  .links{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    pointer-events:none;
+  }
+
+  .links path{
+    fill:none;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+  }
+
+  .deploy-path{
+    stroke:var(--new);
+    stroke-width:4;
+    stroke-dasharray:9 9;
+    opacity:.34;
+  }
+
+  .old-path{
+    stroke:var(--blue);
+    stroke-width:6;
+    stroke-dasharray:10 9;
+    opacity:0;
+  }
+
+  .ghost-path{
+    stroke:var(--fail);
+    stroke-width:3;
+    stroke-dasharray:10 9;
+    opacity:0;
+  }
+
+  .scene.run .deploy-path{animation:pathPulse 1.2s ease .3s both}
+  .scene.run .old-path{animation:requestPath 1.35s ease 1.75s both}
+  .scene.run .ghost-path{animation:ghostPath .8s ease 4.1s forwards}
+
+  .packet{
+    position:absolute;
+    left:16%;
+    top:79%;
+    width:24px;
+    height:24px;
+    border-radius:50%;
+    background:var(--blue);
+    box-shadow:0 0 0 7px rgba(47,95,143,.16), 0 8px 16px rgba(30,41,59,.22);
+    opacity:0;
+    z-index:8;
+  }
+
+  .scene.run .packet{animation:packetToOld 1.45s cubic-bezier(.45,.05,.2,1) 1.75s forwards}
+
+  .hit-ring{
+    position:absolute;
+    left:calc(24% + 8% + 102px);
+    top:calc(16% + 30% + 84px);
+    width:22px;
+    height:22px;
+    border-radius:50%;
+    border:3px solid var(--pass);
+    opacity:0;
+    transform:translate(-50%, -50%) scale(.5);
+    z-index:9;
+  }
+
+  .scene.run .hit-ring{animation:hitPulse .58s ease 3.05s forwards}
+
+  .fail-peek{
+    position:absolute;
+    right:18px;
+    bottom:14px;
+    min-width:70px;
+    min-height:34px;
+    border:2px solid var(--fail);
+    border-radius:7px;
+    background:var(--fail-soft);
+    color:var(--fail);
+    font-weight:1000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    opacity:0;
+    transform:rotate(-3deg) scale(.9);
+  }
+
+  .scene.run .fail-peek{animation:peek .45s ease 4.25s forwards}
+
+  .pod.old.hit{
+    animation:none;
+  }
+
+  .scene.run .pod.old{
+    animation:oldHit .75s ease 3s;
+  }
+
+  .timeline{
+    position:absolute;
+    left:50%;
+    bottom:2.2%;
+    transform:translateX(-50%);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+  }
+
+  .dot{
+    width:12px;
+    height:12px;
+    border-radius:50%;
+    background:#c5cfdb;
+  }
+
+  .scene.run .dot:nth-child(1){animation:dotOn .7s ease .4s both}
+  .scene.run .dot:nth-child(2){animation:dotOn .7s ease 1.9s both}
+  .scene.run .dot:nth-child(3){animation:dotOn .7s ease 3.55s both}
+
+  .sr-only{
+    position:absolute;
+    width:1px;
+    height:1px;
+    padding:0;
+    margin:-1px;
+    overflow:hidden;
+    clip:rect(0,0,0,0);
+    white-space:nowrap;
+    border:0;
+  }
+
+  @keyframes newPodIn{
+    to{opacity:1;transform:translateY(0) scale(1)}
+  }
+
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  @keyframes build{
+    0%{width:0}
+    100%{width:66%}
+  }
+
+  @keyframes pathPulse{
+    0%{opacity:0;stroke-dashoffset:28}
+    35%,100%{opacity:.38;stroke-dashoffset:0}
+  }
+
+  @keyframes requestPath{
+    0%{opacity:0;stroke-dashoffset:70}
+    22%,76%{opacity:.86}
+    100%{opacity:.56;stroke-dashoffset:0}
+  }
+
+  @keyframes ghostPath{
+    to{opacity:.28}
+  }
+
+  @keyframes packetToOld{
+    0%{left:16%;top:79%;opacity:0;transform:scale(.8)}
+    12%{opacity:1}
+    42%{left:50%;top:68%;transform:scale(1)}
+    82%{left:38%;top:40%;opacity:1;transform:scale(1)}
+    100%{left:38%;top:40%;opacity:0;transform:scale(.4)}
+  }
+
+  @keyframes hitPulse{
+    0%{opacity:0;transform:translate(-50%, -50%) scale(.5)}
+    55%{opacity:1;transform:translate(-50%, -50%) scale(3.8)}
+    100%{opacity:0;transform:translate(-50%, -50%) scale(5.4)}
+  }
+
+  @keyframes resultIn{
+    to{opacity:1;transform:translateY(0)}
+  }
+
+  @keyframes oldHit{
+    40%{box-shadow:0 0 0 5px rgba(40,121,77,.2), 0 18px 36px rgba(30,41,59,.12);transform:translateY(-3px)}
+  }
+
+  @keyframes peek{
+    to{opacity:1;transform:rotate(-3deg) scale(1)}
+  }
+
+  @keyframes dotOn{
+    50%,100%{background:var(--blue);box-shadow:0 0 0 7px rgba(47,95,143,.14)}
+  }
+
+  @media (max-width:900px){
+    .scene{height:760px;min-height:760px}
+    .top{align-items:flex-start;flex-direction:column}
+    .artifact{left:5%;top:4%;width:190px}
+    .cluster{left:4%;top:20%;width:92%;height:38%}
+    .pod{top:28%;width:42%;min-height:154px;padding:11px}
+    .pod.old{left:5%}
+    .pod.new{right:5%}
+    .pod-name{font-size:16px}
+    .screen{height:48px}
+    .lb{left:43%;bottom:27%;width:62px;height:62px}
+    .runner{left:5%;bottom:12%;width:42%;min-height:120px}
+    .result{right:5%;bottom:12%;width:42%;min-height:120px;padding:12px}
+    .result-word{font-size:34px}
+    .mode-id .result-word{font-size:24px}
+    .hit-ring{left:25%;top:39%}
+  }
+
+  @media (max-width:520px){
+    .page{width:min(100vw - 16px, 1180px);padding-top:14px}
+    .controls{width:100%}
+    button{flex:1 1 auto}
+    .scene{height:820px;min-height:820px}
+    .artifact{width:170px}
+    .cluster{top:19%;height:39%}
+    .cluster-label{left:10px;top:8px}
+    .pod{width:44%;min-height:160px}
+    .pod.old{left:4%}
+    .pod.new{right:4%}
+    .id{font-size:11px}
+    .runner,.result{width:43%;bottom:10%;padding:10px}
+    .runner-icon{width:36px;height:36px}
+    .result-main{align-items:flex-start;flex-direction:column}
+    .timeline{bottom:2%}
+  }
+</style>
+</head>
+<body class="mode-raw">
+<main class="page">
+  <header class="top">
+    <h1>Post-release test</h1>
+    <div class="controls" aria-label="Controles">
+      <button id="replay" class="primary" type="button">Reproducir</button>
+      <button id="rawMode" class="mode active" type="button">sin image id</button>
+      <button id="idMode" class="mode" type="button">con image id</button>
+    </div>
+  </header>
+
+  <section id="scene" class="scene run" aria-label="Animacion de rollout post-release">
+    <svg class="links" viewBox="0 0 1000 620" preserveAspectRatio="none" aria-hidden="true">
+      <path class="deploy-path" d="M150 95 C300 86 450 118 620 220" />
+      <path class="old-path" d="M155 506 C350 505 470 430 500 420 C455 365 390 300 340 255" />
+      <path class="ghost-path" d="M155 506 C365 510 520 445 545 420 C600 355 670 300 730 255" />
+    </svg>
+
+    <div class="artifact" aria-label="Imagen nueva publicada">
+      <div class="artifact-row">
+        <div class="cube" aria-hidden="true"></div>
+        <div>
+          <div class="mini-title">deploy</div>
+          <div class="id">img:new</div>
+        </div>
+      </div>
+      <span class="badge new">release</span>
+    </div>
+
+    <div class="cluster" aria-label="Cluster Kubernetes">
+      <div class="cluster-label">cluster</div>
+
+      <article class="pod old" aria-label="Pod viejo preparado">
+        <div class="pod-head">
+          <div class="pod-name">api-v1</div>
+          <span class="badge old">old</span>
+        </div>
+        <div class="screen"><span class="badge pass">READY</span></div>
+        <div class="id">img:old</div>
+      </article>
+
+      <article class="pod new" aria-label="Pod nuevo creandose">
+        <div class="pod-head">
+          <div class="pod-name">api-v2</div>
+          <span class="badge new">new</span>
+        </div>
+        <div class="screen"><span class="spinner" aria-hidden="true"></span><span class="badge warn">CREATING</span></div>
+        <div class="bar"><span></span></div>
+        <div class="id">img:new</div>
+        <div class="fail-peek">FAIL?</div>
+      </article>
+    </div>
+
+    <div class="lb" aria-label="Balanceador"><span>LB</span></div>
+    <div class="packet" aria-hidden="true"></div>
+    <div class="hit-ring" aria-hidden="true"></div>
+
+    <div class="runner" aria-label="Test post-release">
+      <div class="runner-main">
+        <div class="runner-icon" aria-hidden="true"></div>
+        <div>
+          <div class="mini-title">test</div>
+          <div class="id">expects img:new</div>
+        </div>
+      </div>
+      <span class="badge new">request</span>
+    </div>
+
+    <div class="result" aria-label="Resultado">
+      <div class="result-main">
+        <div class="result-word raw-only">PASS</div>
+        <div class="result-word id-only">SKIP</div>
+        <span class="badge pass raw-status">api-v1 OK</span>
+        <span class="badge warn id-status">old != new</span>
+      </div>
+      <span class="badge fail raw-only">new sin probar</span>
+      <span class="badge warn id-only">no cuenta</span>
+    </div>
+
+    <div class="timeline" aria-hidden="true">
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+    </div>
+
+    <p class="sr-only">Se despliega un pod nuevo con imagen nueva. Mientras esta creando, el test se ejecuta y el balanceador lo manda al pod viejo. Sin image id el resultado aparece como pass, aunque la imagen nueva no fue probada.</p>
+  </section>
+</main>
+
+<script>
+'use strict';
+
+(function(){
+  const scene = document.getElementById('scene');
+  const body = document.body;
+  const replay = document.getElementById('replay');
+  const rawMode = document.getElementById('rawMode');
+  const idMode = document.getElementById('idMode');
+
+  function restart(){
+    scene.classList.remove('run');
+    void scene.offsetWidth;
+    scene.classList.add('run');
+  }
+
+  function setMode(mode){
+    const id = mode === 'id';
+    body.classList.toggle('mode-id', id);
+    body.classList.toggle('mode-raw', !id);
+    rawMode.classList.toggle('active', !id);
+    idMode.classList.toggle('active', id);
+    restart();
+  }
+
+  replay.addEventListener('click', restart);
+  rawMode.addEventListener('click', () => setMode('raw'));
+  idMode.addEventListener('click', () => setMode('id'));
+
+  restart();
+})();
+</script>
+</body>
+</html>
+
+
+

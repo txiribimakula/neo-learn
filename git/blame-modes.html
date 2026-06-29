@@ -1,0 +1,1127 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Neo Git Blame modes</title>
+  <style>
+    :root {
+      --bg: #f6f4ef;
+      --paper: #fffefa;
+      --ink: #24201a;
+      --muted: #6d675e;
+      --line: #d9d2c5;
+      --soft: #ece7de;
+      --plain: #4d6f91;
+      --w: #337a72;
+      --move: #865f9a;
+      --copy: #9b6b35;
+      --smart: #b5454e;
+      --alice: #d7e8ff;
+      --bob: #d8f3dc;
+      --carol: #ffe7b8;
+      --mallory: #ffd0d0;
+      --dana: #e5d7ff;
+      --shadow: 0 16px 40px rgba(38, 31, 22, .08);
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.82), rgba(255,255,255,.52) 34%, rgba(255,255,255,0)),
+        var(--bg);
+      color: var(--ink);
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+      line-height: 1.45;
+    }
+
+    main {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 56px;
+    }
+
+    header {
+      padding: 22px 0 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 780px;
+      font-size: clamp(34px, 5vw, 68px);
+      line-height: .96;
+      letter-spacing: 0;
+      font-weight: 780;
+    }
+
+    .subtitle {
+      margin: 18px 0 0;
+      max-width: 740px;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    section { margin-top: 34px; }
+
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: end;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 10px;
+      margin-bottom: 18px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: clamp(24px, 3vw, 34px);
+      letter-spacing: 0;
+    }
+
+    .section-title p {
+      margin: 0;
+      max-width: 560px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .mode-card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      min-height: 210px;
+      box-shadow: 0 8px 22px rgba(38,31,22,.05);
+    }
+
+    .mode-card h3 {
+      margin: 0 0 8px;
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+
+    .mode-card p { margin: 8px 0; color: var(--muted); font-size: 14px; }
+    .mode-card .tag { margin-top: 10px; }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font-size: 12px;
+      font-weight: 750;
+      color: var(--ink);
+    }
+
+    .tag.good { border-color: #96c7a3; background: #edf8ef; }
+    .tag.bad { border-color: #dda0a0; background: #fff0f0; }
+    .tag.mixed { border-color: #d5bd85; background: #fff8df; }
+
+    .scenario-tabs {
+      display: grid;
+      gap: 12px;
+    }
+
+    .tab-list {
+      display: flex;
+      gap: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      flex: 0 0 auto;
+      min-height: 38px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--muted);
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .tab-btn.active {
+      background: #f4efe5;
+      color: var(--ink);
+      border-color: #8c8172;
+    }
+
+    .tab-panels {
+      min-width: 0;
+    }
+
+    .scenario-panel { display: none; }
+    .scenario-panel.active { display: block; }
+
+    .mode-priority {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .priority-title {
+      grid-column: 1 / -1;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .priority-item {
+      min-height: 64px;
+      padding: 8px 10px;
+      border-left: 4px solid transparent;
+      background: rgba(255,255,255,.72);
+      font-size: 12px;
+    }
+
+    .priority-item strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--ink);
+      font-size: 13px;
+    }
+
+    .priority-item span {
+      display: block;
+      color: var(--muted);
+      line-height: 1.25;
+    }
+
+    .priority-item[data-mode-result="plain"] { border-color: var(--plain); }
+    .priority-item[data-mode-result="w"] { border-color: var(--w); }
+    .priority-item[data-mode-result="m"] { border-color: var(--move); }
+    .priority-item[data-mode-result="cc"] { border-color: var(--copy); }
+    .priority-item[data-mode-result="smart"] { border-color: var(--smart); }
+    .cases {
+      display: grid;
+      gap: 18px;
+    }
+
+    .case {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .case-head {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+      background: #fbf8f1;
+    }
+
+    .case h3 { margin: 0; font-size: 21px; }
+    .case .why { margin: 4px 0 0; color: var(--muted); font-size: 14px; max-width: 800px; }
+
+    .case-body {
+      display: grid;
+      grid-template-columns: minmax(300px, .95fr) minmax(420px, 1.45fr);
+      gap: 0;
+    }
+
+    .code-panel, .result-panel {
+      padding: 16px;
+    }
+
+    .code-panel {
+      border-right: 1px solid var(--line);
+      background: #fcfaf6;
+    }
+
+    .caption {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 650;
+      text-transform: uppercase;
+    }
+
+    .code {
+      margin: 0;
+      font-family: Consolas, "Cascadia Mono", Menlo, monospace;
+      font-size: 13px;
+      line-height: 1.55;
+      white-space: pre;
+      overflow-x: auto;
+      padding: 12px;
+      background: #252018;
+      color: #f4ecdc;
+      border-radius: 6px;
+    }
+
+    .blame-list {
+      display: grid;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .line {
+      display: grid;
+      grid-template-columns: 34px 102px minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+      min-height: 30px;
+      padding: 4px 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      font-family: Consolas, "Cascadia Mono", Menlo, monospace;
+      font-size: 12px;
+    }
+
+    .line .num { color: var(--muted); text-align: right; }
+    .line .author { font-family: "Segoe UI", system-ui, sans-serif; font-weight: 750; }
+    .line .text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .alice { background: var(--alice); }
+    .bob { background: var(--bob); }
+    .carol { background: var(--carol); }
+    .mallory { background: var(--mallory); }
+    .dana { background: var(--dana); }
+
+    .inline-wrap {
+      padding: 16px;
+      overflow-x: auto;
+      background: #fcfaf6;
+    }
+
+    .case-body-inline {
+      display: block;
+    }
+
+    .inline-summary {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .summary-chip {
+      min-height: 62px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .summary-chip strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .inline-blame {
+      display: grid;
+      grid-template-columns: 54px minmax(340px, 1.45fr) repeat(5, minmax(118px, .82fr));
+      min-width: 1120px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--paper);
+      box-shadow: 0 8px 22px rgba(38,31,22,.05);
+    }
+
+    .inline-row { display: contents; }
+
+    .inline-row > div,
+    .region-row {
+      min-height: 40px;
+      padding: 8px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      font-size: 12px;
+    }
+
+    .inline-row > div:nth-child(7n) { border-right: 0; }
+
+    .inline-head > div {
+      min-height: 38px;
+      background: #f7f1e8;
+      color: var(--ink);
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .line-no {
+      background: #fbf8f1;
+      color: var(--muted);
+      font-family: Consolas, "Cascadia Mono", Menlo, monospace;
+      text-align: right;
+    }
+
+    .source-code {
+      background: #282219;
+      color: #f4ecdc;
+      font-family: Consolas, "Cascadia Mono", Menlo, monospace;
+      white-space: pre;
+    }
+
+    .source-code.added-source {
+      position: relative;
+      padding-left: 20px;
+      background: #e1f7e6;
+      color: #14532d;
+      font-weight: 750;
+    }
+
+    .source-code.added-source::before {
+      content: "+";
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #166534;
+      font-weight: 900;
+    }
+    .source-code.blank {
+      color: #9f9586;
+      font-style: italic;
+    }
+
+    .attrib {
+      position: relative;
+      display: grid;
+      gap: 3px;
+      align-content: center;
+      justify-items: center;
+      background: #fff;
+      text-align: center;
+    }
+
+    .blame-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 70px;
+      min-height: 22px;
+      padding: 2px 8px;
+      border: 1px solid rgba(0,0,0,.13);
+      border-radius: 999px;
+      color: #1f1b16;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+
+    .cell-note {
+      color: var(--muted);
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 11px;
+      line-height: 1.15;
+    }
+
+    .verdict {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 11px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .verdict-ok {
+      background: #dcfce7;
+      border: 1px solid #86efac;
+      color: #166534;
+    }
+
+    .verdict-bad {
+      background: #fee2e2;
+      border: 1px solid #fca5a5;
+      color: #991b1b;
+    }
+
+    .region-row {
+      grid-column: 1 / -1;
+      min-height: 34px;
+      border-right: 0;
+      background: #fff8df;
+      color: #5a4520;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-weight: 750;
+    }
+
+    .inline-row:last-child > div { border-bottom: 0; }
+
+    .source-code.diff-source {
+      display: grid;
+      gap: 3px;
+      align-content: center;
+      white-space: normal;
+      background: #211d16;
+    }
+
+    .char-diff-line,
+    .line-diff {
+      display: block;
+      width: fit-content;
+      max-width: 100%;
+      padding: 3px 6px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, .08);
+      font-family: Consolas, "SFMono-Regular", monospace;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .char-diff-line {
+      color: #efe9dd;
+      background: #302b23;
+    }
+
+    .diff-frag {
+      border-radius: 4px;
+      padding: 1px 0;
+      white-space: pre-wrap;
+    }
+
+    .diff-frag.ws {
+      display: inline-block;
+      min-width: .72em;
+      padding-left: 2px;
+      padding-right: 2px;
+      text-align: center;
+      font-weight: 800;
+      letter-spacing: .08em;
+    }
+
+    .diff-frag.neutral {
+      background: rgba(255, 255, 255, .05);
+      color: #efe9dd;
+    }
+
+    .diff-frag.del {
+      background: #ffe3df;
+      color: #7f1d1d;
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
+    }
+
+    .diff-frag.add {
+      background: #e1f7e6;
+      color: #14532d;
+      font-weight: 700;
+    }
+
+    .line-diff.del {
+      background: #ffe3df;
+      color: #7f1d1d;
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
+    }
+
+    .line-diff.del.full-line {
+      opacity: .58;
+    }
+
+    .line-diff.add {
+      background: #e1f7e6;
+      color: #14532d;
+      font-weight: 700;
+    }
+    .matrix {
+      display: grid;
+      grid-template-columns: 120px repeat(5, minmax(120px, 1fr));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .matrix > div {
+      padding: 12px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      min-height: 74px;
+      font-size: 13px;
+    }
+
+    .matrix > div:nth-child(6n) { border-right: 0; }
+    .matrix .head { background: #f7f1e8; font-weight: 800; }
+    .matrix .rowhead { background: #fbf8f1; font-weight: 800; }
+    .matrix .cell-good { background: #f1fbf3; }
+    .matrix .cell-bad { background: #fff2f2; }
+    .matrix .cell-mixed { background: #fff9e8; }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .person {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      padding: 4px 8px;
+    }
+
+    .swatch {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      border: 1px solid rgba(0,0,0,.14);
+    }
+
+    .takeaway {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .takeaway article {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .takeaway h3 { margin: 0 0 8px; }
+    .takeaway ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+    .takeaway li { margin: 6px 0; }
+
+    svg { width: 100%; height: auto; display: block; }
+
+    .priority-item[data-mode-result],
+    .inline-head [data-mode-result] {
+      cursor: pointer;
+      transition: background .12s ease, box-shadow .12s ease, transform .12s ease;
+    }
+
+    .priority-item[data-mode-result]:hover,
+    .inline-head [data-mode-result]:hover {
+      transform: translateY(-1px);
+      box-shadow: inset 0 0 0 2px rgba(36,32,26,.16);
+    }
+
+    .focus-plain .priority-item[data-mode-result="plain"],
+    .focus-plain .inline-head [data-mode-result="plain"],
+    .focus-w .priority-item[data-mode-result="w"],
+    .focus-w .inline-head [data-mode-result="w"],
+    .focus-m .priority-item[data-mode-result="m"],
+    .focus-m .inline-head [data-mode-result="m"],
+    .focus-cc .priority-item[data-mode-result="cc"],
+    .focus-cc .inline-head [data-mode-result="cc"],
+    .focus-smart .priority-item[data-mode-result="smart"],
+    .focus-smart .inline-head [data-mode-result="smart"] {
+      background: #f4efe5;
+      box-shadow: inset 0 0 0 2px rgba(36,32,26,.18);
+    }
+    .focus-plain [data-mode-result]:not([data-mode-result="plain"]),
+    .focus-w [data-mode-result]:not([data-mode-result="w"]),
+    .focus-m [data-mode-result]:not([data-mode-result="m"]),
+    .focus-cc [data-mode-result]:not([data-mode-result="cc"]),
+    .focus-smart [data-mode-result]:not([data-mode-result="smart"]) {
+      opacity: .32;
+      filter: saturate(.7);
+    }
+
+    .mode-column {
+      border-left: 4px solid transparent;
+      padding-left: 10px;
+    }
+
+    .mode-column[data-mode-result="plain"] { border-color: var(--plain); }
+    .mode-column[data-mode-result="w"] { border-color: var(--w); }
+    .mode-column[data-mode-result="m"] { border-color: var(--move); }
+    .mode-column[data-mode-result="cc"] { border-color: var(--copy); }
+    .mode-column[data-mode-result="smart"] { border-color: var(--smart); }
+
+    @media (max-width: 980px) {
+      header, .case-body, .takeaway { grid-template-columns: 1fr; }
+      .code-panel { border-right: 0; border-bottom: 1px solid var(--line); }
+      .mode-priority { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  
+    .matrix { grid-template-columns: 118px repeat(5, 180px); overflow-x: auto; }
+    }
+
+    @media (max-width: 620px) {
+      main { width: min(100vw - 20px, 1180px); padding-top: 12px; }
+      .wheel { grid-template-columns: repeat(2, 1fr); }
+      .mode-priority { grid-template-columns: 1fr; }
+      .case-head { grid-template-columns: 1fr; }
+      .line { grid-template-columns: 28px 82px minmax(0, 1fr); }
+    }
+  </style>
+</head>
+<body class="focus-smart">
+  <main>
+    <header>
+      <div>
+        <h1>Blame modes, sin magia ni dogmas</h1>
+        <p class="subtitle">Una comparativa visual para decidir que modo de blame conviene en cada situacion: cuando conviene creer al commit textual, cuando hay que ignorar espacios, cuando un bloque se movio y donde encaja el modo <strong>smart</strong>.</p>
+      </div>
+    </header>
+
+    <section>
+      <div class="section-title">
+        <h2>Situaciones comparadas</h2>
+        <p>Cada bloque muestra el cambio real dentro de la columna de contenido: rojo para lo quitado, verde para lo anadido; las columnas de modo deciden la atribucion.</p>
+      </div>
+
+      <div class="scenario-tabs">
+        <div class="tab-list" role="tablist" aria-label="Situaciones de blame">
+          <button class="tab-btn active" id="tab-merge" data-tab="scenario-merge" role="tab" aria-selected="true" type="button">Merge + espacios</button>
+          <button class="tab-btn" id="tab-move" data-tab="scenario-move" role="tab" aria-selected="false" type="button">Bloque movido</button>
+          <button class="tab-btn" id="tab-evil" data-tab="scenario-evil" role="tab" aria-selected="false" type="button">Evil merge</button>
+        </div>
+        <div class="tab-panels">
+        <article class="case scenario-panel active" id="scenario-merge" role="tabpanel" aria-labelledby="tab-merge">
+          <div class="case-head">
+            <div>
+              <h3>1. Mismo fichero: merge que mancha + whitespace legitimo</h3>
+              <p class="why">Este es el caso clave del escenario 17. En `process`, Mallory resolvio un conflicto cambiando de verdad solo `c`, pero reindento todo el cuerpo. En `format_options`, Dana hizo despues un commit whitespace-only intencional.</p>
+            </div>
+            <span class="tag good">smart brilla</span>
+            <div class="mode-priority" aria-label="Que prioriza cada modo aqui">
+              <div class="priority-title">Que prioriza cada modo aqui</div>
+              <div class="priority-item" data-mode-result="plain"><strong>plain</strong><span>Ve el texto exacto: conserva Dana, pero sobreatribuye el reindent a Mallory.</span></div>
+              <div class="priority-item" data-mode-result="w"><strong>-w</strong><span>Ignora espacios: corrige el ruido de Mallory, pero oculta el formatter legitimo.</span></div>
+              <div class="priority-item" data-mode-result="m"><strong>-M</strong><span>Busca movimientos; aqui no corrige el ruido de whitespace.</span></div>
+              <div class="priority-item" data-mode-result="cc"><strong>-C -C</strong><span>Busca copias; tampoco arregla el reindent del merge.</span></div>
+              <div class="priority-item" data-mode-result="smart"><strong>smart</strong><span>Descarta el ruido del merge y conserva el whitespace-only de Dana.</span></div>
+            </div>
+          </div>
+          <div class="case-body case-body-inline">
+            <div class="inline-wrap">
+              <p class="caption">Blame inline: cambio real y atribucion por modo</p>
+              <div class="inline-summary">
+                <div class="summary-chip"><strong>f4493b4: merge conflictivo</strong>Plain, -M y -C -C atribuyen 2-7 a Mallory por el reindentado. -w y smart solo dejan Mallory en la linea 4, que si cambia contenido.</div>
+                <div class="summary-chip"><strong>Whitespace legitimo posterior</strong>Dana toca espacios en 10-14 de forma intencional. -w lo ignora; smart lo conserva porque el commit es whitespace-only para este fichero.</div>
+              </div>
+                            
+              <div class="inline-blame" role="table" aria-label="Atribucion inline por modo de blame">
+                <div class="inline-row inline-head" role="row">
+                  <div role="columnheader">Linea</div>
+                  <div role="columnheader">Cambio inline / contenido</div>
+                  <div role="columnheader" data-mode-result="plain">plain</div>
+                  <div role="columnheader" data-mode-result="w">-w</div>
+                  <div role="columnheader" data-mode-result="m">-M</div>
+                  <div role="columnheader" data-mode-result="cc">-C -C</div>
+                  <div role="columnheader" data-mode-result="smart">smart</div>
+                </div>
+
+                <div class="region-row">process(data): zona del merge conflictivo. La linea 4 es cambio real; las lineas 2, 3, 5, 6 y 7 solo quedan tocadas por espacios.</div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">1</div><div class="source-code added-source">def process(data):</div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                  <div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                  <div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                  <div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                  <div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">2</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios conservados">&middot;&middot;</span><span class="diff-frag neutral">a = data + 1</span></span></div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">espacios merge</span></div>
+                  <div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">ignora espacios</span></div>
+                  <div class="attrib" data-mode-result="m"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">espacios merge</span></div>
+                  <div class="attrib" data-mode-result="cc"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">espacios merge</span></div>
+                  <div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">ruido merge</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">3</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios conservados">&middot;&middot;</span><span class="diff-frag neutral">b = a * 2</span></span></div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">espacios merge</span></div>
+                  <div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">ignora espacios</span></div>
+                  <div class="attrib" data-mode-result="m"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">espacios merge</span></div>
+                  <div class="attrib" data-mode-result="cc"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">espacios merge</span></div>
+                  <div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">ruido merge</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">4</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios conservados">&middot;&middot;</span><span class="diff-frag neutral">c = b - </span><span class="diff-frag del">300</span><span class="diff-frag neutral"> / </span><span class="diff-frag del">30</span><span class="diff-frag add">330</span></span></div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">cambio</span></div>
+                  <div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">cambio</span></div>
+                  <div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">cambio</span></div>
+                  <div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">cambio</span></div>
+                  <div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">cambio</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">5</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios conservados">&middot;&middot;</span><span class="diff-frag neutral">d = c / 4</span></span></div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">espacios merge</span></div>
+                  <div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">ignora espacios</span></div>
+                  <div class="attrib" data-mode-result="m"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">espacios merge</span></div>
+                  <div class="attrib" data-mode-result="cc"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">espacios merge</span></div>
+                  <div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">ruido merge</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">6</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios conservados">&middot;&middot;</span><span class="diff-frag neutral">e = d + 5</span></span></div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">espacios merge</span></div>
+                  <div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">ignora espacios</span></div>
+                  <div class="attrib" data-mode-result="m"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">espacios merge</span></div>
+                  <div class="attrib" data-mode-result="cc"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">espacios merge</span></div>
+                  <div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">ruido merge</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">7</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios conservados">&middot;&middot;</span><span class="diff-frag neutral">return e</span></span></div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">espacios merge</span></div>
+                  <div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">ignora espacios</span></div>
+                  <div class="attrib" data-mode-result="m"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">espacios merge</span></div>
+                  <div class="attrib" data-mode-result="cc"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">espacios merge</span></div>
+                  <div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">ruido merge</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">8</div><div class="source-code blank added-source">(linea en blanco)</div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                  <div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                  <div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                  <div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                  <div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                </div>
+
+                <div class="region-row">format_options(config): zona de whitespace legitimo. Aqui el cambio son espacios de alineacion y si interesa atribuirlos.</div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">9</div><div class="source-code added-source">def format_options(config):</div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                  <div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                  <div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                  <div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                  <div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">10</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios conservados">&middot;&middot;</span><span class="diff-frag neutral">host</span><span class="diff-frag neutral ws" title="1 espacio conservado">&middot;</span><span class="diff-frag add ws" title="3 espacios anadidos">&middot;&middot;&middot;</span><span class="diff-frag neutral">= config["host"]</span></span></div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                  <div class="attrib" data-mode-result="w"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip alice">Alice</span><span class="cell-note">ignora espacios</span></div>
+                  <div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                  <div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                  <div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">11</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios conservados">&middot;&middot;</span><span class="diff-frag neutral">port</span><span class="diff-frag neutral ws" title="1 espacio conservado">&middot;</span><span class="diff-frag add ws" title="3 espacios anadidos">&middot;&middot;&middot;</span><span class="diff-frag neutral">= config["port"]</span></span></div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                  <div class="attrib" data-mode-result="w"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip alice">Alice</span><span class="cell-note">ignora espacios</span></div>
+                  <div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                  <div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                  <div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">12</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios conservados">&middot;&middot;</span><span class="diff-frag neutral">secure</span><span class="diff-frag neutral ws" title="1 espacio conservado">&middot;</span><span class="diff-frag add ws" title="1 espacio anadido">&middot;</span><span class="diff-frag neutral">= config["secure"]</span></span></div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                  <div class="attrib" data-mode-result="w"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip alice">Alice</span><span class="cell-note">ignora espacios</span></div>
+                  <div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                  <div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                  <div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">13</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios conservados">&middot;&middot;</span><span class="diff-frag neutral">retries = config["retries"]</span></span></div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                  <div class="attrib" data-mode-result="w"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip alice">Alice</span><span class="cell-note">ignora espacios</span></div>
+                  <div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                  <div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                  <div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">14</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag del ws" title="2 espacios eliminados">&middot;&middot;</span><span class="diff-frag neutral ws" title="2 espacios conservados">&middot;&middot;</span><span class="diff-frag neutral">return (host, port, secure, retries)</span></span></div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                  <div class="attrib" data-mode-result="w"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip alice">Alice</span><span class="cell-note">ignora espacios</span></div>
+                  <div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                  <div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                  <div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip dana">Dana</span><span class="cell-note">espacios legitimos</span></div>
+                </div>
+              </div>
+              <div class="legend">
+                <span class="person"><span class="swatch" style="background:var(--mallory)"></span>Mallory: merge conflictivo</span>
+                <span class="person"><span class="swatch" style="background:var(--dana)"></span>Dana: whitespace legitimo</span>
+                <span class="person"><span class="swatch" style="background:var(--alice)"></span>Alice: autoria previa</span>
+              </div>
+            </div>
+          </div>
+        </article>
+        <article class="case scenario-panel" id="scenario-move" role="tabpanel" aria-labelledby="tab-move" hidden>
+          <div class="case-head">
+            <div>
+              <h3>2. Bloque movido dentro del mismo fichero</h3>
+              <p class="why">Un bloque `BLOCK alpha/beta/gamma` se mueve al final. El contenido no cambia, pero la posicion si.</p>
+            </div>
+            <span class="tag good">-M brilla</span>
+            <div class="mode-priority" aria-label="Que prioriza cada modo aqui">
+              <div class="priority-title">Que prioriza cada modo aqui</div>
+              <div class="priority-item" data-mode-result="plain"><strong>plain</strong><span>Prioriza la posicion nueva: atribuye el bloque a Bob.</span></div>
+              <div class="priority-item" data-mode-result="w"><strong>-w</strong><span>Ignora espacios, pero el cambio es movimiento; sigue Bob.</span></div>
+              <div class="priority-item" data-mode-result="m"><strong>-M</strong><span>Prioriza origen dentro del fichero: recupera Alice.</span></div>
+              <div class="priority-item" data-mode-result="cc"><strong>-C -C</strong><span>Amplia la busqueda de origen: tambien recupera Alice.</span></div>
+              <div class="priority-item" data-mode-result="smart"><strong>smart</strong><span>No incluye -M: mantiene la autoria del movimiento.</span></div>
+            </div>
+          </div>
+          <div class="case-body case-body-inline">
+            <div class="inline-wrap">
+              <p class="caption">Blame inline: movimiento y atribucion por modo</p>
+              <div class="inline-summary">
+                <div class="summary-chip"><strong>Movimiento con contenido intacto</strong>Bob mueve el bloque `BLOCK` al final. Plain, -w y smart explican la posicion nueva; -M y -C -C buscan el origen.</div>
+                <div class="summary-chip"><strong>Lectura esperada</strong>Si lo que preguntas es quien escribio esas lineas, -M gana. Si preguntas quien hizo el refactor de moverlas, plain gana.</div>
+              </div>
+                            
+              <div class="inline-blame" role="table" aria-label="Atribucion inline de bloque movido">
+                <div class="inline-row inline-head" role="row">
+                  <div role="columnheader">Linea</div>
+                  <div role="columnheader">Cambio inline / contenido</div>
+                  <div role="columnheader" data-mode-result="plain">plain</div>
+                  <div role="columnheader" data-mode-result="w">-w</div>
+                  <div role="columnheader" data-mode-result="m">-M</div>
+                  <div role="columnheader" data-mode-result="cc">-C -C</div>
+                  <div role="columnheader" data-mode-result="smart">smart</div>
+                </div>
+                <div class="region-row">Lineas normales: no hay movimiento relevante, todos los modos coinciden.</div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">1</div><div class="source-code added-source">header line one</div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">2</div><div class="source-code added-source">header line two</div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">3</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag neutral">middle line</span><span class="diff-frag add ws" title="1 espacio anadido">&middot;</span><span class="diff-frag add">edited</span></span></div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip carol">Carol</span><span class="cell-note">cambio</span></div><div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip carol">Carol</span><span class="cell-note">cambio</span></div><div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip carol">Carol</span><span class="cell-note">cambio</span></div><div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip carol">Carol</span><span class="cell-note">cambio</span></div><div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip carol">Carol</span><span class="cell-note">cambio</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">4</div><div class="source-code added-source">footer line one</div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">5</div><div class="source-code added-source">footer line two</div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                </div>
+                <div class="region-row">Bloque movido: la diferencia ya no va de whitespace, va de detectar origen.</div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">6</div><div class="source-code diff-source"><span class="line-diff del full-line">-BLOCK alpha</span><span class="line-diff add full-line">+BLOCK alpha</span></div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip bob">Bob</span><span class="cell-note">movimiento</span></div><div class="attrib" data-mode-result="w"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip bob">Bob</span><span class="cell-note">movimiento</span></div><div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">origen -M</span></div><div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">origen -C</span></div><div class="attrib" data-mode-result="smart"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip bob">Bob</span><span class="cell-note">movimiento</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">7</div><div class="source-code diff-source"><span class="line-diff del full-line">-BLOCK beta</span><span class="line-diff add full-line">+BLOCK beta</span></div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip bob">Bob</span><span class="cell-note">movimiento</span></div><div class="attrib" data-mode-result="w"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip bob">Bob</span><span class="cell-note">movimiento</span></div><div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">origen -M</span></div><div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">origen -C</span></div><div class="attrib" data-mode-result="smart"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip bob">Bob</span><span class="cell-note">movimiento</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">8</div><div class="source-code diff-source"><span class="line-diff del full-line">-BLOCK gamma</span><span class="line-diff add full-line">+BLOCK gamma</span></div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip bob">Bob</span><span class="cell-note">movimiento</span></div><div class="attrib" data-mode-result="w"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip bob">Bob</span><span class="cell-note">movimiento</span></div><div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">origen -M</span></div><div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">origen -C</span></div><div class="attrib" data-mode-result="smart"><span class="verdict verdict-bad" title="Interpretacion perjudicial para este escenario">X</span><span class="blame-chip bob">Bob</span><span class="cell-note">movimiento</span></div>
+                </div>
+              </div>
+              </div>
+          </div>
+        </article>
+
+        <article class="case scenario-panel" id="scenario-evil" role="tabpanel" aria-labelledby="tab-evil" hidden>
+          <div class="case-head">
+            <div>
+              <h3>3. Evil merge con cambio real</h3>
+              <p class="why">Durante el merge se cambia `config.debug`, una linea que no venia cambiada de ninguna rama. Esa autoria si pertenece al merge.</p>
+            </div>
+            <span class="tag good">todos deben conservarlo</span>
+            <div class="mode-priority" aria-label="Que prioriza cada modo aqui">
+              <div class="priority-title">Que prioriza cada modo aqui</div>
+              <div class="priority-item" data-mode-result="plain"><strong>plain</strong><span>Ve el cambio real del merge y conserva Mallory.</span></div>
+              <div class="priority-item" data-mode-result="w"><strong>-w</strong><span>No lo ignora: debug cambia contenido, no espacios.</span></div>
+              <div class="priority-item" data-mode-result="m"><strong>-M</strong><span>No hay movimiento que reinterpretar.</span></div>
+              <div class="priority-item" data-mode-result="cc"><strong>-C -C</strong><span>No hay copia previa de debug=true.</span></div>
+              <div class="priority-item" data-mode-result="smart"><strong>smart</strong><span>git show -w no queda vacio; conserva Mallory.</span></div>
+            </div>
+          </div>
+          <div class="case-body case-body-inline">
+            <div class="inline-wrap">
+              <p class="caption">Blame inline: cambios reales y atribucion por modo</p>
+              <div class="inline-summary">
+                <div class="summary-chip"><strong>Cambio real en el merge</strong>`config.debug = true` no es solo espacio ni movimiento. La autoria correcta es el commit del merge.</div>
+                <div class="summary-chip"><strong>Lectura esperada</strong>Todos los modos deben conservar Mallory en la linea 4; smart no debe descartar un merge cuando `git show -w` sigue teniendo diff real.</div>
+              </div>
+                            
+              <div class="inline-blame" role="table" aria-label="Atribucion inline de evil merge">
+                <div class="inline-row inline-head" role="row">
+                  <div role="columnheader">Linea</div>
+                  <div role="columnheader">Cambio inline / contenido</div>
+                  <div role="columnheader" data-mode-result="plain">plain</div>
+                  <div role="columnheader" data-mode-result="w">-w</div>
+                  <div role="columnheader" data-mode-result="m">-M</div>
+                  <div role="columnheader" data-mode-result="cc">-C -C</div>
+                  <div role="columnheader" data-mode-result="smart">smart</div>
+                </div>
+                <div class="region-row">Solo la linea 4 es el cambio nuevo del merge; por eso todos los modos convergen ahi.</div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">1</div><div class="source-code added-source">config = {}</div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">2</div><div class="source-code added-source">config.host = localhost</div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">3</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag neutral">config.port = </span><span class="diff-frag del">8080</span><span class="diff-frag add">9090</span></span></div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip bob">Bob</span><span class="cell-note">cambio</span></div><div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip bob">Bob</span><span class="cell-note">cambio</span></div><div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip bob">Bob</span><span class="cell-note">cambio</span></div><div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip bob">Bob</span><span class="cell-note">cambio</span></div><div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip bob">Bob</span><span class="cell-note">cambio</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">4</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag neutral">config.debug = </span><span class="diff-frag del">false</span><span class="diff-frag add">true</span></span></div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">merge</span></div><div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">merge</span></div><div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">merge</span></div><div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">merge</span></div><div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip mallory">Mallory</span><span class="cell-note">merge</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">5</div><div class="source-code diff-source"><span class="char-diff-line"><span class="diff-frag neutral">config.retries = </span><span class="diff-frag del">3</span><span class="diff-frag add">5</span></span></div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip carol">Carol</span><span class="cell-note">cambio</span></div><div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip carol">Carol</span><span class="cell-note">cambio</span></div><div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip carol">Carol</span><span class="cell-note">cambio</span></div><div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip carol">Carol</span><span class="cell-note">cambio</span></div><div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip carol">Carol</span><span class="cell-note">cambio</span></div>
+                </div>
+                <div class="inline-row" role="row">
+                  <div class="line-no">6</div><div class="source-code added-source">start(config)</div>
+                  <div class="attrib" data-mode-result="plain"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="w"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="m"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="cc"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div><div class="attrib" data-mode-result="smart"><span class="verdict verdict-ok" title="Interpretacion correcta para este escenario">V</span><span class="blame-chip alice">Alice</span><span class="cell-note">creacion</span></div>
+                </div>
+              </div>
+              </div>
+          </div>
+        </article>
+        </div>
+      </div>
+    <section>
+      <div class="section-title">
+        <h2>Matriz de trade-offs</h2>
+        <p>Una lectura compacta para decidir el modo segun el tipo de sospecha.</p>
+      </div>
+      <div class="matrix" role="table" aria-label="Matriz de trade-offs de blame">
+        <div class="head">Caso</div>
+        <div class="head">plain</div>
+        <div class="head">-w</div>
+        <div class="head">-M</div>
+        <div class="head">-C -C</div>
+        <div class="head">smart</div>
+
+        <div class="rowhead">Cambio normal</div>
+        <div class="cell-good">Correcto y barato.</div>
+        <div class="cell-good">Normalmente correcto.</div>
+        <div class="cell-mixed">Correcto, con coste extra.</div>
+        <div class="cell-mixed">Correcto, con mas coste.</div>
+        <div class="cell-good">Correcto, con dos pasadas.</div>
+
+        <div class="rowhead">Merge reindentado</div>
+        <div class="cell-bad">Mancha muchas lineas.</div>
+        <div class="cell-good">Ignora whitespace incidental.</div>
+        <div class="cell-bad">No arregla whitespace.</div>
+        <div class="cell-bad">No arregla whitespace.</div>
+        <div class="cell-good">Descarta la mancha y conserva el cambio real.</div>
+
+        <div class="rowhead">Whitespace legitimo</div>
+        <div class="cell-good">Conserva al formatter.</div>
+        <div class="cell-bad">Borra al formatter.</div>
+        <div class="cell-good">Suele conservar al formatter.</div>
+        <div class="cell-good">Suele conservar al formatter.</div>
+        <div class="cell-good">Conserva al formatter si `git show -w` esta vacio.</div>
+
+        <div class="rowhead">Bloque movido</div>
+        <div class="cell-bad">Culpa al mover.</div>
+        <div class="cell-bad">No detecta movimiento.</div>
+        <div class="cell-good">Recupera origen en el fichero.</div>
+        <div class="cell-good">Puede recuperar copias/movimientos amplios.</div>
+        <div class="cell-bad">No incluye deteccion de movimiento.</div>
+
+        <div class="rowhead">Evil merge real</div>
+        <div class="cell-good">Conserva el merge.</div>
+        <div class="cell-good">Conserva el merge.</div>
+        <div class="cell-good">Conserva el merge.</div>
+        <div class="cell-good">Conserva el merge.</div>
+        <div class="cell-good">Conserva el merge.</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="takeaway">
+        <article>
+          <h3>Lectura practica</h3>
+          <ul>
+            <li>Si sospechas de whitespace incidental por merges o conflictos, compara `plain` contra `-w`.</li>
+            <li>Si `plain` y `-w` discrepan, `smart` decide por commit: conserva commits whitespace-only y descarta los que tienen cambios reales mezclados con reindentacion.</li>
+            <li>Si sospechas de bloques movidos o copiados, `smart` no basta: mira `-M` o `-C -C`.</li>
+          </ul>
+        </article>
+        <article>
+          <h3>Limitaciones de smart</h3>
+          <ul>
+            <li>Consume mas CPU: ejecuta blame plain y blame `-w`.</li>
+            <li>No distingue un reformat mecanico indeseado de un commit de formato legitimo si ambos son whitespace-only.</li>
+            <li>No resuelve movimientos/copias porque no incorpora `-M` ni `-C`.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const body = document.body;
+    const modeControls = document.querySelectorAll(".priority-item[data-mode-result], .inline-head [data-mode-result]");
+
+    function selectMode(mode) {
+      body.className = "focus-" + mode;
+      modeControls.forEach(control => {
+        const isSelected = control.dataset.modeResult === mode;
+        control.setAttribute("aria-pressed", isSelected ? "true" : "false");
+      });
+    }
+
+    modeControls.forEach(control => {
+      control.setAttribute("role", "button");
+      control.setAttribute("tabindex", "0");
+      control.addEventListener("click", () => selectMode(control.dataset.modeResult));
+      control.addEventListener("keydown", event => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          selectMode(control.dataset.modeResult);
+        }
+      });
+    });
+
+    selectMode("smart");
+    document.querySelectorAll(".tab-btn").forEach(button => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(tab => {
+          tab.classList.remove("active");
+          tab.setAttribute("aria-selected", "false");
+        });
+        document.querySelectorAll(".scenario-panel").forEach(panel => {
+          panel.classList.remove("active");
+          panel.hidden = true;
+        });
+        button.classList.add("active");
+        button.setAttribute("aria-selected", "true");
+        const panel = document.getElementById(button.dataset.tab);
+        if (panel) {
+          panel.hidden = false;
+          panel.classList.add("active");
+        }
+      });
+    });  </script>
+</body>
+</html>

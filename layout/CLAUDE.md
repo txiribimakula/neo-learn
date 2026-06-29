@@ -62,10 +62,17 @@ estar al final; si hay un remaining esa fila queda completa».
 ```
 
 - **Izquierda `.viz`**: toolbar (añadir / vaciar / presets / sliders de
-  contenedor y separación) → `.container` redimensionable (el ancho que repartimos)
-  → `.inspector` del control seleccionado (4 modos + slider de valor) → `.code`
-  (CSS vivo). El slider **«contenedor»** es clave: enseña que Fijo no se mueve,
+  contenedor y separación) → `.frame-wrap`/`.container` redimensionable (el ancho que
+  repartimos) → `.inspector` y `.code`, ambos en **paneles colapsables** (`.panel`
+  con `.panel-head`; clic alterna `.collapsed`) para liberar alto y ver más
+  controles. El slider **«contenedor»** es clave: enseña que Fijo no se mueve,
   Porcentaje escala y Restante absorbe el cambio.
+- **Cadena de alturas**: `.viz` y `.viz-inner` usan `height:100vh` (NO `100%` en
+  viz-inner: el `%` no resolvía contra el grid item sticky y la cadena flex
+  `stage → frame-wrap` no crecía). Con altura definida, al colapsar los paneles el
+  `.frame-wrap` (flex:1) absorbe el espacio. Nota: el iframe de preview resuelve mal
+  `vh` (sale ~342 con innerHeight 730) → verifica forzando `viz-inner.style.height
+  = innerHeight`.
 - **Derecha `.narrative`**: 6 `section.step` (máximo → fijo → porcentaje →
   restante → reparto en fila → "esto es flexbox"). Botones `.try[data-preset]`
   cargan ejemplos en el banco.
