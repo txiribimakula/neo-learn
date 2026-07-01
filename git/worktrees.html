@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Git worktrees</title>
+  <style>
+    :root {
+      --bg: #eef1f3;
+      --panel: #ffffff;
+      --ink: #1f252b;
+      --muted: #63707b;
+      --line: #cbd5dd;
+      --soft: #f5f7f9;
+      --soft-2: #e7edf2;
+      --blue: #2f6fbc;
+      --green: #2e8a57;
+      --amber: #b7781f;
+      --red: #b74242;
+      --violet: #7357b8;
+      --shadow: 0 18px 45px rgba(31, 37, 43, .11);
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 16% 8%, rgba(47, 111, 188, .12), transparent 30%),
+        linear-gradient(180deg, #fbfcfd 0, var(--bg) 42%, #e5ebf0 100%);
+      color: var(--ink);
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+      line-height: 1.42;
+    }
+
+    main {
+      width: min(1220px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 24px 0 54px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 24px;
+      align-items: end;
+      padding: 18px 0 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(34px, 5vw, 64px);
+      line-height: .96;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      margin: 14px 0 0;
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      min-width: min(470px, 100%);
+    }
+
+    .summary-item {
+      background: rgba(255,255,255,.74);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      min-height: 72px;
+    }
+
+    .summary-item strong {
+      display: block;
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .summary-item span {
+      display: block;
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    section { margin-top: 26px; }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .tabs {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .tab {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.72);
+      color: var(--ink);
+      border-radius: 8px;
+      padding: 13px 14px;
+      text-align: left;
+      cursor: pointer;
+      transition: background .15s ease, border-color .15s ease, transform .15s ease;
+    }
+
+    .tab:hover {
+      background: #fff;
+      border-color: #aab8c4;
+    }
+
+    .tab[aria-selected="true"] {
+      background: var(--panel);
+      border-color: var(--blue);
+      box-shadow: 0 10px 28px rgba(47, 111, 188, .15);
+      transform: translateX(2px);
+    }
+
+    .tab strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 15px;
+    }
+
+    .tab span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .stage {
+      background: rgba(255,255,255,.78);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      min-height: 640px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .stage-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,.82);
+    }
+
+    .stage-head h2 {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 34px);
+      letter-spacing: 0;
+    }
+
+    .stage-head p {
+      margin: 8px 0 0;
+      max-width: 720px;
+      color: var(--muted);
+    }
+
+    .command {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 5px 9px;
+      border-radius: 6px;
+      background: #18202a;
+      color: #f2f6fb;
+      font-family: Consolas, "Cascadia Mono", monospace;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .diagram {
+      position: relative;
+      min-height: 380px;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      align-items: end;
+    }
+
+    .repo-core {
+      position: absolute;
+      left: 50%;
+      top: 26px;
+      width: min(560px, calc(100% - 48px));
+      transform: translateX(-50%);
+      background: linear-gradient(180deg, #26313e, #19222d);
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 8px;
+      color: #f8fbff;
+      padding: 16px 18px 14px;
+      box-shadow: 0 16px 36px rgba(25,34,45,.25);
+      z-index: 2;
+    }
+
+    .repo-core h3 {
+      margin: 0 0 11px;
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+
+    .commit-line {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      align-items: center;
+      position: relative;
+    }
+
+    .commit-line::before {
+      content: "";
+      position: absolute;
+      left: 8%;
+      right: 8%;
+      top: 18px;
+      height: 3px;
+      background: rgba(255,255,255,.24);
+      border-radius: 99px;
+    }
+
+    .commit {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      display: grid;
+      gap: 7px;
+      justify-items: center;
+      font-size: 12px;
+      color: rgba(255,255,255,.78);
+    }
+
+    .dot {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 3px solid rgba(255,255,255,.34);
+      background: #33465b;
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .dot.main { background: var(--blue); }
+    .dot.feature { background: var(--green); }
+    .dot.hotfix { background: var(--red); }
+    .dot.detached { background: var(--violet); }
+
+    .connector {
+      position: absolute;
+      top: 166px;
+      bottom: 168px;
+      width: 2px;
+      background: repeating-linear-gradient(180deg, rgba(47,111,188,.55), rgba(47,111,188,.55) 8px, transparent 8px, transparent 14px);
+      z-index: 0;
+    }
+
+    .connector.c1 { left: 17%; }
+    .connector.c2 { left: 50%; }
+    .connector.c3 { left: 83%; }
+
+    .worktree {
+      position: relative;
+      z-index: 1;
+      margin-top: 180px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      min-height: 190px;
+      padding: 14px;
+      box-shadow: 0 10px 28px rgba(31,37,43,.08);
+      transition: opacity .2s ease, transform .2s ease;
+    }
+
+    .worktree.hidden {
+      opacity: .22;
+      transform: translateY(8px);
+    }
+
+    .folder-icon {
+      width: 44px;
+      height: 32px;
+      position: relative;
+      margin-bottom: 12px;
+    }
+
+    .folder-icon::before,
+    .folder-icon::after {
+      content: "";
+      position: absolute;
+      background: #dcae47;
+      border: 1px solid #b98a2e;
+    }
+
+    .folder-icon::before {
+      width: 22px;
+      height: 9px;
+      left: 2px;
+      top: 1px;
+      border-radius: 4px 4px 0 0;
+    }
+
+    .folder-icon::after {
+      width: 42px;
+      height: 24px;
+      left: 0;
+      top: 8px;
+      border-radius: 4px;
+    }
+
+    .worktree h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .path {
+      margin-top: 4px;
+      color: var(--muted);
+      font-family: Consolas, "Cascadia Mono", monospace;
+      font-size: 12px;
+      word-break: break-word;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 12px;
+    }
+
+    .chip {
+      border-radius: 99px;
+      padding: 4px 8px;
+      border: 1px solid var(--line);
+      background: var(--soft);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1;
+    }
+
+    .chip.branch { border-color: rgba(47,111,188,.3); background: rgba(47,111,188,.11); color: var(--blue); }
+    .chip.clean { border-color: rgba(46,138,87,.35); background: rgba(46,138,87,.11); color: var(--green); }
+    .chip.dirty { border-color: rgba(183,120,31,.35); background: rgba(183,120,31,.12); color: var(--amber); }
+    .chip.locked { border-color: rgba(183,66,66,.35); background: rgba(183,66,66,.11); color: var(--red); }
+
+    .notes {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      padding: 0 20px 20px;
+    }
+
+    .note {
+      background: var(--soft);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 13px;
+      min-height: 116px;
+    }
+
+    .note strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 15px;
+    }
+
+    .note p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .comparison {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .compare-panel {
+      background: rgba(255,255,255,.76);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      box-shadow: 0 10px 28px rgba(31,37,43,.07);
+    }
+
+    .compare-panel h2 {
+      margin: 0 0 12px;
+      font-size: 24px;
+    }
+
+    .step-list {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .step-list li {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      color: var(--muted);
+    }
+
+    .num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--soft-2);
+      color: var(--ink);
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .terminal {
+      background: #161d26;
+      color: #dfe8f4;
+      border-radius: 8px;
+      padding: 14px;
+      overflow-x: auto;
+      font-family: Consolas, "Cascadia Mono", monospace;
+      font-size: 13px;
+      border: 1px solid rgba(255,255,255,.12);
+      min-height: 116px;
+    }
+
+    .terminal .muted { color: #8fa1b5; }
+    .terminal .ok { color: #91d49f; }
+    .terminal .warn { color: #ffd28a; }
+
+    @media (max-width: 920px) {
+      header,
+      .workspace,
+      .comparison,
+      .notes {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-strip { min-width: 0; }
+      .diagram { grid-template-columns: 1fr; }
+      .repo-core { position: relative; top: auto; left: auto; transform: none; width: auto; grid-column: 1; }
+      .connector { display: none; }
+      .worktree { margin-top: 0; }
+    }
+
+    @media (max-width: 620px) {
+      main { width: min(100vw - 20px, 1220px); padding-top: 12px; }
+      .summary-strip { grid-template-columns: 1fr; }
+      .stage-head { grid-template-columns: 1fr; }
+      .command { white-space: normal; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Git worktrees</h1>
+        <p class="lead">Un worktree te permite tener varias carpetas de trabajo del mismo repositorio, cada una en una rama o commit distinto, compartiendo la misma historia Git.</p>
+      </div>
+      <div class="summary-strip" aria-label="Resumen rapido">
+        <div class="summary-item"><strong>1</strong><span>base de objetos Git compartida</span></div>
+        <div class="summary-item"><strong>N</strong><span>carpetas de trabajo independientes</span></div>
+        <div class="summary-item"><strong>0</strong><span>stashes obligatorios para cambiar de contexto</span></div>
+      </div>
+    </header>
+
+    <section class="workspace" aria-label="Escenarios de worktree">
+      <nav class="tabs" aria-label="Escenarios">
+        <button class="tab" type="button" data-scenario="normal" aria-selected="true"><strong>Checkout normal</strong><span>Una sola carpeta cambia de rama.</span></button>
+        <button class="tab" type="button" data-scenario="parallel" aria-selected="false"><strong>Trabajo paralelo</strong><span>Main, feature y hotfix viven a la vez.</span></button>
+        <button class="tab" type="button" data-scenario="occupied" aria-selected="false"><strong>Rama ocupada</strong><span>Git evita usar la misma rama dos veces.</span></button>
+        <button class="tab" type="button" data-scenario="detached" aria-selected="false"><strong>Inspeccion temporal</strong><span>Abres un commit antiguo sin tocar tu rama.</span></button>
+      </nav>
+
+      <div class="stage">
+        <div class="stage-head">
+          <div>
+            <h2 id="scenarioTitle">Checkout normal</h2>
+            <p id="scenarioText">Con una sola carpeta, cambiar de rama reemplaza el contenido de esa carpeta. Si tienes cambios sin commit, necesitas resolverlos antes de moverte.</p>
+          </div>
+          <code class="command" id="scenarioCommand">git checkout feature/login</code>
+        </div>
+
+        <div class="diagram" aria-label="Diagrama de worktrees">
+          <div class="repo-core">
+            <h3>.git compartido: objetos, commits, refs</h3>
+            <div class="commit-line" id="commitLine">
+              <div class="commit"><span class="dot main">A</span><span>base</span></div>
+              <div class="commit"><span class="dot main">B</span><span>main</span></div>
+              <div class="commit"><span class="dot feature">C</span><span>feature</span></div>
+              <div class="commit"><span class="dot hotfix">D</span><span>hotfix</span></div>
+              <div class="commit"><span class="dot detached">E</span><span>antiguo</span></div>
+            </div>
+          </div>
+
+          <div class="connector c1"></div>
+          <div class="connector c2"></div>
+          <div class="connector c3"></div>
+
+          <article class="worktree" id="wtMain">
+            <div class="folder-icon" aria-hidden="true"></div>
+            <h3>neo-git</h3>
+            <div class="path">C:\repo\neo-git</div>
+            <div class="chips">
+              <span class="chip branch" id="mainBranch">main</span>
+              <span class="chip clean" id="mainState">clean</span>
+              <span class="chip">actual</span>
+            </div>
+          </article>
+
+          <article class="worktree hidden" id="wtFeature">
+            <div class="folder-icon" aria-hidden="true"></div>
+            <h3>neo-git-feature-login</h3>
+            <div class="path">C:\repo\neo-git-feature-login</div>
+            <div class="chips">
+              <span class="chip branch" id="featureBranch">feature/login</span>
+              <span class="chip dirty" id="featureState">2 changes</span>
+            </div>
+          </article>
+
+          <article class="worktree hidden" id="wtHotfix">
+            <div class="folder-icon" aria-hidden="true"></div>
+            <h3 id="thirdTitle">neo-git-hotfix</h3>
+            <div class="path" id="thirdPath">C:\repo\neo-git-hotfix</div>
+            <div class="chips" id="thirdChips">
+              <span class="chip branch">hotfix/crash</span>
+              <span class="chip clean">clean</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="notes">
+          <div class="note"><strong id="noteOneTitle">Una carpeta</strong><p id="noteOne">Solo hay un checkout activo. La rama cambia, pero la carpeta es la misma.</p></div>
+          <div class="note"><strong id="noteTwoTitle">Cambios locales</strong><p id="noteTwo">Los cambios sin commit pueden bloquear el checkout si chocan con la rama destino.</p></div>
+          <div class="note"><strong id="noteThreeTitle">Coste mental</strong><p id="noteThree">Tienes que recordar que contexto estabas usando antes de cambiar.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="comparison" aria-label="Comparacion entre checkout y worktree">
+      <div class="compare-panel">
+        <h2>Sin worktrees</h2>
+        <ol class="step-list">
+          <li><span class="num">1</span><span>Estas en `main` dentro de una unica carpeta.</span></li>
+          <li><span class="num">2</span><span>Quieres revisar un hotfix o una feature.</span></li>
+          <li><span class="num">3</span><span>Stash, commit temporal o checkout bloqueado si hay cambios incompatibles.</span></li>
+          <li><span class="num">4</span><span>Vuelves a `main` y recuperas contexto manualmente.</span></li>
+        </ol>
+      </div>
+      <div class="compare-panel">
+        <h2>Con worktrees</h2>
+        <ol class="step-list">
+          <li><span class="num">1</span><span>`main` sigue abierto en su carpeta.</span></li>
+          <li><span class="num">2</span><span>Creas otra carpeta para `feature/login` o `hotfix/crash`.</span></li>
+          <li><span class="num">3</span><span>Cada carpeta tiene su propio index y sus propios cambios.</span></li>
+          <li><span class="num">4</span><span>La historia Git se comparte, asi que no duplicas el repositorio completo.</span></li>
+        </ol>
+      </div>
+    </section>
+
+    <section>
+      <pre class="terminal" id="terminal"><span class="muted"># Una sola carpeta: cambiar de rama cambia ese workspace</span>
+git checkout feature/login
+<span class="warn"># Si hay cambios locales incompatibles, Git te frena.</span></pre>
+    </section>
+  </main>
+
+  <script>
+    const scenarios = {
+      normal: {
+        title: "Checkout normal",
+        text: "Con una sola carpeta, cambiar de rama reemplaza el contenido de esa carpeta. Si tienes cambios sin commit, necesitas resolverlos antes de moverte.",
+        command: "git checkout feature/login",
+        visible: ["wtMain"],
+        mainBranch: "feature/login",
+        mainState: "working folder changes",
+        mainDirty: true,
+        thirdTitle: "neo-git-hotfix",
+        thirdPath: "C:\\repo\\neo-git-hotfix",
+        thirdChips: ["hotfix/crash", "clean"],
+        notes: [
+          ["Una carpeta", "Solo hay un checkout activo. La rama cambia, pero la carpeta es la misma."],
+          ["Cambios locales", "Los cambios sin commit pueden bloquear el checkout si chocan con la rama destino."],
+          ["Coste mental", "Tienes que recordar que contexto estabas usando antes de cambiar."]
+        ],
+        terminal: `<span class="muted"># Una sola carpeta: cambiar de rama cambia ese workspace</span>\ngit checkout feature/login\n<span class="warn"># Si hay cambios locales incompatibles, Git te frena.</span>`
+      },
+      parallel: {
+        title: "Trabajo paralelo",
+        text: "Cada worktree es una carpeta distinta. Puedes compilar main, tocar una feature y preparar un hotfix sin pisarte el estado local.",
+        command: "git worktree add ../neo-git-feature-login feature/login",
+        visible: ["wtMain", "wtFeature", "wtHotfix"],
+        mainBranch: "main",
+        mainState: "clean",
+        mainDirty: false,
+        thirdTitle: "neo-git-hotfix",
+        thirdPath: "C:\\repo\\neo-git-hotfix",
+        thirdChips: ["hotfix/crash", "clean"],
+        notes: [
+          ["Misma historia", "Los tres worktrees comparten objetos y commits en Git."],
+          ["Estado separado", "Cada carpeta tiene su index, archivos modificados y build outputs."],
+          ["Cambio de contexto", "No necesitas stash para mirar otra rama; abres otra carpeta." ]
+        ],
+        terminal: `<span class="muted"># Crear carpetas paralelas desde el mismo repo</span>\ngit worktree add ../neo-git-feature-login feature/login\ngit worktree add ../neo-git-hotfix hotfix/crash\n<span class="ok"># main sigue intacto en C:\\repo\\neo-git</span>`
+      },
+      occupied: {
+        title: "Rama ocupada",
+        text: "Git no permite tener la misma rama checked out en dos worktrees vivos. Neo Git deberia detectarlo y ofrecer abrir la carpeta que ya la tiene.",
+        command: "git worktree list --porcelain",
+        visible: ["wtMain", "wtFeature"],
+        mainBranch: "main",
+        mainState: "clean",
+        mainDirty: false,
+        thirdTitle: "neo-git-hotfix",
+        thirdPath: "C:\\repo\\neo-git-hotfix",
+        thirdChips: ["hotfix/crash", "clean"],
+        notes: [
+          ["Proteccion", "Una rama no puede estar checked out dos veces a la vez."],
+          ["UX esperada", "En vez de mostrar un error Git crudo, Neo Git puede decir donde esta esa rama."],
+          ["Alternativa", "Abrir el worktree existente o crear una rama nueva desde esa base." ]
+        ],
+        terminal: `<span class="muted"># Si feature/login ya vive en otro worktree</span>\ngit worktree add ../otro feature/login\n<span class="warn">fatal: 'feature/login' is already checked out at '../neo-git-feature-login'</span>`
+      },
+      detached: {
+        title: "Inspeccion temporal",
+        text: "Un worktree tambien puede apuntar a un commit concreto. Sirve para revisar o probar una version antigua sin mover tu rama actual.",
+        command: "git worktree add --detach ../neo-git-old a1b2c3d",
+        visible: ["wtMain", "wtFeature", "wtHotfix"],
+        mainBranch: "main",
+        mainState: "clean",
+        mainDirty: false,
+        thirdTitle: "neo-git-old",
+        thirdPath: "C:\\repo\\neo-git-old",
+        thirdChips: ["detached a1b2c3d", "read-only intent"],
+        notes: [
+          ["Commit exacto", "La carpeta se abre en una revision concreta, no en una rama."],
+          ["Sin tocar main", "Tu rama principal no se mueve mientras inspeccionas."],
+          ["Limpieza", "Cuando terminas, eliminas ese worktree temporal." ]
+        ],
+        terminal: `<span class="muted"># Abrir una revision antigua sin cambiar main</span>\ngit worktree add --detach ../neo-git-old a1b2c3d\n<span class="ok"># Ideal para reproducir bugs o comparar builds.</span>`
+      }
+    };
+
+    const tabs = Array.from(document.querySelectorAll(".tab"));
+    const worktrees = ["wtMain", "wtFeature", "wtHotfix"].map(id => document.getElementById(id));
+    const chipClassFor = text => {
+      if (text.includes("clean")) return "chip clean";
+      if (text.includes("change")) return "chip dirty";
+      if (text.includes("detached")) return "chip branch";
+      if (text.includes("read-only")) return "chip locked";
+      return "chip branch";
+    };
+
+    function renderScenario(name) {
+      const data = scenarios[name];
+      document.getElementById("scenarioTitle").textContent = data.title;
+      document.getElementById("scenarioText").textContent = data.text;
+      document.getElementById("scenarioCommand").textContent = data.command;
+      document.getElementById("mainBranch").textContent = data.mainBranch;
+      document.getElementById("mainState").textContent = data.mainState;
+      document.getElementById("mainState").className = data.mainDirty ? "chip dirty" : "chip clean";
+      document.getElementById("thirdTitle").textContent = data.thirdTitle;
+      document.getElementById("thirdPath").textContent = data.thirdPath;
+      document.getElementById("thirdChips").innerHTML = data.thirdChips.map(text => `<span class="${chipClassFor(text)}">${text}</span>`).join("");
+
+      worktrees.forEach(el => el.classList.toggle("hidden", !data.visible.includes(el.id)));
+      data.notes.forEach((note, index) => {
+        document.getElementById(["noteOneTitle", "noteTwoTitle", "noteThreeTitle"][index]).textContent = note[0];
+        document.getElementById(["noteOne", "noteTwo", "noteThree"][index]).textContent = note[1];
+      });
+      document.getElementById("terminal").innerHTML = data.terminal;
+      tabs.forEach(tab => tab.setAttribute("aria-selected", String(tab.dataset.scenario === name)));
+    }
+
+    tabs.forEach(tab => tab.addEventListener("click", () => renderScenario(tab.dataset.scenario)));
+  </script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -30,9 +30,7 @@
   body{
     margin:0;
     min-height:100vh;
-    background:
-      linear-gradient(180deg, rgba(255,255,255,.9), rgba(255,255,255,.4) 38%, rgba(255,255,255,0)),
-      var(--bg);
+    background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.42) 42%, rgba(255,255,255,0)), var(--bg);
     color:var(--ink);
     font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
   }
@@ -53,18 +51,12 @@
 
   h1{
     margin:0;
-    font-size:clamp(24px, 4vw, 44px);
+    font-size:40px;
     line-height:1;
     letter-spacing:0;
   }
 
-  .controls{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    flex-wrap:wrap;
-  }
-
+  .controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   button{
     min-height:36px;
     border:1px solid var(--line);
@@ -77,7 +69,6 @@
     font-weight:800;
     cursor:pointer;
   }
-
   button:hover{border-color:var(--blue)}
   button.primary{background:var(--blue);border-color:var(--blue);color:#fff}
   button.mode.active{background:var(--blue-soft);border-color:#9bb8d5;color:var(--blue)}
@@ -85,12 +76,10 @@
   .scene{
     position:relative;
     height:min(720px, calc(100vh - 104px));
-    min-height:620px;
+    min-height:640px;
     border:1px solid var(--line);
     border-radius:8px;
-    background:
-      linear-gradient(180deg, #fbfdff, #f2f6fa),
-      radial-gradient(circle at 20% 20%, rgba(47,95,143,.08), transparent 30%);
+    background:linear-gradient(180deg, #fbfdff, #f2f6fa);
     overflow:hidden;
     box-shadow:var(--shadow);
   }
@@ -104,21 +93,16 @@
     border-radius:999px;
     font-size:11px;
     font-weight:900;
-    letter-spacing:.02em;
+    letter-spacing:0;
     white-space:nowrap;
   }
-
   .badge.old{background:var(--old-soft);color:#45566d}
   .badge.new{background:var(--new-soft);color:#066653}
   .badge.pass{background:var(--pass-soft);color:var(--pass)}
   .badge.fail{background:var(--fail-soft);color:var(--fail)}
   .badge.warn{background:var(--warn-soft);color:var(--warn)}
 
-  .artifact,
-  .runner,
-  .result,
-  .lb,
-  .pod{
+  .artifact,.runner,.client,.result-stack,.lb,.pod{
     position:absolute;
     border:1px solid var(--line);
     background:var(--panel);
@@ -127,469 +111,163 @@
   }
 
   .artifact{
-    left:5%;
-    top:7%;
-    width:210px;
-    min-height:92px;
-    padding:12px;
-    display:grid;
-    gap:8px;
-    align-content:center;
+    left:5%;top:7%;width:210px;min-height:92px;padding:12px;
+    display:grid;gap:8px;align-content:center;
   }
-
-  .cube{
-    width:44px;
-    height:38px;
-    border-radius:7px;
-    background:linear-gradient(135deg, #38b99e, #0f766e);
-    box-shadow:inset -10px -8px 0 rgba(0,0,0,.12);
-  }
-
-  .artifact-row{
-    display:flex;
-    align-items:center;
-    gap:10px;
-  }
-
-  .mini-title{
-    font-size:12px;
-    color:var(--muted);
-    font-weight:800;
-    text-transform:uppercase;
-  }
-
-  .id{
-    font-family:"Cascadia Mono",Consolas,monospace;
-    font-size:12px;
-    font-weight:900;
-  }
+  .artifact-row{display:flex;align-items:center;gap:10px}
+  .cube{width:44px;height:38px;border-radius:7px;background:linear-gradient(135deg,#38b99e,#0f766e);box-shadow:inset -10px -8px 0 rgba(0,0,0,.12)}
+  .mini-title{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase}
+  .id{font-family:"Cascadia Mono",Consolas,monospace;font-size:12px;font-weight:900}
 
   .cluster{
-    position:absolute;
-    left:24%;
-    top:16%;
-    width:52%;
-    height:48%;
-    border:2px dashed #b8c7d9;
-    border-radius:10px;
-    background:rgba(255,255,255,.42);
+    position:absolute;left:23%;top:16%;width:53%;height:48%;
+    border:2px dashed #b8c7d9;border-radius:10px;background:rgba(255,255,255,.42);
   }
-
-  .cluster-label{
-    position:absolute;
-    left:16px;
-    top:12px;
-    color:var(--muted);
-    font-size:12px;
-    font-weight:900;
-    text-transform:uppercase;
-  }
+  .cluster-label{position:absolute;left:16px;top:12px;color:var(--muted);font-size:12px;font-weight:900;text-transform:uppercase}
 
   .pod{
-    top:30%;
-    width:205px;
-    min-height:168px;
-    padding:14px;
-    display:grid;
-    gap:10px;
-    align-content:start;
-    border-left-width:6px;
+    top:30%;width:205px;min-height:174px;padding:14px;
+    display:grid;gap:10px;align-content:start;border-left-width:6px;
+    transition:opacity .45s ease, transform .45s ease, filter .45s ease, box-shadow .25s ease;
   }
+  .pod.old{left:8%;border-left-color:var(--old)}
+  .pod.new{right:8%;border-left-color:var(--new);opacity:0;transform:translateY(-20px) scale(.96)}
+  .pod.show{opacity:1;transform:translateY(0) scale(1)}
+  .pod.removed{opacity:.18;filter:grayscale(.8);transform:translateY(8px) scale(.96)}
+  .pod.rollback{opacity:.28;filter:grayscale(.85);transform:translateY(8px) scale(.96)}
+  .pod.restored{opacity:1;filter:none;box-shadow:0 0 0 5px rgba(40,121,77,.16), 0 12px 28px rgba(30,41,59,.09)}
+  .pod.hit{box-shadow:0 0 0 5px rgba(47,95,143,.18), 0 16px 36px rgba(30,41,59,.15);transform:translateY(-3px) scale(1)}
 
-  .pod.old{
-    left:8%;
-    border-left-color:var(--old);
-  }
-
-  .pod.new{
-    right:8%;
-    border-left-color:var(--new);
-    opacity:0;
-    transform:translateY(-20px) scale(.96);
-  }
-
-  .scene.run .pod.new{
-    animation:newPodIn .55s ease .35s forwards;
-  }
-
-  .pod-head{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:8px;
-  }
-
-  .pod-name{
-    font-weight:950;
-    font-size:18px;
-  }
-
+  .pod-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .pod-name{font-weight:950;font-size:18px}
   .screen{
-    height:58px;
-    border:1px solid #d9e2ee;
-    border-radius:7px;
-    background:linear-gradient(180deg, #f8fafc, #edf3f8);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:8px;
-    overflow:hidden;
+    height:58px;border:1px solid #d9e2ee;border-radius:7px;
+    background:linear-gradient(180deg,#f8fafc,#edf3f8);
+    display:flex;align-items:center;justify-content:center;gap:8px;overflow:hidden;
   }
+  .pod.old .screen::before{content:"";width:14px;height:14px;border-radius:50%;background:var(--pass);box-shadow:0 0 0 5px rgba(40,121,77,.12)}
+  .spinner{width:23px;height:23px;border-radius:50%;border:3px solid rgba(15,138,116,.24);border-top-color:var(--new);animation:spin .8s linear infinite}
+  .bar{height:8px;border-radius:999px;background:#e5edf5;overflow:hidden}
+  .bar span{display:block;height:100%;width:0;background:var(--new);transition:width .8s ease, background .25s ease}
+  .pod.new.ready .bar span{width:100%}
+  .pod.new.bad .bar span{width:100%;background:var(--fail)}
 
-  .pod.old .screen::before{
-    content:"";
-    width:14px;
-    height:14px;
-    border-radius:50%;
-    background:var(--pass);
-    box-shadow:0 0 0 5px rgba(40,121,77,.12);
+  .overlay-stamp{
+    position:absolute;right:14px;bottom:12px;min-width:74px;min-height:34px;
+    border:2px solid var(--fail);border-radius:7px;background:var(--fail-soft);
+    color:var(--fail);font-weight:1000;display:flex;align-items:center;justify-content:center;
+    opacity:0;transform:rotate(-3deg) scale(.9);transition:opacity .25s ease, transform .25s ease;
   }
+  .overlay-stamp.show{opacity:1;transform:rotate(-3deg) scale(1)}
+  .overlay-stamp.warn{border-color:var(--warn);background:var(--warn-soft);color:var(--warn)}
 
-  .spinner{
-    width:23px;
-    height:23px;
-    border-radius:50%;
-    border:3px solid rgba(15,138,116,.24);
-    border-top-color:var(--new);
-    animation:spin .8s linear infinite;
+  .lb{left:47%;bottom:23%;width:74px;height:74px;transform:rotate(45deg);display:flex;align-items:center;justify-content:center;background:#f8fbff;z-index:5}
+  .lb span{transform:rotate(-45deg);font-weight:950;color:var(--blue)}
+
+  .runner,.client{width:215px;min-height:110px;padding:13px;display:grid;gap:9px;align-content:center;z-index:6}
+  .runner{left:6%;bottom:8%}
+  .client{right:5%;bottom:8%}
+  .actor-main{display:flex;align-items:center;gap:10px}
+  .actor-icon{width:42px;height:42px;border-radius:8px;position:relative;flex:0 0 auto}
+  .runner .actor-icon{background:linear-gradient(180deg,#315f8f,#204869)}
+  .client .actor-icon{background:linear-gradient(180deg,#7a5b22,#4f3d1e)}
+  .actor-icon::after{content:"";position:absolute;left:10px;right:10px;top:11px;height:4px;background:#fff;box-shadow:0 9px 0 rgba(255,255,255,.78),0 18px 0 rgba(255,255,255,.56)}
+
+  .result-stack{
+    right:5%;top:8%;width:260px;min-height:270px;padding:12px;
+    display:grid;gap:8px;align-content:start;z-index:7;
   }
-
-  .bar{
-    height:8px;
-    border-radius:999px;
-    background:#e5edf5;
-    overflow:hidden;
+  .event-card{
+    min-height:66px;border:1px solid #dbe3ee;border-radius:8px;background:#f8fbff;
+    padding:9px 10px;display:grid;gap:4px;opacity:.24;transform:translateY(8px);
+    transition:opacity .25s ease, transform .25s ease, border-color .2s ease, background .2s ease;
   }
+  .event-card.show{opacity:1;transform:translateY(0)}
+  .event-card.pass{border-color:#9ed5b1;background:#f0fbf4}
+  .event-card.fail{border-color:#eca3a3;background:#fff2f2}
+  .event-card.warn{border-color:#e6c17c;background:#fff8e8}
+  .event-card.rollback{border-color:#e6c17c;background:#fff8e8}
+  .event-head{display:flex;justify-content:space-between;gap:8px;align-items:center;color:var(--muted);font-size:11px;font-weight:900;text-transform:uppercase}
+  .event-main{font-size:34px;line-height:.95;font-weight:1000;letter-spacing:0;color:var(--ink)}
+  .event-card.pass .event-main{color:var(--pass)}
+  .event-card.fail .event-main{color:var(--fail)}
+  .event-card.warn .event-main,.event-card.rollback .event-main{color:var(--warn)}
+  .event-sub{font-size:12px;font-weight:850;color:var(--muted)}
 
-  .bar span{
-    display:block;
-    height:100%;
-    width:0;
-    background:var(--new);
-  }
+  .links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+  .links path{fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:0;transition:opacity .18s ease;vector-effect:non-scaling-stroke}
+  .deploy-path{stroke:var(--new);stroke-width:4;stroke-dasharray:9 9}
+  .test-old-path,.test-new-path,.client-old-path,.client-new-path{stroke:var(--blue);stroke-width:6;stroke-dasharray:10 9}
+  .client-new-path.bad,.test-new-path.bad{stroke:var(--fail)}
+  .path-on{opacity:.58!important;animation:march .7s linear infinite}
+  .path-soft{opacity:.26!important}
 
-  .scene.run .bar span{animation:build 5s ease .7s forwards}
+  .packet{position:absolute;width:24px;height:24px;border-radius:50%;opacity:0;z-index:9;box-shadow:0 0 0 7px rgba(47,95,143,.16),0 8px 16px rgba(30,41,59,.22)}
+  .packet.test{left:16%;top:79%;background:var(--blue)}
+  .packet.client{left:83%;top:80%;background:#7a5b22}
+  .packet.fly-test-old{animation:flyTestOld 1.25s cubic-bezier(.45,.05,.2,1) forwards}
+  .packet.fly-test-new{animation:flyTestNew 1.25s cubic-bezier(.45,.05,.2,1) forwards}
+  .packet.fly-client-new{animation:flyClientNew 1.25s cubic-bezier(.45,.05,.2,1) forwards}
+  .packet.fly-client-old{animation:flyClientOld 1.25s cubic-bezier(.45,.05,.2,1) forwards}
 
-  .lb{
-    left:47%;
-    bottom:22%;
-    width:74px;
-    height:74px;
-    transform:rotate(45deg);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    background:#f8fbff;
-  }
+  .timeline{position:absolute;left:50%;bottom:2.2%;transform:translateX(-50%);display:flex;align-items:center;justify-content:center;gap:10px;z-index:8}
+  .dot{width:12px;height:12px;border-radius:50%;background:#c5cfdb;transition:background .2s ease, box-shadow .2s ease}
+  .dot.on{background:var(--blue);box-shadow:0 0 0 7px rgba(47,95,143,.14)}
 
-  .lb span{
-    transform:rotate(-45deg);
-    font-weight:950;
-    color:var(--blue);
-  }
-
-  .runner{
-    left:6%;
-    bottom:8%;
-    width:230px;
-    min-height:112px;
-    padding:14px;
-    display:grid;
-    gap:10px;
-    align-content:center;
-  }
-
-  .runner-main{
-    display:flex;
-    align-items:center;
-    gap:10px;
-  }
-
-  .runner-icon{
-    width:44px;
-    height:44px;
-    border-radius:8px;
-    background:linear-gradient(180deg, #315f8f, #204869);
-    position:relative;
-  }
-
-  .runner-icon::after{
-    content:"";
-    position:absolute;
-    left:10px;
-    right:10px;
-    top:12px;
-    height:4px;
-    background:#fff;
-    box-shadow:0 9px 0 rgba(255,255,255,.8), 0 18px 0 rgba(255,255,255,.56);
-  }
-
-  .result{
-    right:5%;
-    bottom:8%;
-    width:270px;
-    min-height:140px;
-    padding:16px;
-    display:grid;
-    gap:10px;
-    align-content:center;
-    opacity:.35;
-    transform:translateY(12px);
-  }
-
-  .scene.run .result{animation:resultIn .45s ease 3.45s forwards}
-
-  .result-main{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:12px;
-  }
-
-  .result-word{
-    font-size:44px;
-    line-height:.9;
-    font-weight:1000;
-    letter-spacing:0;
-    color:var(--pass);
-  }
-
-  .mode-id .result-word{
-    font-size:34px;
-    color:var(--warn);
-  }
-
-  .raw-only,
-  .id-only{display:none}
-  .mode-raw .raw-only{display:inline-flex}
-  .mode-id .id-only{display:inline-flex}
-  .mode-raw .result .raw-only,
-  .mode-id .result .id-only{display:block}
-
-  .mode-id .raw-status{display:none}
-  .mode-raw .id-status{display:none}
-
-  .links{
-    position:absolute;
-    inset:0;
-    width:100%;
-    height:100%;
-    pointer-events:none;
-  }
-
-  .links path{
-    fill:none;
-    stroke-linecap:round;
-    stroke-linejoin:round;
-  }
-
-  .deploy-path{
-    stroke:var(--new);
-    stroke-width:4;
-    stroke-dasharray:9 9;
-    opacity:.34;
-  }
-
-  .old-path{
-    stroke:var(--blue);
-    stroke-width:6;
-    stroke-dasharray:10 9;
-    opacity:0;
-  }
-
-  .ghost-path{
-    stroke:var(--fail);
-    stroke-width:3;
-    stroke-dasharray:10 9;
-    opacity:0;
-  }
-
-  .scene.run .deploy-path{animation:pathPulse 1.2s ease .3s both}
-  .scene.run .old-path{animation:requestPath 1.35s ease 1.75s both}
-  .scene.run .ghost-path{animation:ghostPath .8s ease 4.1s forwards}
-
-  .packet{
-    position:absolute;
-    left:16%;
-    top:79%;
-    width:24px;
-    height:24px;
-    border-radius:50%;
-    background:var(--blue);
-    box-shadow:0 0 0 7px rgba(47,95,143,.16), 0 8px 16px rgba(30,41,59,.22);
-    opacity:0;
-    z-index:8;
-  }
-
-  .scene.run .packet{animation:packetToOld 1.45s cubic-bezier(.45,.05,.2,1) 1.75s forwards}
-
-  .hit-ring{
-    position:absolute;
-    left:calc(24% + 8% + 102px);
-    top:calc(16% + 30% + 84px);
-    width:22px;
-    height:22px;
-    border-radius:50%;
-    border:3px solid var(--pass);
-    opacity:0;
-    transform:translate(-50%, -50%) scale(.5);
-    z-index:9;
-  }
-
-  .scene.run .hit-ring{animation:hitPulse .58s ease 3.05s forwards}
-
-  .fail-peek{
-    position:absolute;
-    right:18px;
-    bottom:14px;
-    min-width:70px;
-    min-height:34px;
-    border:2px solid var(--fail);
-    border-radius:7px;
-    background:var(--fail-soft);
-    color:var(--fail);
-    font-weight:1000;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    opacity:0;
-    transform:rotate(-3deg) scale(.9);
-  }
-
-  .scene.run .fail-peek{animation:peek .45s ease 4.25s forwards}
-
-  .pod.old.hit{
-    animation:none;
-  }
-
-  .scene.run .pod.old{
-    animation:oldHit .75s ease 3s;
-  }
-
-  .timeline{
-    position:absolute;
-    left:50%;
-    bottom:2.2%;
-    transform:translateX(-50%);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:10px;
-  }
-
-  .dot{
-    width:12px;
-    height:12px;
-    border-radius:50%;
-    background:#c5cfdb;
-  }
-
-  .scene.run .dot:nth-child(1){animation:dotOn .7s ease .4s both}
-  .scene.run .dot:nth-child(2){animation:dotOn .7s ease 1.9s both}
-  .scene.run .dot:nth-child(3){animation:dotOn .7s ease 3.55s both}
-
-  .sr-only{
-    position:absolute;
-    width:1px;
-    height:1px;
-    padding:0;
-    margin:-1px;
-    overflow:hidden;
-    clip:rect(0,0,0,0);
-    white-space:nowrap;
-    border:0;
-  }
-
-  @keyframes newPodIn{
-    to{opacity:1;transform:translateY(0) scale(1)}
-  }
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
   @keyframes spin{to{transform:rotate(360deg)}}
-
-  @keyframes build{
-    0%{width:0}
-    100%{width:66%}
+  @keyframes march{to{stroke-dashoffset:-19}}
+  @keyframes flyTestOld{
+    0%{left:16%;top:79%;opacity:0;transform:scale(.8)} 12%{opacity:1}
+    46%{left:50%;top:68%;transform:scale(1)} 86%{left:38%;top:40%;opacity:1}
+    100%{left:38%;top:40%;opacity:0;transform:scale(.4)}
   }
-
-  @keyframes pathPulse{
-    0%{opacity:0;stroke-dashoffset:28}
-    35%,100%{opacity:.38;stroke-dashoffset:0}
+  @keyframes flyTestNew{
+    0%{left:16%;top:79%;opacity:0;transform:scale(.8)} 12%{opacity:1}
+    46%{left:50%;top:68%;transform:scale(1)} 86%{left:64%;top:40%;opacity:1}
+    100%{left:64%;top:40%;opacity:0;transform:scale(.4)}
   }
-
-  @keyframes requestPath{
-    0%{opacity:0;stroke-dashoffset:70}
-    22%,76%{opacity:.86}
-    100%{opacity:.56;stroke-dashoffset:0}
+  @keyframes flyClientNew{
+    0%{left:83%;top:80%;opacity:0;transform:scale(.8)} 12%{opacity:1}
+    46%{left:50%;top:68%;transform:scale(1)} 86%{left:64%;top:40%;opacity:1}
+    100%{left:64%;top:40%;opacity:0;transform:scale(.4)}
   }
-
-  @keyframes ghostPath{
-    to{opacity:.28}
-  }
-
-  @keyframes packetToOld{
-    0%{left:16%;top:79%;opacity:0;transform:scale(.8)}
-    12%{opacity:1}
-    42%{left:50%;top:68%;transform:scale(1)}
-    82%{left:38%;top:40%;opacity:1;transform:scale(1)}
+  @keyframes flyClientOld{
+    0%{left:83%;top:80%;opacity:0;transform:scale(.8)} 12%{opacity:1}
+    46%{left:50%;top:68%;transform:scale(1)} 86%{left:38%;top:40%;opacity:1}
     100%{left:38%;top:40%;opacity:0;transform:scale(.4)}
   }
 
-  @keyframes hitPulse{
-    0%{opacity:0;transform:translate(-50%, -50%) scale(.5)}
-    55%{opacity:1;transform:translate(-50%, -50%) scale(3.8)}
-    100%{opacity:0;transform:translate(-50%, -50%) scale(5.4)}
-  }
-
-  @keyframes resultIn{
-    to{opacity:1;transform:translateY(0)}
-  }
-
-  @keyframes oldHit{
-    40%{box-shadow:0 0 0 5px rgba(40,121,77,.2), 0 18px 36px rgba(30,41,59,.12);transform:translateY(-3px)}
-  }
-
-  @keyframes peek{
-    to{opacity:1;transform:rotate(-3deg) scale(1)}
-  }
-
-  @keyframes dotOn{
-    50%,100%{background:var(--blue);box-shadow:0 0 0 7px rgba(47,95,143,.14)}
-  }
-
-  @media (max-width:900px){
-    .scene{height:760px;min-height:760px}
+  @media (max-width:980px){
+    .scene{height:860px;min-height:860px}
     .top{align-items:flex-start;flex-direction:column}
+    h1{font-size:30px}
     .artifact{left:5%;top:4%;width:190px}
-    .cluster{left:4%;top:20%;width:92%;height:38%}
-    .pod{top:28%;width:42%;min-height:154px;padding:11px}
-    .pod.old{left:5%}
-    .pod.new{right:5%}
-    .pod-name{font-size:16px}
-    .screen{height:48px}
-    .lb{left:43%;bottom:27%;width:62px;height:62px}
-    .runner{left:5%;bottom:12%;width:42%;min-height:120px}
-    .result{right:5%;bottom:12%;width:42%;min-height:120px;padding:12px}
-    .result-word{font-size:34px}
-    .mode-id .result-word{font-size:24px}
-    .hit-ring{left:25%;top:39%}
+    .result-stack{right:5%;top:4%;width:210px;min-height:252px}
+    .cluster{left:4%;top:29%;width:92%;height:34%}
+    .pod{top:27%;width:42%;min-height:158px;padding:11px}
+    .pod.old{left:5%}.pod.new{right:5%}
+    .pod-name{font-size:16px}.screen{height:48px}
+    .lb{left:43%;bottom:24%;width:62px;height:62px}
+    .runner{left:5%;bottom:8%;width:29%;min-height:112px}
+    .client{right:5%;bottom:8%;width:29%;min-height:112px}
   }
 
-  @media (max-width:520px){
+  @media (max-width:620px){
     .page{width:min(100vw - 16px, 1180px);padding-top:14px}
-    .controls{width:100%}
-    button{flex:1 1 auto}
-    .scene{height:820px;min-height:820px}
-    .artifact{width:170px}
-    .cluster{top:19%;height:39%}
-    .cluster-label{left:10px;top:8px}
-    .pod{width:44%;min-height:160px}
-    .pod.old{left:4%}
-    .pod.new{right:4%}
-    .id{font-size:11px}
-    .runner,.result{width:43%;bottom:10%;padding:10px}
-    .runner-icon{width:36px;height:36px}
-    .result-main{align-items:flex-start;flex-direction:column}
-    .timeline{bottom:2%}
+    .controls{width:100%} button{flex:1 1 auto}
+    .scene{height:1030px;min-height:1030px}
+    .artifact{left:5%;top:3%;width:42%}
+    .result-stack{left:52%;right:auto;top:3%;width:43%;min-height:255px;padding:9px}
+    .event-main{font-size:26px}.event-card{min-height:58px;padding:7px}
+    .cluster{top:29%;height:36%}
+    .pod{width:44%;min-height:165px}
+    .pod.old{left:4%}.pod.new{right:4%}
+    .id{font-size:11px}.overlay-stamp{right:8px;bottom:10px;min-width:64px}
+    .runner{left:5%;bottom:9%;width:42%;padding:10px}
+    .client{right:5%;bottom:9%;width:42%;padding:10px}
+    .actor-icon{width:36px;height:36px}
   }
 </style>
 </head>
@@ -604,114 +282,301 @@
     </div>
   </header>
 
-  <section id="scene" class="scene run" aria-label="Animacion de rollout post-release">
+  <section id="scene" class="scene" aria-label="Animacion de rollout post-release">
     <svg class="links" viewBox="0 0 1000 620" preserveAspectRatio="none" aria-hidden="true">
-      <path class="deploy-path" d="M150 95 C300 86 450 118 620 220" />
-      <path class="old-path" d="M155 506 C350 505 470 430 500 420 C455 365 390 300 340 255" />
-      <path class="ghost-path" d="M155 506 C365 510 520 445 545 420 C600 355 670 300 730 255" />
+      <path id="deployPath" class="deploy-path" d="M150 95 C300 86 450 118 620 220" />
+      <path id="testOldPath" class="test-old-path" d="M155 506 C350 505 470 430 500 420 C455 365 390 300 340 255" />
+      <path id="testNewPath" class="test-new-path bad" d="M155 506 C350 505 470 430 500 420 C560 355 640 300 730 255" />
+      <path id="clientNewPath" class="client-new-path bad" d="M835 506 C680 505 545 430 500 420 C560 355 640 300 730 255" />
+      <path id="clientOldPath" class="client-old-path" d="M835 506 C680 505 545 430 500 420 C455 365 390 300 340 255" />
     </svg>
 
     <div class="artifact" aria-label="Imagen nueva publicada">
       <div class="artifact-row">
         <div class="cube" aria-hidden="true"></div>
-        <div>
-          <div class="mini-title">deploy</div>
-          <div class="id">img:new</div>
-        </div>
+        <div><div class="mini-title">deploy</div><div class="id">img:new</div></div>
       </div>
       <span class="badge new">release</span>
     </div>
 
     <div class="cluster" aria-label="Cluster Kubernetes">
       <div class="cluster-label">cluster</div>
-
-      <article class="pod old" aria-label="Pod viejo preparado">
-        <div class="pod-head">
-          <div class="pod-name">api-v1</div>
-          <span class="badge old">old</span>
-        </div>
-        <div class="screen"><span class="badge pass">READY</span></div>
+      <article id="oldPod" class="pod old" aria-label="Pod viejo">
+        <div class="pod-head"><div class="pod-name">api-v1</div><span id="oldBadge" class="badge old">old</span></div>
+        <div class="screen"><span id="oldStatus" class="badge pass">READY</span></div>
         <div class="id">img:old</div>
+        <div id="oldStamp" class="overlay-stamp warn">GONE</div>
       </article>
-
-      <article class="pod new" aria-label="Pod nuevo creandose">
-        <div class="pod-head">
-          <div class="pod-name">api-v2</div>
-          <span class="badge new">new</span>
-        </div>
-        <div class="screen"><span class="spinner" aria-hidden="true"></span><span class="badge warn">CREATING</span></div>
-        <div class="bar"><span></span></div>
+      <article id="newPod" class="pod new" aria-label="Pod nuevo">
+        <div class="pod-head"><div class="pod-name">api-v2</div><span id="newBadge" class="badge new">new</span></div>
+        <div class="screen"><span id="newSpinner" class="spinner" aria-hidden="true"></span><span id="newStatus" class="badge warn">CREATING</span></div>
+        <div class="bar"><span id="buildBar"></span></div>
         <div class="id">img:new</div>
-        <div class="fail-peek">FAIL?</div>
+        <div id="newStamp" class="overlay-stamp">FAIL?</div>
       </article>
     </div>
 
     <div class="lb" aria-label="Balanceador"><span>LB</span></div>
-    <div class="packet" aria-hidden="true"></div>
-    <div class="hit-ring" aria-hidden="true"></div>
+    <div id="testPacket" class="packet test" aria-hidden="true"></div>
+    <div id="clientPacket" class="packet client" aria-hidden="true"></div>
 
     <div class="runner" aria-label="Test post-release">
-      <div class="runner-main">
-        <div class="runner-icon" aria-hidden="true"></div>
-        <div>
-          <div class="mini-title">test</div>
-          <div class="id">expects img:new</div>
-        </div>
+      <div class="actor-main">
+        <div class="actor-icon" aria-hidden="true"></div>
+        <div><div class="mini-title">test</div><div class="id">expects img:new</div></div>
       </div>
-      <span class="badge new">request</span>
+      <span id="runnerBadge" class="badge new">request</span>
     </div>
 
-    <div class="result" aria-label="Resultado">
-      <div class="result-main">
-        <div class="result-word raw-only">PASS</div>
-        <div class="result-word id-only">SKIP</div>
-        <span class="badge pass raw-status">api-v1 OK</span>
-        <span class="badge warn id-status">old != new</span>
+    <div class="client" aria-label="Cliente">
+      <div class="actor-main">
+        <div class="actor-icon" aria-hidden="true"></div>
+        <div><div class="mini-title">client</div><div class="id">real traffic</div></div>
       </div>
-      <span class="badge fail raw-only">new sin probar</span>
-      <span class="badge warn id-only">no cuenta</span>
+      <span id="clientBadge" class="badge old">waiting</span>
     </div>
 
-    <div class="timeline" aria-hidden="true">
-      <span class="dot"></span>
-      <span class="dot"></span>
-      <span class="dot"></span>
+    <div class="result-stack" aria-label="Resultados">
+      <div id="event1" class="event-card"><div class="event-head"><span>test #1</span><span id="event1Tag">post</span></div><div id="event1Main" class="event-main">--</div><div id="event1Sub" class="event-sub">&nbsp;</div></div>
+      <div id="event2" class="event-card"><div class="event-head"><span>test #2</span><span id="event2Tag">later</span></div><div id="event2Main" class="event-main">--</div><div id="event2Sub" class="event-sub">&nbsp;</div></div>
+      <div id="event3" class="event-card"><div class="event-head"><span>client</span><span id="event3Tag">traffic</span></div><div id="event3Main" class="event-main">--</div><div id="event3Sub" class="event-sub">&nbsp;</div></div>
+      <div id="event4" class="event-card"><div class="event-head"><span>decision</span><span id="event4Tag">final</span></div><div id="event4Main" class="event-main">--</div><div id="event4Sub" class="event-sub">&nbsp;</div></div>
     </div>
 
-    <p class="sr-only">Se despliega un pod nuevo con imagen nueva. Mientras esta creando, el test se ejecuta y el balanceador lo manda al pod viejo. Sin image id el resultado aparece como pass, aunque la imagen nueva no fue probada.</p>
+    <div class="timeline" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+    <p class="sr-only">Caso sin image id: el test pasa contra el pod viejo, luego se borra el viejo, el cliente llega al pod nuevo y falla. Caso con image id: el primer test falla por tag, se reintenta cuando el pod nuevo esta activo, falla por servicio incorrecto, se hace rollback y el cliente no falla.</p>
   </section>
 </main>
 
 <script>
 'use strict';
-
 (function(){
-  const scene = document.getElementById('scene');
   const body = document.body;
+  const scene = document.getElementById('scene');
   const replay = document.getElementById('replay');
   const rawMode = document.getElementById('rawMode');
   const idMode = document.getElementById('idMode');
+  const oldPod = document.getElementById('oldPod');
+  const newPod = document.getElementById('newPod');
+  const oldStamp = document.getElementById('oldStamp');
+  const newStamp = document.getElementById('newStamp');
+  const newStatus = document.getElementById('newStatus');
+  const newSpinner = document.getElementById('newSpinner');
+  const buildBar = document.getElementById('buildBar');
+  const testPacket = document.getElementById('testPacket');
+  const clientPacket = document.getElementById('clientPacket');
+  const clientBadge = document.getElementById('clientBadge');
+  const runnerBadge = document.getElementById('runnerBadge');
+  const dots = Array.from(document.querySelectorAll('.dot'));
+  const paths = {
+    deploy: document.getElementById('deployPath'),
+    testOld: document.getElementById('testOldPath'),
+    testNew: document.getElementById('testNewPath'),
+    clientNew: document.getElementById('clientNewPath'),
+    clientOld: document.getElementById('clientOldPath')
+  };
+  const events = [1,2,3,4].map(n => ({
+    card: document.getElementById('event' + n),
+    main: document.getElementById('event' + n + 'Main'),
+    sub: document.getElementById('event' + n + 'Sub')
+  }));
 
-  function restart(){
-    scene.classList.remove('run');
+  const VIEW_W = 1000;
+  const VIEW_H = 620;
+  let mode = 'raw';
+  let timers = [];
+  let activeAnimations = [];
+
+  function later(ms, fn){
+    const t = setTimeout(fn, ms);
+    timers.push(t);
+  }
+
+  function clearTimers(){
+    timers.forEach(clearTimeout);
+    timers = [];
+  }
+
+  function clearAnimations(){
+    activeAnimations.forEach(animation => animation.cancel());
+    activeAnimations = [];
+    testPacket.style.opacity = '0';
+    clientPacket.style.opacity = '0';
+  }
+
+  function scenePoint(x, y){
+    const r = scene.getBoundingClientRect();
+    return {
+      x: (x - r.left) / r.width * VIEW_W,
+      y: (y - r.top) / r.height * VIEW_H
+    };
+  }
+
+  function anchor(el, where){
+    const r = el.getBoundingClientRect();
+    const x = where === 'left' ? r.left : where === 'right' ? r.right : r.left + r.width / 2;
+    const y = where === 'top' ? r.top : where === 'bottom' ? r.bottom : r.top + r.height / 2;
+    return scenePoint(x, y);
+  }
+
+  function dRoute(from, via, to){
+    const c1x = from.x + (via.x - from.x) * .72;
+    const c1y = from.y;
+    const c2x = via.x;
+    const c2y = from.y + (via.y - from.y) * .72;
+    const c3x = via.x;
+    const c3y = via.y + (to.y - via.y) * .42;
+    const c4x = to.x - (to.x - via.x) * .58;
+    const c4y = to.y;
+    return `M${from.x.toFixed(1)} ${from.y.toFixed(1)} C${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${via.x.toFixed(1)} ${via.y.toFixed(1)} C${c3x.toFixed(1)} ${c3y.toFixed(1)} ${c4x.toFixed(1)} ${c4y.toFixed(1)} ${to.x.toFixed(1)} ${to.y.toFixed(1)}`;
+  }
+
+  function routePoints(key){
+    const artifact = document.querySelector('.artifact');
+    const runner = document.querySelector('.runner');
+    const client = document.querySelector('.client');
+    const lb = document.querySelector('.lb');
+    const newRect = newPod.getBoundingClientRect();
+    const artifactOut = anchor(artifact, 'right');
+    const newTop = scenePoint(newRect.left + newRect.width / 2, newRect.top + 4);
+    const deployVia = {
+      x: artifactOut.x + (newTop.x - artifactOut.x) * .52,
+      y: Math.min(artifactOut.y, newTop.y) - 24
+    };
+    const via = anchor(lb, 'center');
+    const points = {
+      deploy: [artifactOut, deployVia, newTop],
+      testOld: [anchor(runner, 'right'), via, anchor(oldPod, 'bottom')],
+      testNew: [anchor(runner, 'right'), via, anchor(newPod, 'bottom')],
+      clientNew: [anchor(client, 'left'), via, anchor(newPod, 'bottom')],
+      clientOld: [anchor(client, 'left'), via, anchor(oldPod, 'bottom')]
+    };
+    return points[key];
+  }
+
+  function updateConnectorPaths(){
+    for(const key of Object.keys(paths)){
+      const pts = routePoints(key);
+      paths[key].setAttribute('d', dRoute(pts[0], pts[1], pts[2]));
+    }
+  }
+
+  function pulsePath(key, duration = 1350){
+    updateConnectorPaths();
+    const path = paths[key];
+    path.classList.remove('path-soft');
+    path.classList.add('path-on');
+    later(duration, () => path.classList.remove('path-on', 'path-soft'));
+  }
+  function reset(){
+    clearTimers();
+    clearAnimations();
+    scene.classList.remove('running');
+    oldPod.className = 'pod old';
+    newPod.className = 'pod new';
+    oldStamp.className = 'overlay-stamp warn';
+    newStamp.className = 'overlay-stamp';
+    newStamp.textContent = 'FAIL?';
+    newStatus.className = 'badge warn';
+    newStatus.textContent = 'CREATING';
+    newSpinner.style.display = 'inline-block';
+    buildBar.style.width = '0';
+    clientBadge.className = 'badge old';
+    clientBadge.textContent = 'waiting';
+    runnerBadge.className = 'badge new';
+    runnerBadge.textContent = 'request';
+    testPacket.className = 'packet test';
+    clientPacket.className = 'packet client';
+    Object.values(paths).forEach(p => p.classList.remove('path-on','path-soft'));
+    updateConnectorPaths();
+    dots.forEach(d => d.classList.remove('on'));
+    events.forEach(e => {
+      e.card.className = 'event-card';
+      e.main.textContent = '--';
+      e.sub.innerHTML = '&nbsp;';
+    });
     void scene.offsetWidth;
-    scene.classList.add('run');
+    scene.classList.add('running');
   }
 
-  function setMode(mode){
-    const id = mode === 'id';
-    body.classList.toggle('mode-id', id);
-    body.classList.toggle('mode-raw', !id);
-    rawMode.classList.toggle('active', !id);
-    idMode.classList.toggle('active', id);
-    restart();
+  function podReady(){
+    newPod.classList.add('ready');
+    newStatus.className = 'badge pass';
+    newStatus.textContent = 'READY';
+    newSpinner.style.display = 'none';
   }
 
-  replay.addEventListener('click', restart);
-  rawMode.addEventListener('click', () => setMode('raw'));
-  idMode.addEventListener('click', () => setMode('id'));
+  function showEvent(index, kind, main, sub){
+    const e = events[index - 1];
+    e.card.className = 'event-card show ' + kind;
+    e.main.textContent = main;
+    e.sub.textContent = sub;
+  }
 
-  restart();
+  function packetStyle(point){
+    return {
+      left: `calc(${(point.x / VIEW_W * 100).toFixed(2)}% - 12px)`,
+      top: `calc(${(point.y / VIEW_H * 100).toFixed(2)}% - 12px)`
+    };
+  }
+
+  function fly(packet, routeKey){
+    updateConnectorPaths();
+    const pts = routePoints(routeKey).map(packetStyle);
+    const animation = packet.animate([
+      { ...pts[0], opacity: 0, transform: 'scale(.75)' },
+      { ...pts[0], opacity: 1, transform: 'scale(1)', offset: .12 },
+      { ...pts[1], opacity: 1, transform: 'scale(1)', offset: .5 },
+      { ...pts[2], opacity: 1, transform: 'scale(1)', offset: .86 },
+      { ...pts[2], opacity: 0, transform: 'scale(.35)' }
+    ], { duration: 1250, easing: 'cubic-bezier(.45,.05,.2,1)' });
+    activeAnimations.push(animation);
+    animation.onfinish = () => {
+      packet.style.opacity = '0';
+      activeAnimations = activeAnimations.filter(item => item !== animation);
+    };
+  }
+  function runRaw(){
+    reset();
+    body.className = 'mode-raw';
+    rawMode.classList.add('active');
+    idMode.classList.remove('active');
+
+    later(250, () => { dots[0].classList.add('on'); pulsePath('deploy', 1700); });
+    later(650, () => { newPod.classList.add('show'); buildBar.style.width = '62%'; updateConnectorPaths(); });
+    later(1600, () => { dots[1].classList.add('on'); pulsePath('testOld'); fly(testPacket, 'testOld'); });
+    later(2850, () => { oldPod.classList.add('hit'); showEvent(1, 'pass', 'PASS', 'api-v1 / img:old'); });
+    later(3650, () => { oldPod.classList.remove('hit'); });
+    later(4550, () => { dots[2].classList.add('on'); podReady(); newPod.classList.add('bad'); newStamp.classList.add('show'); oldPod.classList.add('removed'); oldStamp.classList.add('show'); pulsePath('testNew', 900); });
+    later(5450, () => { dots[3].classList.add('on'); clientBadge.className = 'badge new'; clientBadge.textContent = 'request'; pulsePath('clientNew'); fly(clientPacket, 'clientNew'); });
+    later(6850, () => { showEvent(3, 'fail', 'FAIL', 'client -> api-v2'); });
+    later(7550, () => { dots[4].classList.add('on'); showEvent(4, 'fail', 'NO DETECTADO', 'release verde, cliente roto'); });
+  }
+
+  function runId(){
+    reset();
+    body.className = 'mode-id';
+    rawMode.classList.remove('active');
+    idMode.classList.add('active');
+
+    later(250, () => { dots[0].classList.add('on'); pulsePath('deploy', 1700); });
+    later(650, () => { newPod.classList.add('show'); buildBar.style.width = '62%'; updateConnectorPaths(); });
+    later(1600, () => { dots[1].classList.add('on'); pulsePath('testOld'); fly(testPacket, 'testOld'); });
+    later(2850, () => { oldPod.classList.add('hit'); showEvent(1, 'fail', 'FAIL', 'img:old != img:new'); });
+    later(3650, () => { oldPod.classList.remove('hit'); });
+    later(4550, () => { dots[2].classList.add('on'); podReady(); newPod.classList.add('bad'); oldPod.classList.add('removed'); oldStamp.classList.add('show'); runnerBadge.className = 'badge warn'; runnerBadge.textContent = 'retry'; updateConnectorPaths(); });
+    later(5350, () => { pulsePath('testNew'); fly(testPacket, 'testNew'); });
+    later(6700, () => { newStamp.classList.add('show'); showEvent(2, 'fail', 'FAIL', 'service KO'); });
+    later(7600, () => { dots[3].classList.add('on'); newPod.classList.add('rollback'); newStamp.textContent = 'ROLLBACK'; newStamp.className = 'overlay-stamp warn show'; oldPod.className = 'pod old restored'; oldStamp.className = 'overlay-stamp warn'; showEvent(4, 'rollback', 'ROLLBACK', 'echamos atras api-v2'); updateConnectorPaths(); });
+    later(8500, () => { clientBadge.className = 'badge pass'; clientBadge.textContent = 'request'; pulsePath('clientOld'); fly(clientPacket, 'clientOld'); });
+    later(9850, () => { dots[4].classList.add('on'); showEvent(3, 'pass', 'PASS', 'cliente protegido'); });
+  }
+  function play(){ mode === 'raw' ? runRaw() : runId(); }
+  window.addEventListener('resize', updateConnectorPaths);
+  replay.addEventListener('click', play);
+  rawMode.addEventListener('click', () => { mode = 'raw'; play(); });
+  idMode.addEventListener('click', () => { mode = 'id'; play(); });
+  play();
 })();
 </script>
 </body>

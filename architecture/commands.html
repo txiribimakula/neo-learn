@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comando de mover · recoger, mover y guardar en una caja</title>
+<style>
+  :root{
+    --bg:#f3efe6; --card:#ffffff; --card-border:#e4dfd2;
+    --ink:#23272f; --muted:#6b7280; --muted2:#9aa1ad; --accent:#3956d3;
+    --code-bg:#1d2230; --code-ink:#e6e9f2; --code-mut:#8e9bb3;
+    /* code-color por elemento — consistente en TODA la página */
+    --c-tool:#2563eb;    /* MoveTool — herramienta de 2 clics */
+    --c-hit:#d97706;     /* HitTest — picking */
+    --c-rect:#475569;    /* Rectangle — el elemento movible */
+    --c-box:#ea580c;     /* Box / caja — destino contenedor */
+    --c-cmd:#0d9488;     /* MoveCommand — la operación */
+    --c-disp:#7c3aed;    /* CommandDispatcher — invoker */
+    --c-scene:#2e7d4f;   /* Scene / TransformService — muta */
+    --c-render:#db2777;  /* RenderManager — pinta */
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);line-height:1.65;
+       font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:940px;margin:0 auto;padding:0 22px}
+
+  nav.toc{position:sticky;top:0;z-index:30;background:rgba(243,239,230,.93);
+          backdrop-filter:blur(7px);border-bottom:1px solid var(--card-border)}
+  .toc-inner{max-width:940px;margin:0 auto;display:flex;gap:5px;overflow-x:auto;padding:9px 22px}
+  .toc a{font-size:12.5px;font-weight:700;color:var(--muted);text-decoration:none;
+         padding:5px 11px;border-radius:7px;white-space:nowrap;transition:.15s}
+  .toc a:hover{color:var(--ink);background:#fff}
+  .toc a.active{background:var(--accent);color:#fff}
+
+  header.hero{padding:56px 0 8px}
+  .hero h1{font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1.15;margin:0 0 14px}
+  .hero .lead{font-size:15.5px;color:var(--muted);max-width:700px;margin:0}
+  .hero .lead b{color:var(--ink)}
+
+  .cast{display:grid;grid-template-columns:repeat(auto-fit,minmax(205px,1fr));gap:9px;margin:26px 0 6px}
+  .cast .chip{display:flex;gap:10px;align-items:flex-start;background:#fff;
+              border:1px solid var(--card-border);border-radius:9px;padding:9px 11px}
+  .cast .sw{width:11px;height:11px;border-radius:3px;flex:0 0 auto;margin-top:4px}
+  .cast .chip .nm{font-size:13px;font-weight:800;line-height:1.3}
+  .cast .chip .st{font-size:11px;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+
+  section.sec{padding:40px 0;border-top:1px solid var(--card-border)}
+  .sec .num{font-size:11px;font-weight:800;letter-spacing:1.6px;color:var(--accent);text-transform:uppercase}
+  .sec h2{font-size:23px;font-weight:800;letter-spacing:-.3px;margin:7px 0 6px}
+  .sec .sub{font-size:13px;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:0 0 16px}
+  .sec p{font-size:14.5px;color:#3b4250;margin:0 0 13px}
+  .sec p b{color:var(--ink)}
+
+  .el{font-weight:800;white-space:nowrap}
+  .el.tool{color:var(--c-tool)} .el.hit{color:var(--c-hit)} .el.rect{color:var(--c-rect)}
+  .el.box{color:var(--c-box)} .el.cmd{color:var(--c-cmd)} .el.disp{color:var(--c-disp)}
+  .el.scene{color:var(--c-scene)} .el.render{color:var(--c-render)}
+
+  code.k{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;
+         background:#efeadf;border:1px solid var(--card-border);border-radius:5px;padding:1px 5px;color:#3b4250}
+
+  .grid{display:grid;gap:13px}
+  .cols-2{grid-template-columns:1fr 1fr}
+  @media(max-width:760px){.cols-2{grid-template-columns:1fr}}
+
+  .actor{background:#fff;border:1px solid var(--card-border);border-left:5px solid var(--ac);
+         border-radius:10px;padding:12px 15px}
+  .actor .st{font-size:10.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--muted2)}
+  .actor .nm{font-size:16.5px;font-weight:800;color:var(--ac);margin:1px 0 4px}
+  .actor .ds{font-size:13px;color:#3b4250;margin:0 0 6px}
+  .actor .dep{font-size:11.5px;color:var(--muted)}
+  .actor .dep b{color:var(--ink)}
+
+  .figure{background:#fff;border:1px solid var(--card-border);border-radius:12px;padding:14px;overflow:auto}
+  .figure svg{display:block;width:100%;height:auto;min-width:580px}
+  .caption{font-size:12px;color:var(--muted);margin:9px 2px 0;text-align:center}
+
+  pre.code{background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:15px 17px;
+           overflow:auto;font-family:ui-monospace,"SF Mono",Consolas,monospace;font-size:12.5px;line-height:1.62;margin:0}
+  pre.code .c{color:var(--code-mut)}
+  .codecap{font-size:12px;color:var(--muted);margin:8px 2px 0}
+
+  .pat{background:#fff;border:1px solid var(--card-border);border-radius:11px;padding:14px 16px}
+  .pat .pn{font-size:15.5px;font-weight:800;margin:0 0 2px}
+  .pat .pw{font-size:12.5px;color:var(--muted);margin:0 0 9px}
+  .pat .lab{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted2);margin:9px 0 3px}
+  .pat .gain{font-size:13px;color:#2e7d4f;font-weight:600}
+  .pat .where{font-size:13px}
+
+  .note{font-size:13px;color:var(--muted);border-left:3px solid var(--card-border);padding:2px 0 2px 12px;margin:14px 0 0}
+
+  /* reproductor de secuencia */
+  .player{background:#fff;border:1px solid var(--card-border);border-radius:12px;padding:15px}
+  .scene-box{background:linear-gradient(180deg,#faf8f3,#f0ebe0);border:1px solid var(--card-border);border-radius:10px;padding:10px}
+  .phase{display:inline-block;font-size:11.5px;font-weight:800;color:#fff;background:var(--accent);border-radius:20px;padding:2px 11px;letter-spacing:.3px}
+  .actors{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:14px 0}
+  .ac{border:1px solid var(--card-border);border-radius:9px;padding:8px 4px;text-align:center;background:#fff;transition:.18s}
+  .ac .n{font-size:12px;font-weight:800;color:var(--ac)}
+  .ac .r{font-size:10px;color:var(--muted2);font-weight:600}
+  .ac.send{background:var(--ac);border-color:var(--ac)} .ac.send .n,.ac.send .r{color:#fff}
+  .ac.recv{border-color:var(--ac);box-shadow:0 0 0 2px #fff,0 0 0 3px var(--ac)}
+  .ac.dim{opacity:.38}
+  .call{border:1px solid var(--card-border);border-radius:10px;padding:12px 14px;background:#faf8f3}
+  .call .route{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:7px}
+  .call .codeln{font-family:ui-monospace,Consolas,monospace;font-size:13px;background:#1d2230;color:#e6e9f2;border-radius:7px;padding:8px 11px;white-space:pre-wrap;word-break:break-word}
+  .call .desc{font-size:13px;color:#3b4250;margin-top:9px}
+  .stack{border:1px solid var(--card-border);border-radius:9px;padding:8px 11px;margin:13px 0}
+  .stack .sl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted2);margin-bottom:6px}
+  .stack .chip2{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:3px 9px}
+  .stack .empty{font-size:12px;color:var(--muted2)}
+  .ctrls{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .ctrls button{font:inherit;font-size:13px;font-weight:700;padding:6px 13px;border-radius:8px;cursor:pointer;
+                border:1px solid var(--card-border);background:#fff;color:var(--ink)}
+  .ctrls button:hover{background:#f3efe6}
+  .ctrls .count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:58px;text-align:center}
+  .dots{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}
+  .dot{width:11px;height:11px;border-radius:50%;border:1px solid var(--muted2);background:transparent;cursor:pointer;padding:0}
+  .dot.on{background:var(--accent);border-color:var(--accent)}
+  .dot.done{background:var(--muted2)}
+
+  footer{padding:40px 0 70px;color:var(--muted);font-size:13px;border-top:1px solid var(--card-border)}
+</style>
+</head>
+<body>
+
+<nav class="toc">
+  <div class="toc-inner" id="toc">
+    <a href="#elementos">01 · Elementos</a>
+    <a href="#mapa">02 · Mapa</a>
+    <a href="#secuencia">03 · Secuencia</a>
+    <a href="#patrones">04 · Patrones</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <header class="hero" id="top">
+    <h1>Mover un rectángulo es un gesto de dos clics<br>recoger, mover y guardar en una caja</h1>
+    <p class="lead">Eliges la opción Mover, haces un <b>primer click</b> para recoger un elemento válido, lo ves
+    <b>moverse</b> (se dibuja distinto mientras lo arrastras con el cursor) y, con un <b>segundo click sobre una
+    caja</b>, decides dónde guardarlo. Aquí están los elementos que entran en juego, cómo se relacionan, la
+    secuencia exacta de ese gesto, y los patrones de diseño debajo. Cada elemento tiene <b>su color fijo</b>.</p>
+
+    <div class="cast">
+      <div class="chip"><div class="sw" style="background:var(--c-tool)"></div><div><div class="nm" style="color:var(--c-tool)">MoveTool</div><div class="st">herramienta · 2 clics</div></div></div>
+      <div class="chip"><div class="sw" style="background:var(--c-hit)"></div><div><div class="nm" style="color:var(--c-hit)">HitTest</div><div class="st">picking</div></div></div>
+      <div class="chip"><div class="sw" style="background:var(--c-rect)"></div><div><div class="nm" style="color:var(--c-rect)">Rectangle</div><div class="st">elemento movible</div></div></div>
+      <div class="chip"><div class="sw" style="background:var(--c-box)"></div><div><div class="nm" style="color:var(--c-box)">Box · caja</div><div class="st">destino · contenedor</div></div></div>
+      <div class="chip"><div class="sw" style="background:var(--c-cmd)"></div><div><div class="nm" style="color:var(--c-cmd)">MoveCommand</div><div class="st">la operación</div></div></div>
+      <div class="chip"><div class="sw" style="background:var(--c-disp)"></div><div><div class="nm" style="color:var(--c-disp)">CommandDispatcher</div><div class="st">invoker · undo/redo</div></div></div>
+      <div class="chip"><div class="sw" style="background:var(--c-scene)"></div><div><div class="nm" style="color:var(--c-scene)">Scene · Transforms</div><div class="st">muta · re-parenta</div></div></div>
+      <div class="chip"><div class="sw" style="background:var(--c-render)"></div><div><div class="nm" style="color:var(--c-render)">RenderManager</div><div class="st">redibuja</div></div></div>
+    </div>
+  </header>
+
+  <!-- 01 ============================================================= -->
+  <section class="sec" id="elementos">
+    <div class="num">01</div>
+    <h2>El reparto · quién es quién</h2>
+    <p class="sub">Prisma estructural — qué objetos existen</p>
+    <p>Dos elementos nuevos respecto al modelo básico: <span class="el hit">HitTest</span> (saber qué hay bajo cada
+    click) y las <span class="el box">cajas</span> (los destinos donde se guarda el rectángulo). La
+    <span class="el tool">herramienta</span> deja de ser un instante y pasa a tener <b>estado</b>: recoger → mover → colocar.</p>
+
+    <div class="grid cols-2">
+      <div class="actor" style="--ac:var(--c-tool)">
+        <div class="st">herramienta · 2 clics</div><div class="nm">MoveTool</div>
+        <div class="ds">Orquesta el gesto y mantiene el estado: se activa, espera el click de recogida, comprueba validez, dibuja el “moviéndose” y, al segundo click, coloca. Recuerda <b>qué</b> recogió.</div>
+        <div class="dep"><b>conoce a:</b> HitTest, CommandDispatcher</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-hit)">
+        <div class="st">picking</div><div class="nm">HitTest</div>
+        <div class="ds">Dado el punto de un click, dice qué hay debajo: un elemento movible, una caja o nada. Se usa en los <b>dos</b> clicks (recoger y colocar).</div>
+        <div class="dep"><b>implementa:</b> IHitTest · <code class="k">pick(p) → Hit</code></div>
+      </div>
+      <div class="actor" style="--ac:var(--c-rect)">
+        <div class="st">elemento</div><div class="nm">Rectangle</div>
+        <div class="ds">Lo que se mueve: un id + posición. Puede acabar guardado dentro de una caja (su nuevo padre).</div>
+        <div class="dep"><b>lo posee:</b> Scene</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-box)">
+        <div class="st">destino · contenedor</div><div class="nm">Box · caja</div>
+        <div class="ds">Sitio donde guardar el rectángulo. El segundo click sobre una caja determina <b>cómo</b> colocarlo: encaja en su hueco.</div>
+        <div class="dep"><b>lo posee:</b> Scene · puede contener un Rectangle</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-cmd)">
+        <div class="st">command</div><div class="nm">MoveCommand</div>
+        <div class="ds">Recoloca el elemento en su destino (posición y, si toca, dentro de una caja). Guarda el <b>origen</b> para poder deshacer.</div>
+        <div class="dep"><b>conoce a:</b> ITransformService, ISceneEditor</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-disp)">
+        <div class="st">invoker</div><div class="nm">CommandDispatcher</div>
+        <div class="ds">Ejecuta el comando con el contexto y mantiene las pilas de <b>undo/redo</b>. Único sitio para logging y validación.</div>
+        <div class="dep"><b>conoce a:</b> ICommand, CommandContext</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-scene)">
+        <div class="st">documento</div><div class="nm">Scene · TransformService</div>
+        <div class="ds">Posee rectángulos y cajas; mueve y <b>re-parenta</b> (mete el rect en la caja), responde al hit-testing y emite <code class="k">sceneChanged</code>.</div>
+        <div class="dep"><b>implementa:</b> IHitTest, ITransformService, ISceneEditor</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-render)">
+        <div class="st">observador</div><div class="nm">RenderManager</div>
+        <div class="ds">Observa la escena y redibuja, incluido el estado “moviéndose” mientras el rectángulo está en el aire.</div>
+        <div class="dep"><b>conoce a:</b> Scene (como observador)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 ============================================================= -->
+  <section class="sec" id="mapa">
+    <div class="num">02</div>
+    <h2>El mapa de relaciones</h2>
+    <p class="sub">Prisma de dependencias — quién apunta a quién</p>
+    <p>Flechas <b>sólidas</b> = “usa / depende de”; <b>discontinuas</b> = “implementa” u “observa”. La
+    <span class="el tool">herramienta</span> usa <span class="el hit">HitTest</span> en cada click y, al final, crea
+    un <span class="el cmd">comando</span> vía el <span class="el disp">dispatcher</span>. El comando recoloca a
+    través de la <span class="el scene">escena</span>, que posee los <span class="el rect">rectángulos</span> y las
+    <span class="el box">cajas</span>.</p>
+
+    <div class="figure">
+      <svg viewBox="0 0 880 580" role="img" aria-label="Mapa de dependencias del comando de mover con hit-testing y cajas.">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M2 1L8 5L2 9" fill="none" stroke="#6b7280" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </marker>
+        </defs>
+
+        <line x1="380" y1="78" x2="218" y2="116" stroke="#6b7280" stroke-width="1.5" marker-end="url(#ar)"/>
+        <text x="278" y="92" font-size="11.5" fill="#6b7280" font-family="ui-monospace,Consolas,monospace">pick(p)</text>
+        <line x1="435" y1="78" x2="435" y2="116" stroke="#6b7280" stroke-width="1.5" marker-end="url(#ar)"/>
+        <text x="443" y="100" font-size="11.5" fill="#6b7280" font-family="ui-monospace,Consolas,monospace">execute(cmd)</text>
+        <line x1="435" y1="184" x2="435" y2="236" stroke="#6b7280" stroke-width="1.5" marker-end="url(#ar)"/>
+        <text x="443" y="213" font-size="11.5" fill="#6b7280" font-family="ui-monospace,Consolas,monospace">execute / undo (ctx)</text>
+        <line x1="435" y1="294" x2="450" y2="348" stroke="#6b7280" stroke-width="1.5" marker-end="url(#ar)"/>
+        <text x="466" y="324" font-size="11" fill="#6b7280">coloca / re-parenta</text>
+
+        <line x1="455" y1="455" x2="455" y2="410" stroke="#9aa1ad" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+        <text x="463" y="436" font-size="11" fill="#9aa1ad">implementa</text>
+        <line x1="300" y1="500" x2="200" y2="178" stroke="#9aa1ad" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+        <text x="214" y="330" font-size="11" fill="#9aa1ad">implementa</text>
+        <line x1="658" y1="488" x2="612" y2="498" stroke="#9aa1ad" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+        <text x="636" y="476" font-size="11" fill="#9aa1ad" text-anchor="middle">observa</text>
+
+        <g font-family="system-ui,sans-serif">
+          <rect x="330" y="24" width="210" height="54" rx="8" fill="#fff" stroke="var(--c-tool)" stroke-width="2"/>
+          <text x="435" y="43" text-anchor="middle" font-size="11" fill="#9aa1ad" font-weight="700">«herramienta · 2 clics»</text>
+          <text x="435" y="63" text-anchor="middle" font-size="15" fill="var(--c-tool)" font-weight="800">MoveTool</text>
+
+          <rect x="90" y="118" width="210" height="58" rx="8" fill="#fbfaf6" stroke="var(--c-hit)" stroke-width="2" stroke-dasharray="6 4"/>
+          <text x="195" y="138" text-anchor="middle" font-size="11" fill="#9aa1ad" font-weight="700">«interface»</text>
+          <text x="195" y="158" text-anchor="middle" font-size="14.5" fill="var(--c-hit)" font-weight="800">IHitTest</text>
+
+          <rect x="330" y="118" width="210" height="66" rx="8" fill="#fff" stroke="var(--c-disp)" stroke-width="2"/>
+          <text x="435" y="137" text-anchor="middle" font-size="11" fill="#9aa1ad" font-weight="700">«invoker»</text>
+          <text x="435" y="156" text-anchor="middle" font-size="14.5" fill="var(--c-disp)" font-weight="800">CommandDispatcher</text>
+          <text x="435" y="173" text-anchor="middle" font-size="11.5" fill="#6b7280">posee pila undo / redo</text>
+
+          <rect x="330" y="238" width="210" height="56" rx="8" fill="#fff" stroke="var(--c-cmd)" stroke-width="2"/>
+          <text x="435" y="257" text-anchor="middle" font-size="11" fill="#9aa1ad" font-weight="700">«command»</text>
+          <text x="435" y="277" text-anchor="middle" font-size="15" fill="var(--c-cmd)" font-weight="800">MoveCommand</text>
+
+          <rect x="330" y="350" width="250" height="58" rx="8" fill="#fbfaf6" stroke="var(--c-scene)" stroke-width="2" stroke-dasharray="6 4"/>
+          <text x="455" y="370" text-anchor="middle" font-size="11" fill="#9aa1ad" font-weight="700">«interface»</text>
+          <text x="455" y="390" text-anchor="middle" font-size="13.5" fill="var(--c-scene)" font-weight="800">ITransformService · ISceneEditor</text>
+
+          <rect x="300" y="455" width="310" height="100" rx="9" fill="#fff" stroke="var(--c-scene)" stroke-width="2"/>
+          <text x="455" y="476" text-anchor="middle" font-size="11" fill="#9aa1ad" font-weight="700">«documento · manager»</text>
+          <text x="455" y="493" text-anchor="middle" font-size="14" fill="var(--c-scene)" font-weight="800">Scene · TransformService</text>
+          <rect x="318" y="504" width="130" height="42" rx="7" fill="#f4f5f7" stroke="var(--c-rect)" stroke-width="1.5"/>
+          <text x="383" y="530" text-anchor="middle" font-size="13" fill="var(--c-rect)" font-weight="800">Rectangle</text>
+          <rect x="462" y="504" width="130" height="42" rx="7" fill="#fff5ee" stroke="var(--c-box)" stroke-width="1.5"/>
+          <text x="527" y="530" text-anchor="middle" font-size="13" fill="var(--c-box)" font-weight="800">Box · caja</text>
+
+          <rect x="660" y="460" width="130" height="56" rx="8" fill="#fff" stroke="var(--c-render)" stroke-width="2"/>
+          <text x="725" y="481" text-anchor="middle" font-size="11" fill="#9aa1ad" font-weight="700">«observador»</text>
+          <text x="725" y="500" text-anchor="middle" font-size="13.5" fill="var(--c-render)" font-weight="800">RenderManager</text>
+        </g>
+      </svg>
+    </div>
+    <div class="caption">La herramienta usa el hit-test para los dos clicks; el comando recoloca vía la escena, que contiene los rectángulos y las cajas.</div>
+  </section>
+
+  <!-- 03 ============================================================= -->
+  <section class="sec" id="secuencia">
+    <div class="num">03</div>
+    <h2>La secuencia del gesto, paso a paso</h2>
+    <p class="sub">Prisma de interacción — los dos clicks, con sus argumentos</p>
+    <p>Tus cinco pasos, con el detalle de cada mensaje. Pulsa <b>Reproducir</b> o avanza a mano: rect#1 se
+    <b>recoge</b> (se ve distinto), se <b>mueve</b> siguiendo al cursor sin crear comando, y solo al
+    <b>segundo click sobre la caja B</b> se despacha <b>un</b> <span class="el cmd">MoveCommand</span> que lo guarda.</p>
+
+    <div class="player">
+      <div class="scene-box">
+        <div style="margin-bottom:9px"><span class="phase" id="mcPhase">Comando</span></div>
+        <svg id="mcStage" viewBox="0 0 600 200" role="img" aria-label="rect#1 se recoge, se mueve y se guarda en la caja B." style="display:block;width:100%;height:auto">
+          <g font-family="system-ui">
+            <rect x="320" y="30" width="120" height="80" rx="8" fill="#fff" stroke="var(--c-box)" stroke-width="2" stroke-dasharray="2 4"/>
+            <text x="380" y="74" text-anchor="middle" font-size="12.5" fill="var(--c-box)" font-weight="700">caja A</text>
+            <g id="mcBoxB">
+              <rect id="mcBoxBRect" x="460" y="30" width="120" height="80" rx="8" fill="#fff" stroke="var(--c-box)" stroke-width="2" stroke-dasharray="2 4"/>
+              <text x="520" y="74" text-anchor="middle" font-size="12.5" fill="var(--c-box)" font-weight="700">caja B</text>
+            </g>
+          </g>
+          <rect id="mcGhost" x="60" y="120" width="90" height="50" rx="6" fill="none" stroke="#b9c0cc" stroke-width="1.4" stroke-dasharray="6 4" style="opacity:0"/>
+          <line id="mcConn" x1="0" y1="0" x2="0" y2="0" stroke="#9aa1ad" stroke-width="1.5" stroke-dasharray="5 4" style="opacity:0"/>
+          <g id="mcItem" transform="translate(60,120)" style="transition:transform .45s ease">
+            <rect id="mcItemRect" width="90" height="50" rx="6" fill="#eaf1ff" stroke="var(--accent)" stroke-width="2" style="transition:fill .3s,stroke .3s"/>
+            <text id="mcItemLabel" x="45" y="30" text-anchor="middle" font-size="12.5" fill="var(--accent)" font-family="system-ui" font-weight="700">rect#1</text>
+          </g>
+        </svg>
+      </div>
+
+      <div class="actors" id="mcActors">
+        <div class="ac" data-actor="tool" style="--ac:var(--c-tool)"><div class="n">MoveTool</div><div class="r">2 clics</div></div>
+        <div class="ac" data-actor="hit" style="--ac:var(--c-hit)"><div class="n">HitTest</div><div class="r">picking</div></div>
+        <div class="ac" data-actor="disp" style="--ac:var(--c-disp)"><div class="n">Dispatcher</div><div class="r">undo·redo</div></div>
+        <div class="ac" data-actor="cmd" style="--ac:var(--c-cmd)"><div class="n">MoveCommand</div><div class="r">operación</div></div>
+        <div class="ac" data-actor="scene" style="--ac:var(--c-scene)"><div class="n">Scene</div><div class="r">muta·reparenta</div></div>
+        <div class="ac" data-actor="ren" style="--ac:var(--c-render)"><div class="n">Render</div><div class="r">redibuja</div></div>
+      </div>
+
+      <div class="call">
+        <div class="route" id="mcRoute">MoveTool (interno)</div>
+        <div class="codeln" id="mcCode">tool.activate();  estado = EsperandoPick</div>
+        <div class="desc" id="mcDesc">El usuario elige la opción Mover. La herramienta entra en modo y espera el primer click del usuario.</div>
+      </div>
+
+      <div class="stack"><div class="sl">Pila undo</div><div id="mcUndo"><span class="empty">vacía</span></div></div>
+
+      <div class="ctrls">
+        <button id="mcPrev">‹ Anterior</button>
+        <button id="mcNext">Siguiente ›</button>
+        <button id="mcPlay">▶ Reproducir</button>
+        <span class="count" id="mcCount">1 / 10</span>
+      </div>
+      <div class="dots" id="mcDots"></div>
+    </div>
+
+    <p class="note">El <span class="el cmd">MoveCommand</span> guarda el origen del rectángulo (su posición y padre
+    anteriores), así que el undo lo devuelve exactamente a donde estaba — fuera o dentro de otra caja.</p>
+  </section>
+
+  <!-- 04 ============================================================= -->
+  <section class="sec" id="patrones">
+    <div class="num">04</div>
+    <h2>Los patrones de diseño debajo</h2>
+    <p class="sub">Cómo se llama cada idea y dónde aparece aquí</p>
+    <div class="grid cols-2">
+      <div class="pat">
+        <div class="pn">Command</div>
+        <div class="pw">Encapsular una acción como objeto con <code class="k">execute</code> / <code class="k">undo</code>.</div>
+        <div class="lab">dónde aquí</div><div class="where"><span class="el cmd">MoveCommand</span> = “guardar rect#1 en la caja B” hecho objeto.</div>
+        <div class="lab">qué te da</div><div class="gain">Undo/redo, colas, macros y scripting.</div>
+      </div>
+      <div class="pat">
+        <div class="pn">State · máquina de estados</div>
+        <div class="pw">El comportamiento cambia según el estado interno.</div>
+        <div class="lab">dónde aquí</div><div class="where"><span class="el tool">MoveTool</span>: EsperandoPick → Moviendo → coloca.</div>
+        <div class="lab">qué te da</div><div class="gain">El mismo click hace cosas distintas según la fase, sin <code class="k">if</code> gigantes.</div>
+      </div>
+      <div class="pat">
+        <div class="pn">Invoker + historial</div>
+        <div class="pw">Quien dispara comandos y guarda la pila de lo hecho.</div>
+        <div class="lab">dónde aquí</div><div class="where"><span class="el disp">CommandDispatcher</span> con <code class="k">undoStack</code>/<code class="k">redoStack</code>.</div>
+        <div class="lab">qué te da</div><div class="gain">Undo/redo centralizado, logging, validación.</div>
+      </div>
+      <div class="pat">
+        <div class="pn">Interface Segregation · role interfaces</div>
+        <div class="pw">Interfaces pequeñas, definidas por capacidad.</div>
+        <div class="lab">dónde aquí</div><div class="where"><code class="k">IHitTest</code> para los clicks, <code class="k">ITransformService</code> para recolocar.</div>
+        <div class="lab">qué te da</div><div class="gain">Cada quien ve solo lo que usa; refactors seguros.</div>
+      </div>
+      <div class="pat">
+        <div class="pn">Observer</div>
+        <div class="pw">Un sujeto avisa; los observadores reaccionan.</div>
+        <div class="lab">dónde aquí</div><div class="where"><span class="el scene">Scene</span> emite <code class="k">sceneChanged</code>; <span class="el render">Render</span> redibuja.</div>
+        <div class="lab">qué te da</div><div class="gain">Render desacoplado; cualquier mutación refresca la vista.</div>
+      </div>
+      <div class="pat">
+        <div class="pn">Memento (ligero)</div>
+        <div class="pw">Guardar lo justo para poder revertir.</div>
+        <div class="lab">dónde aquí</div><div class="where"><span class="el cmd">MoveCommand</span> guarda el origen (posición + padre).</div>
+        <div class="lab">qué te da</div><div class="gain">Undo exacto sin clonar toda la escena.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Single-file · vanilla JS · el mismo gesto sirve para mover entre cajas, sacar de una caja o reordenar —
+    solo cambia a qué destino apunta el comando. <a href="#top" style="color:var(--accent);text-decoration:none;font-weight:700">↑ volver arriba</a>
+  </footer>
+
+</div>
+
+<script>
+'use strict';
+(function(){
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var secs  = links.map(function(a){ return document.querySelector(a.getAttribute('href')); });
+  function spy(){
+    var y = window.scrollY + 120, idx = 0;
+    for (var i=0;i<secs.length;i++){ if (secs[i] && secs[i].offsetTop <= y) idx = i; }
+    links.forEach(function(a,i){ a.classList.toggle('active', i===idx); });
+  }
+  window.addEventListener('scroll', spy, {passive:true});
+  spy();
+
+  var steps=[
+    {phase:"Comando", from:"tool", to:"tool", code:"tool.activate();  estado = EsperandoPick", desc:"El usuario elige la opción Mover. La herramienta entra en modo y espera el primer click del usuario. Nada recogido aún.", item:"idle", hl:null, undo:0},
+    {phase:"Pick", from:"tool", to:"hit", code:"hit = hitTest.pick(p1)", desc:"Primer click. La herramienta pregunta qué hay bajo el cursor en ese punto.", item:"idle", hl:null, undo:0},
+    {phase:"Pick", from:"hit", to:"tool", code:"hit = { kind: Rect, id: rect#1 }   // válido", desc:"El hit-test devuelve rect#1 y la herramienta comprueba que es un elemento movible. Lo recoge y entra en estado Moviendo.", item:"picked", hl:null, undo:0},
+    {phase:"Moviendo", from:"tool", to:"ren", code:"preview.follow(cursor)   // se ve distinto", desc:"Mientras lo muevo se dibuja diferente —elevado y semitransparente— y sigue al cursor. Aún no hay comando ni undo.", item:"moving", hl:null, undo:0},
+    {phase:"Place", from:"tool", to:"hit", code:"target = hitTest.pick(p2)", desc:"Segundo click. Vuelvo a preguntar qué hay debajo: esta vez, una caja.", item:"moving", hl:null, undo:0},
+    {phase:"Place", from:"hit", to:"tool", code:"target = { kind: Box, id: caja B }", desc:"El destino es la caja B. Saber sobre qué he soltado decide CÓMO colocarlo: encaja en el hueco de esa caja.", item:"moving", hl:"B", undo:0},
+    {phase:"Commit", from:"tool", to:"disp", code:"dispatcher.execute( MoveCommand{ rect#1, into: caja B } )", desc:"Con el elemento y el destino, creo UN comando con ambos como parámetros y lo entrego al dispatcher.", item:"moving", hl:"B", undo:0},
+    {phase:"Commit", from:"disp", to:"cmd", code:"cmd.execute( ctx )", desc:"El dispatcher lo ejecuta pasándole el contexto: transforms + edición de escena.", item:"moving", hl:"B", undo:0},
+    {phase:"Commit", from:"cmd", to:"scene", code:"scene.place(rect#1, caja B)   // posición + re-parent", desc:"El comando recoloca rect#1 dentro de la caja: ajusta su posición y lo cuelga de la caja como nuevo padre.", item:"placed", hl:"B", undo:0},
+    {phase:"Render", from:"scene", to:"ren", code:"emit sceneChanged  ->  render.redraw();  undoStack.push(cmd)", desc:"La escena avisa, el render lo pinta ya colocado en la caja y queda un paso de undo. Un Ctrl+Z lo devolvería a su sitio.", item:"placed", hl:"B", undo:1}
+  ];
+  var NAMES={tool:"MoveTool",hit:"HitTest",disp:"Dispatcher",cmd:"MoveCommand",scene:"Scene",ren:"Render"};
+  var ITEM={
+    idle:  {x:60,y:120,fill:"#eaf1ff",stroke:"var(--accent)",sw:2,dash:"",op:1,label:"rect#1"},
+    picked:{x:60,y:120,fill:"#d4e2ff",stroke:"var(--accent)",sw:3.5,dash:"",op:1,label:"recogido"},
+    moving:{x:250,y:78,fill:"rgba(57,86,211,0.14)",stroke:"var(--accent)",sw:2,dash:"6 4",op:0.95,label:"moviéndose"},
+    placed:{x:475,y:45,fill:"#eaf1ff",stroke:"var(--accent)",sw:2,dash:"",op:1,label:"rect#1"}
+  };
+  var i=0, timer=null;
+  var g=function(id){ return document.getElementById(id); };
+  var phase=g("mcPhase"),route=g("mcRoute"),code=g("mcCode"),desc=g("mcDesc"),count=g("mcCount"),
+      undo=g("mcUndo"),dots=g("mcDots"),play=g("mcPlay"),
+      itemG=g("mcItem"),rectEl=g("mcItemRect"),lblEl=g("mcItemLabel"),
+      ghost=g("mcGhost"),conn=g("mcConn"),boxBRect=g("mcBoxBRect");
+  function setPlay(p){ play.textContent = p ? "❚❚ Pausa" : "▶ Reproducir"; }
+  function render(){
+    var s=steps[i];
+    phase.textContent=s.phase;
+    route.textContent = (s.from===s.to) ? NAMES[s.from]+" (interno)" : NAMES[s.from]+"  →  "+NAMES[s.to];
+    code.textContent=s.code; desc.textContent=s.desc;
+    count.textContent=(i+1)+" / "+steps.length;
+    var as=document.querySelectorAll(".ac");
+    for(var k=0;k<as.length;k++){ var a=as[k],key=a.getAttribute("data-actor"); a.className="ac";
+      if(key===s.from && s.from!==s.to) a.className+=" send";
+      else if(key===s.from && s.from===s.to) a.className+=" send";
+      else if(key===s.to) a.className+=" recv";
+      else a.className+=" dim"; }
+    var st=ITEM[s.item];
+    itemG.setAttribute("transform","translate("+st.x+","+st.y+")");
+    rectEl.setAttribute("fill",st.fill); rectEl.setAttribute("stroke",st.stroke);
+    rectEl.setAttribute("stroke-width",st.sw); rectEl.setAttribute("stroke-dasharray",st.dash);
+    rectEl.setAttribute("opacity",st.op);
+    lblEl.textContent=st.label;
+    ghost.style.opacity = (s.item==="moving") ? 1 : 0;
+    if(s.item==="moving"){ conn.style.opacity=1;
+      conn.setAttribute("x1",105); conn.setAttribute("y1",145);
+      conn.setAttribute("x2",st.x+45); conn.setAttribute("y2",st.y+25);
+    } else { conn.style.opacity=0; }
+    if(s.hl==="B"){ boxBRect.setAttribute("stroke","var(--accent)"); boxBRect.setAttribute("fill","#eaf1ff");
+      boxBRect.setAttribute("stroke-width",2.5); boxBRect.setAttribute("stroke-dasharray",""); }
+    else { boxBRect.setAttribute("stroke","var(--c-box)"); boxBRect.setAttribute("fill","#fff");
+      boxBRect.setAttribute("stroke-width",2); boxBRect.setAttribute("stroke-dasharray","2 4"); }
+    undo.innerHTML = s.undo>0 ? '<span class="chip2" style="background:#ede9fe;color:#5b21b6">MoveCommand</span>' : '<span class="empty">vacía</span>';
+    var ds=dots.children; for(var d=0;d<ds.length;d++){ ds[d].className="dot"+(d===i?" on":(d<i?" done":"")); }
+  }
+  function go(n){ i=Math.max(0,Math.min(steps.length-1,n)); render(); }
+  function stop(){ if(timer){clearInterval(timer);timer=null;} setPlay(false); }
+  function tick(){ if(i<steps.length-1) go(i+1); else stop(); }
+  function toggle(){ if(timer){stop();return;} if(i===steps.length-1) go(0); timer=setInterval(tick,1600); setPlay(true); }
+  for(var d=0;d<steps.length;d++){ (function(idx){
+    var b=document.createElement("button"); b.className="dot";
+    b.setAttribute("aria-label","Ir al paso "+(idx+1));
+    b.onclick=function(){ stop(); go(idx); }; dots.appendChild(b);
+  })(d); }
+  g("mcPrev").onclick=function(){ stop(); go(i-1); };
+  g("mcNext").onclick=function(){ stop(); go(i+1); };
+  play.onclick=toggle;
+  render();
+})();
+</script>
+</body>
+</html>

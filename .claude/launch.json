@@ -18,6 +18,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "8126", "--directory", "cpp"],
       "port": 8126
+    },
+    {
+      "name": "architecture",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8127", "--directory", "architecture"],
+      "port": 8127
     }
   ]
 }
