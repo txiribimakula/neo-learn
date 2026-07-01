@@ -3,18 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Comando de mover · recoger, mover y guardar en una caja</title>
+<title>Mover un rectángulo · operación interactiva y comando puro</title>
 <style>
   :root{
     --bg:#f3efe6; --card:#ffffff; --card-border:#e4dfd2;
     --ink:#23272f; --muted:#6b7280; --muted2:#9aa1ad; --accent:#3956d3;
     --code-bg:#1d2230; --code-ink:#e6e9f2; --code-mut:#8e9bb3;
     /* code-color por elemento — consistente en TODA la página */
-    --c-tool:#2563eb;    /* MoveTool — herramienta de 2 clics */
-    --c-hit:#d97706;     /* HitTest — picking */
+    --c-op:#2563eb;      /* MoveOperation — conductor interactivo */
+    --c-pick:#d97706;    /* Picker — espera el click y hit-testea */
     --c-rect:#475569;    /* Rectangle — el elemento movible */
     --c-box:#ea580c;     /* Box / caja — destino contenedor */
-    --c-cmd:#0d9488;     /* MoveCommand — la operación */
+    --c-cmd:#0d9488;     /* MoveCommand — el cambio puro */
     --c-disp:#7c3aed;    /* CommandDispatcher — invoker */
     --c-scene:#2e7d4f;   /* Scene / TransformService — muta */
     --c-render:#db2777;  /* RenderManager — pinta */
@@ -34,8 +34,8 @@
   .toc a.active{background:var(--accent);color:#fff}
 
   header.hero{padding:56px 0 8px}
-  .hero h1{font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1.15;margin:0 0 14px}
-  .hero .lead{font-size:15.5px;color:var(--muted);max-width:700px;margin:0}
+  .hero h1{font-size:29px;font-weight:800;letter-spacing:-.5px;line-height:1.15;margin:0 0 14px}
+  .hero .lead{font-size:15.5px;color:var(--muted);max-width:710px;margin:0}
   .hero .lead b{color:var(--ink)}
 
   .cast{display:grid;grid-template-columns:repeat(auto-fit,minmax(205px,1fr));gap:9px;margin:26px 0 6px}
@@ -53,7 +53,7 @@
   .sec p b{color:var(--ink)}
 
   .el{font-weight:800;white-space:nowrap}
-  .el.tool{color:var(--c-tool)} .el.hit{color:var(--c-hit)} .el.rect{color:var(--c-rect)}
+  .el.op{color:var(--c-op)} .el.pick{color:var(--c-pick)} .el.rect{color:var(--c-rect)}
   .el.box{color:var(--c-box)} .el.cmd{color:var(--c-cmd)} .el.disp{color:var(--c-disp)}
   .el.scene{color:var(--c-scene)} .el.render{color:var(--c-render)}
 
@@ -71,6 +71,15 @@
   .actor .ds{font-size:13px;color:#3b4250;margin:0 0 6px}
   .actor .dep{font-size:11.5px;color:var(--muted)}
   .actor .dep b{color:var(--ink)}
+
+  .split{background:#fff;border:1px solid var(--card-border);border-radius:11px;padding:14px 16px;border-top:4px solid var(--tc)}
+  .split .sn{font-size:16px;font-weight:800;color:var(--tc);margin:0 0 2px}
+  .split .sw2{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin:0 0 10px}
+  .split table{width:100%;border-collapse:collapse;font-size:13px}
+  .split td{padding:5px 0;vertical-align:top;border-bottom:1px solid var(--card-border)}
+  .split tr:last-child td{border-bottom:none}
+  .split td:first-child{color:var(--muted);width:42%;font-weight:600}
+  .split td:last-child{font-weight:600}
 
   .figure{background:#fff;border:1px solid var(--card-border);border-radius:12px;padding:14px;overflow:auto}
   .figure svg{display:block;width:100%;height:auto;min-width:580px}
@@ -90,20 +99,19 @@
 
   .note{font-size:13px;color:var(--muted);border-left:3px solid var(--card-border);padding:2px 0 2px 12px;margin:14px 0 0}
 
-  /* reproductor de secuencia */
   .player{background:#fff;border:1px solid var(--card-border);border-radius:12px;padding:15px}
   .scene-box{background:linear-gradient(180deg,#faf8f3,#f0ebe0);border:1px solid var(--card-border);border-radius:10px;padding:10px}
   .phase{display:inline-block;font-size:11.5px;font-weight:800;color:#fff;background:var(--accent);border-radius:20px;padding:2px 11px;letter-spacing:.3px}
   .actors{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:14px 0}
   .ac{border:1px solid var(--card-border);border-radius:9px;padding:8px 4px;text-align:center;background:#fff;transition:.18s}
-  .ac .n{font-size:12px;font-weight:800;color:var(--ac)}
+  .ac .n{font-size:11.5px;font-weight:800;color:var(--ac)}
   .ac .r{font-size:10px;color:var(--muted2);font-weight:600}
   .ac.send{background:var(--ac);border-color:var(--ac)} .ac.send .n,.ac.send .r{color:#fff}
   .ac.recv{border-color:var(--ac);box-shadow:0 0 0 2px #fff,0 0 0 3px var(--ac)}
   .ac.dim{opacity:.38}
   .call{border:1px solid var(--card-border);border-radius:10px;padding:12px 14px;background:#faf8f3}
   .call .route{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:7px}
-  .call .codeln{font-family:ui-monospace,Consolas,monospace;font-size:13px;background:#1d2230;color:#e6e9f2;border-radius:7px;padding:8px 11px;white-space:pre-wrap;word-break:break-word}
+  .call .codeln{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;background:#1d2230;color:#e6e9f2;border-radius:7px;padding:8px 11px;white-space:pre-wrap;word-break:break-word}
   .call .desc{font-size:13px;color:#3b4250;margin-top:9px}
   .stack{border:1px solid var(--card-border);border-radius:9px;padding:8px 11px;margin:13px 0}
   .stack .sl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted2);margin-bottom:6px}
@@ -127,27 +135,29 @@
 <nav class="toc">
   <div class="toc-inner" id="toc">
     <a href="#elementos">01 · Elementos</a>
-    <a href="#mapa">02 · Mapa</a>
-    <a href="#secuencia">03 · Secuencia</a>
-    <a href="#patrones">04 · Patrones</a>
+    <a href="#split">02 · Operación vs comando</a>
+    <a href="#mapa">03 · Mapa</a>
+    <a href="#secuencia">04 · Secuencia</a>
+    <a href="#undo">05 · Cómo se deshace</a>
+    <a href="#patrones">06 · Patrones</a>
   </div>
 </nav>
 
 <div class="wrap">
 
   <header class="hero" id="top">
-    <h1>Mover un rectángulo es un gesto de dos clics<br>recoger, mover y guardar en una caja</h1>
-    <p class="lead">Eliges la opción Mover, haces un <b>primer click</b> para recoger un elemento válido, lo ves
-    <b>moverse</b> (se dibuja distinto mientras lo arrastras con el cursor) y, con un <b>segundo click sobre una
-    caja</b>, decides dónde guardarlo. Aquí están los elementos que entran en juego, cómo se relacionan, la
-    secuencia exacta de ese gesto, y los patrones de diseño debajo. Cada elemento tiene <b>su color fijo</b>.</p>
+    <h1>Mover un rectángulo<br>una operación interactiva y un comando puro</h1>
+    <p class="lead">Mover tiene dos caras: una <b>operación</b> que conduce el gesto —arranca el picking, te deja
+    recoger un elemento válido, lo dibuja moviéndose y, con un segundo click sobre una caja, decide dónde guardarlo—
+    y un <b>comando</b> puro que registra el cambio para poder deshacerlo. Aquí están los elementos, por qué se
+    separan, cómo se relacionan, la secuencia del gesto y cómo se gestiona el undo. Cada elemento tiene <b>su color fijo</b>.</p>
 
     <div class="cast">
-      <div class="chip"><div class="sw" style="background:var(--c-tool)"></div><div><div class="nm" style="color:var(--c-tool)">MoveTool</div><div class="st">herramienta · 2 clics</div></div></div>
-      <div class="chip"><div class="sw" style="background:var(--c-hit)"></div><div><div class="nm" style="color:var(--c-hit)">HitTest</div><div class="st">picking</div></div></div>
+      <div class="chip"><div class="sw" style="background:var(--c-op)"></div><div><div class="nm" style="color:var(--c-op)">MoveOperation</div><div class="st">conductor · interactivo</div></div></div>
+      <div class="chip"><div class="sw" style="background:var(--c-pick)"></div><div><div class="nm" style="color:var(--c-pick)">Picker</div><div class="st">espera click · hit-test</div></div></div>
       <div class="chip"><div class="sw" style="background:var(--c-rect)"></div><div><div class="nm" style="color:var(--c-rect)">Rectangle</div><div class="st">elemento movible</div></div></div>
       <div class="chip"><div class="sw" style="background:var(--c-box)"></div><div><div class="nm" style="color:var(--c-box)">Box · caja</div><div class="st">destino · contenedor</div></div></div>
-      <div class="chip"><div class="sw" style="background:var(--c-cmd)"></div><div><div class="nm" style="color:var(--c-cmd)">MoveCommand</div><div class="st">la operación</div></div></div>
+      <div class="chip"><div class="sw" style="background:var(--c-cmd)"></div><div><div class="nm" style="color:var(--c-cmd)">MoveCommand</div><div class="st">cambio puro · undoable</div></div></div>
       <div class="chip"><div class="sw" style="background:var(--c-disp)"></div><div><div class="nm" style="color:var(--c-disp)">CommandDispatcher</div><div class="st">invoker · undo/redo</div></div></div>
       <div class="chip"><div class="sw" style="background:var(--c-scene)"></div><div><div class="nm" style="color:var(--c-scene)">Scene · Transforms</div><div class="st">muta · re-parenta</div></div></div>
       <div class="chip"><div class="sw" style="background:var(--c-render)"></div><div><div class="nm" style="color:var(--c-render)">RenderManager</div><div class="st">redibuja</div></div></div>
@@ -159,24 +169,25 @@
     <div class="num">01</div>
     <h2>El reparto · quién es quién</h2>
     <p class="sub">Prisma estructural — qué objetos existen</p>
-    <p>Dos elementos nuevos respecto al modelo básico: <span class="el hit">HitTest</span> (saber qué hay bajo cada
-    click) y las <span class="el box">cajas</span> (los destinos donde se guarda el rectángulo). La
-    <span class="el tool">herramienta</span> deja de ser un instante y pasa a tener <b>estado</b>: recoger → mover → colocar.</p>
+    <p>La pieza clave: <span class="el op">MoveOperation</span> (el conductor del gesto) y
+    <span class="el cmd">MoveCommand</span> (el cambio undoable) son <b>dos objetos distintos</b>. El
+    <span class="el pick">Picker</span> es el servicio que espera cada click, y las
+    <span class="el box">cajas</span> son los destinos donde se guarda el rectángulo.</p>
 
     <div class="grid cols-2">
-      <div class="actor" style="--ac:var(--c-tool)">
-        <div class="st">herramienta · 2 clics</div><div class="nm">MoveTool</div>
-        <div class="ds">Orquesta el gesto y mantiene el estado: se activa, espera el click de recogida, comprueba validez, dibuja el “moviéndose” y, al segundo click, coloca. Recuerda <b>qué</b> recogió.</div>
-        <div class="dep"><b>conoce a:</b> HitTest, CommandDispatcher</div>
+      <div class="actor" style="--ac:var(--c-op)">
+        <div class="st">operación · conductor interactivo</div><div class="nm">MoveOperation</div>
+        <div class="ds">Conduce el gesto y mantiene el estado (EsperandoPick → Moviendo → coloca). Arranca el picking y, al final, <b>produce</b> el comando. Cancelable, ocurre una vez, <b>no</b> va a la pila de undo.</div>
+        <div class="dep"><b>recibe:</b> IPicker, IPreview, CommandBus</div>
       </div>
-      <div class="actor" style="--ac:var(--c-hit)">
-        <div class="st">picking</div><div class="nm">HitTest</div>
-        <div class="ds">Dado el punto de un click, dice qué hay debajo: un elemento movible, una caja o nada. Se usa en los <b>dos</b> clicks (recoger y colocar).</div>
-        <div class="dep"><b>implementa:</b> IHitTest · <code class="k">pick(p) → Hit</code></div>
+      <div class="actor" style="--ac:var(--c-pick)">
+        <div class="st">input</div><div class="nm">Picker</div>
+        <div class="ds">Espera el siguiente click y dice qué hay debajo, <b>filtrado</b> (movible / caja / punto). Reusable por todas las operaciones — la operación lo llama, no al revés.</div>
+        <div class="dep"><b>implementa:</b> IPicker · <code class="k">pick(filtro) → Hit</code></div>
       </div>
       <div class="actor" style="--ac:var(--c-rect)">
         <div class="st">elemento</div><div class="nm">Rectangle</div>
-        <div class="ds">Lo que se mueve: un id + posición. Puede acabar guardado dentro de una caja (su nuevo padre).</div>
+        <div class="ds">Lo que se mueve: un id + colocación (posición y padre). Puede acabar guardado dentro de una caja.</div>
         <div class="dep"><b>lo posee:</b> Scene</div>
       </div>
       <div class="actor" style="--ac:var(--c-box)">
@@ -185,19 +196,19 @@
         <div class="dep"><b>lo posee:</b> Scene · puede contener un Rectangle</div>
       </div>
       <div class="actor" style="--ac:var(--c-cmd)">
-        <div class="st">command</div><div class="nm">MoveCommand</div>
-        <div class="ds">Recoloca el elemento en su destino (posición y, si toca, dentro de una caja). Guarda el <b>origen</b> para poder deshacer.</div>
-        <div class="dep"><b>conoce a:</b> ITransformService, ISceneEditor</div>
+        <div class="st">command · cambio puro</div><div class="nm">MoveCommand</div>
+        <div class="ds">El cambio undoable que la operación produce: <code class="k">(elemento, destino)</code>. Guarda el <b>estado anterior</b> para deshacer. Sin UI, sin esperas: se re-ejecuta tal cual en redo.</div>
+        <div class="dep"><b>recibe:</b> ISceneEditor (y ITransformService)</div>
       </div>
       <div class="actor" style="--ac:var(--c-disp)">
         <div class="st">invoker</div><div class="nm">CommandDispatcher</div>
-        <div class="ds">Ejecuta el comando con el contexto y mantiene las pilas de <b>undo/redo</b>. Único sitio para logging y validación.</div>
-        <div class="dep"><b>conoce a:</b> ICommand, CommandContext</div>
+        <div class="ds">Ejecuta el comando y mantiene las pilas de <b>undo/redo</b>. Los llama de forma uniforme, sin conocer las dependencias de cada uno.</div>
+        <div class="dep"><b>conoce a:</b> ICommand</div>
       </div>
       <div class="actor" style="--ac:var(--c-scene)">
         <div class="st">documento</div><div class="nm">Scene · TransformService</div>
-        <div class="ds">Posee rectángulos y cajas; mueve y <b>re-parenta</b> (mete el rect en la caja), responde al hit-testing y emite <code class="k">sceneChanged</code>.</div>
-        <div class="dep"><b>implementa:</b> IHitTest, ITransformService, ISceneEditor</div>
+        <div class="ds">Posee rectángulos y cajas; mueve y <b>re-parenta</b> (mete el rect en la caja), sirve el hit-test al picker y emite <code class="k">sceneChanged</code>.</div>
+        <div class="dep"><b>implementa:</b> ITransformService, ISceneEditor</div>
       </div>
       <div class="actor" style="--ac:var(--c-render)">
         <div class="st">observador</div><div class="nm">RenderManager</div>
@@ -208,18 +219,88 @@
   </section>
 
   <!-- 02 ============================================================= -->
-  <section class="sec" id="mapa">
+  <section class="sec" id="split">
     <div class="num">02</div>
+    <h2>Operación vs comando · y qué recibe cada uno</h2>
+    <p class="sub">La decisión de fondo — dos ciclos de vida, no uno</p>
+    <p>La operación <b>centraliza la secuencia</b> del gesto (por eso escala cuando la operación tiene más pasos) y
+    <b>arranca el picking</b> llamando al <span class="el pick">Picker</span>. Pero lo que va a la pila de undo no es
+    ella: es el <span class="el cmd">comando</span> puro que produce al final.</p>
+
+    <div class="grid cols-2" style="align-items:start">
+      <div class="split" style="--tc:var(--c-op)">
+        <div class="sn">MoveOperation</div><div class="sw2">conductor interactivo</div>
+        <table>
+          <tr><td>ciclo de vida</td><td>transitorio · cancelable · una vez</td></tr>
+          <tr><td>espera clicks</td><td>sí — arranca y conduce el picking</td></tr>
+          <tr><td>recibe (concreto)</td><td>IPicker · IPreview · CommandBus</td></tr>
+          <tr><td>¿pila de undo?</td><td>no</td></tr>
+        </table>
+      </div>
+      <div class="split" style="--tc:var(--c-cmd)">
+        <div class="sn">MoveCommand</div><div class="sw2">cambio puro</div>
+        <table>
+          <tr><td>ciclo de vida</td><td>síncrono · se repite en redo · serializable</td></tr>
+          <tr><td>espera clicks</td><td>nunca — recibe elemento y destino ya resueltos</td></tr>
+          <tr><td>recibe (concreto)</td><td>ISceneEditor (· ITransformService)</td></tr>
+          <tr><td>¿pila de undo?</td><td>sí</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <p style="margin-top:16px"><b>Por qué separarlos:</b> si el objeto de la pila fuera el que espera clicks, el
+    <b>redo</b> volvería a pedirte que hagas click (debe ser silencioso), no podrías <b>scriptear</b> un batch, y no
+    sería <b>serializable</b>. Y separados, cada uno recibe <b>solo sus interfaces</b>: interacción para la operación,
+    mutación para el comando.</p>
+
+    <p><b>Nada de contexto-cajón.</b> En vez de pasar un contexto con todos los managers, inyecta a cada uno las
+    interfaces concretas que usa (por constructor). Así <code class="k">execute()</code>/<code class="k">undo()</code>
+    no necesitan contexto y el dispatcher los llama uniforme. Un “contexto” pequeño solo se justifica para lo
+    <b>ambiental</b> (documento activo, transacción), nunca como bolsa de servicios. Y la ergonomía del cableado se
+    resuelve con una <b>factory</b> en el composition root, no con una bolsa en tiempo de ejecución.</p>
+
+    <pre class="code">// La OPERACIÓN: conduce el gesto. Recibe SOLO servicios de interacción.
+class MoveOperation {
+    IPicker&amp; picker_;  IPreview&amp; preview_;  CommandBus&amp; bus_;  MoveFactory make_;
+public:
+    Task run() {                                    <span class="c">// arranca al elegir la opción</span>
+        auto rect = co_await picker_.pick(Filter::Movable);       <span class="c">// 1er click</span>
+        if (!rect) co_return;                                     <span class="c">// Esc: nada que deshacer</span>
+        preview_.begin(*rect);                                    <span class="c">// "moviéndose"</span>
+        auto target = co_await picker_.pick(Filter::BoxOrPoint);  <span class="c">// 2º click</span>
+        preview_.clear();
+        if (!target) co_return;
+        bus_.execute( make_(*rect, *target) );      <span class="c">// la factory crea el comando con SUS deps</span>
+    }
+};
+
+// El COMANDO: cambio puro. Recibe SOLO servicios de mutación. Sin contexto.
+class MoveCommand : public ICommand {
+    ISceneEditor&amp; scene_;
+    EntityId what_;  Placement to_;
+    std::optional&lt;Placement&gt; from_;         <span class="c">// estado anterior (ver §05)</span>
+public:
+    MoveCommand(ISceneEditor&amp; s, EntityId e, Placement to) : scene_(s), what_(e), to_(to) {}
+    void execute() override { if(!from_) from_ = scene_.placementOf(what_); scene_.place(what_, to_); }
+    void undo()    override { scene_.place(what_, *from_); }
+};
+
+// El dispatcher es genérico: no conoce las deps de nadie.
+void CommandBus::execute(std::unique_ptr&lt;ICommand&gt; c) { c-&gt;execute(); undo_.push(std::move(c)); redo_.clear(); }</pre>
+    <div class="codecap">El <code class="k">co_await</code> hace que la espera del click no bloquee el hilo de UI (corrutina). Sin corrutinas, lo mismo con callbacks o una máquina de estados avanzada por eventos.</div>
+  </section>
+
+  <!-- 03 ============================================================= -->
+  <section class="sec" id="mapa">
+    <div class="num">03</div>
     <h2>El mapa de relaciones</h2>
     <p class="sub">Prisma de dependencias — quién apunta a quién</p>
-    <p>Flechas <b>sólidas</b> = “usa / depende de”; <b>discontinuas</b> = “implementa” u “observa”. La
-    <span class="el tool">herramienta</span> usa <span class="el hit">HitTest</span> en cada click y, al final, crea
-    un <span class="el cmd">comando</span> vía el <span class="el disp">dispatcher</span>. El comando recoloca a
-    través de la <span class="el scene">escena</span>, que posee los <span class="el rect">rectángulos</span> y las
-    <span class="el box">cajas</span>.</p>
+    <p>Flechas <b>sólidas</b> = “usa / depende de”; <b>discontinuas</b> = “implementa” u “observa”. Fíjate en los dos
+    conjuntos de interfaces: la <span class="el op">operación</span> usa <code class="k">IPicker</code>; el
+    <span class="el cmd">comando</span> usa <code class="k">ITransformService·ISceneEditor</code>. Ninguno recibe un contexto con todo.</p>
 
     <div class="figure">
-      <svg viewBox="0 0 880 580" role="img" aria-label="Mapa de dependencias del comando de mover con hit-testing y cajas.">
+      <svg viewBox="0 0 880 580" role="img" aria-label="Mapa de dependencias: operación, picker, comando, escena con rectángulos y cajas.">
         <defs>
           <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
             <path d="M2 1L8 5L2 9" fill="none" stroke="#6b7280" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -227,29 +308,33 @@
         </defs>
 
         <line x1="380" y1="78" x2="218" y2="116" stroke="#6b7280" stroke-width="1.5" marker-end="url(#ar)"/>
-        <text x="278" y="92" font-size="11.5" fill="#6b7280" font-family="ui-monospace,Consolas,monospace">pick(p)</text>
+        <text x="286" y="90" font-size="11.5" fill="#6b7280" font-family="ui-monospace,Consolas,monospace">pick()</text>
         <line x1="435" y1="78" x2="435" y2="116" stroke="#6b7280" stroke-width="1.5" marker-end="url(#ar)"/>
         <text x="443" y="100" font-size="11.5" fill="#6b7280" font-family="ui-monospace,Consolas,monospace">execute(cmd)</text>
         <line x1="435" y1="184" x2="435" y2="236" stroke="#6b7280" stroke-width="1.5" marker-end="url(#ar)"/>
-        <text x="443" y="213" font-size="11.5" fill="#6b7280" font-family="ui-monospace,Consolas,monospace">execute / undo (ctx)</text>
-        <line x1="435" y1="294" x2="450" y2="348" stroke="#6b7280" stroke-width="1.5" marker-end="url(#ar)"/>
+        <text x="443" y="213" font-size="11.5" fill="#6b7280" font-family="ui-monospace,Consolas,monospace">execute() · undo()</text>
+        <line x1="435" y1="294" x2="452" y2="348" stroke="#6b7280" stroke-width="1.5" marker-end="url(#ar)"/>
         <text x="466" y="324" font-size="11" fill="#6b7280">coloca / re-parenta</text>
 
+        <line x1="190" y1="236" x2="190" y2="178" stroke="#9aa1ad" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+        <text x="198" y="212" font-size="11" fill="#9aa1ad">implementa</text>
         <line x1="455" y1="455" x2="455" y2="410" stroke="#9aa1ad" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
         <text x="463" y="436" font-size="11" fill="#9aa1ad">implementa</text>
-        <line x1="300" y1="500" x2="200" y2="178" stroke="#9aa1ad" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
-        <text x="214" y="330" font-size="11" fill="#9aa1ad">implementa</text>
         <line x1="658" y1="488" x2="612" y2="498" stroke="#9aa1ad" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
         <text x="636" y="476" font-size="11" fill="#9aa1ad" text-anchor="middle">observa</text>
 
         <g font-family="system-ui,sans-serif">
-          <rect x="330" y="24" width="210" height="54" rx="8" fill="#fff" stroke="var(--c-tool)" stroke-width="2"/>
-          <text x="435" y="43" text-anchor="middle" font-size="11" fill="#9aa1ad" font-weight="700">«herramienta · 2 clics»</text>
-          <text x="435" y="63" text-anchor="middle" font-size="15" fill="var(--c-tool)" font-weight="800">MoveTool</text>
+          <rect x="320" y="24" width="220" height="54" rx="8" fill="#fff" stroke="var(--c-op)" stroke-width="2"/>
+          <text x="430" y="43" text-anchor="middle" font-size="11" fill="#9aa1ad" font-weight="700">«operación interactiva»</text>
+          <text x="430" y="63" text-anchor="middle" font-size="15" fill="var(--c-op)" font-weight="800">MoveOperation</text>
 
-          <rect x="90" y="118" width="210" height="58" rx="8" fill="#fbfaf6" stroke="var(--c-hit)" stroke-width="2" stroke-dasharray="6 4"/>
-          <text x="195" y="138" text-anchor="middle" font-size="11" fill="#9aa1ad" font-weight="700">«interface»</text>
-          <text x="195" y="158" text-anchor="middle" font-size="14.5" fill="var(--c-hit)" font-weight="800">IHitTest</text>
+          <rect x="90" y="118" width="200" height="58" rx="8" fill="#fbfaf6" stroke="var(--c-pick)" stroke-width="2" stroke-dasharray="6 4"/>
+          <text x="190" y="138" text-anchor="middle" font-size="11" fill="#9aa1ad" font-weight="700">«interface»</text>
+          <text x="190" y="158" text-anchor="middle" font-size="14.5" fill="var(--c-pick)" font-weight="800">IPicker</text>
+
+          <rect x="90" y="236" width="200" height="54" rx="8" fill="#fff" stroke="var(--c-pick)" stroke-width="2"/>
+          <text x="190" y="256" text-anchor="middle" font-size="11" fill="#9aa1ad" font-weight="700">«input»</text>
+          <text x="190" y="275" text-anchor="middle" font-size="14" fill="var(--c-pick)" font-weight="800">Picker</text>
 
           <rect x="330" y="118" width="210" height="66" rx="8" fill="#fff" stroke="var(--c-disp)" stroke-width="2"/>
           <text x="435" y="137" text-anchor="middle" font-size="11" fill="#9aa1ad" font-weight="700">«invoker»</text>
@@ -257,7 +342,7 @@
           <text x="435" y="173" text-anchor="middle" font-size="11.5" fill="#6b7280">posee pila undo / redo</text>
 
           <rect x="330" y="238" width="210" height="56" rx="8" fill="#fff" stroke="var(--c-cmd)" stroke-width="2"/>
-          <text x="435" y="257" text-anchor="middle" font-size="11" fill="#9aa1ad" font-weight="700">«command»</text>
+          <text x="435" y="257" text-anchor="middle" font-size="11" fill="#9aa1ad" font-weight="700">«command · puro»</text>
           <text x="435" y="277" text-anchor="middle" font-size="15" fill="var(--c-cmd)" font-weight="800">MoveCommand</text>
 
           <rect x="330" y="350" width="250" height="58" rx="8" fill="#fbfaf6" stroke="var(--c-scene)" stroke-width="2" stroke-dasharray="6 4"/>
@@ -278,21 +363,21 @@
         </g>
       </svg>
     </div>
-    <div class="caption">La herramienta usa el hit-test para los dos clicks; el comando recoloca vía la escena, que contiene los rectángulos y las cajas.</div>
+    <div class="caption">El Picker sirve los dos clicks (usa el hit-test de la escena por dentro); el comando recoloca vía la escena, que contiene los rectángulos y las cajas.</div>
   </section>
 
-  <!-- 03 ============================================================= -->
+  <!-- 04 ============================================================= -->
   <section class="sec" id="secuencia">
-    <div class="num">03</div>
+    <div class="num">04</div>
     <h2>La secuencia del gesto, paso a paso</h2>
-    <p class="sub">Prisma de interacción — los dos clicks, con sus argumentos</p>
-    <p>Tus cinco pasos, con el detalle de cada mensaje. Pulsa <b>Reproducir</b> o avanza a mano: rect#1 se
+    <p class="sub">Prisma de interacción — la operación conduce; el comando nace al final</p>
+    <p>Pulsa <b>Reproducir</b> o avanza a mano. La <span class="el op">operación</span> arranca el picking, rect#1 se
     <b>recoge</b> (se ve distinto), se <b>mueve</b> siguiendo al cursor sin crear comando, y solo al
-    <b>segundo click sobre la caja B</b> se despacha <b>un</b> <span class="el cmd">MoveCommand</span> que lo guarda.</p>
+    <b>segundo click sobre la caja B</b> se produce <b>un</b> <span class="el cmd">MoveCommand</span> que lo guarda.</p>
 
     <div class="player">
       <div class="scene-box">
-        <div style="margin-bottom:9px"><span class="phase" id="mcPhase">Comando</span></div>
+        <div style="margin-bottom:9px"><span class="phase" id="mcPhase">Operación</span></div>
         <svg id="mcStage" viewBox="0 0 600 200" role="img" aria-label="rect#1 se recoge, se mueve y se guarda en la caja B." style="display:block;width:100%;height:auto">
           <g font-family="system-ui">
             <rect x="320" y="30" width="120" height="80" rx="8" fill="#fff" stroke="var(--c-box)" stroke-width="2" stroke-dasharray="2 4"/>
@@ -312,18 +397,18 @@
       </div>
 
       <div class="actors" id="mcActors">
-        <div class="ac" data-actor="tool" style="--ac:var(--c-tool)"><div class="n">MoveTool</div><div class="r">2 clics</div></div>
-        <div class="ac" data-actor="hit" style="--ac:var(--c-hit)"><div class="n">HitTest</div><div class="r">picking</div></div>
+        <div class="ac" data-actor="op" style="--ac:var(--c-op)"><div class="n">MoveOperation</div><div class="r">conductor</div></div>
+        <div class="ac" data-actor="pick" style="--ac:var(--c-pick)"><div class="n">Picker</div><div class="r">click·hit-test</div></div>
         <div class="ac" data-actor="disp" style="--ac:var(--c-disp)"><div class="n">Dispatcher</div><div class="r">undo·redo</div></div>
-        <div class="ac" data-actor="cmd" style="--ac:var(--c-cmd)"><div class="n">MoveCommand</div><div class="r">operación</div></div>
+        <div class="ac" data-actor="cmd" style="--ac:var(--c-cmd)"><div class="n">MoveCommand</div><div class="r">cambio puro</div></div>
         <div class="ac" data-actor="scene" style="--ac:var(--c-scene)"><div class="n">Scene</div><div class="r">muta·reparenta</div></div>
         <div class="ac" data-actor="ren" style="--ac:var(--c-render)"><div class="n">Render</div><div class="r">redibuja</div></div>
       </div>
 
       <div class="call">
-        <div class="route" id="mcRoute">MoveTool (interno)</div>
-        <div class="codeln" id="mcCode">tool.activate();  estado = EsperandoPick</div>
-        <div class="desc" id="mcDesc">El usuario elige la opción Mover. La herramienta entra en modo y espera el primer click del usuario.</div>
+        <div class="route" id="mcRoute">MoveOperation (interno)</div>
+        <div class="codeln" id="mcCode">op.run();  estado = EsperandoPick</div>
+        <div class="desc" id="mcDesc">La operación, elegida en el menú, arranca y se dispone a pedir el primer click.</div>
       </div>
 
       <div class="stack"><div class="sl">Pila undo</div><div id="mcUndo"><span class="empty">vacía</span></div></div>
@@ -336,28 +421,69 @@
       </div>
       <div class="dots" id="mcDots"></div>
     </div>
-
-    <p class="note">El <span class="el cmd">MoveCommand</span> guarda el origen del rectángulo (su posición y padre
-    anteriores), así que el undo lo devuelve exactamente a donde estaba — fuera o dentro de otra caja.</p>
   </section>
 
-  <!-- 04 ============================================================= -->
+  <!-- 05 ============================================================= -->
+  <section class="sec" id="undo">
+    <div class="num">05</div>
+    <h2>Cómo se deshace</h2>
+    <p class="sub">Prisma del undo — guardar el estado, no recomputar a ciegas</p>
+    <p>Dos estrategias. Por defecto uso la primera: el comando guarda el <b>estado anterior</b> de lo que pisa
+    (memento dirigido) y lo restaura. El inverso por lógica solo cuando la operación es exacta y sin efectos colaterales.</p>
+
+    <div class="grid cols-2" style="align-items:start">
+      <div class="split" style="--tc:var(--c-cmd)">
+        <div class="sn">Memento dirigido</div><div class="sw2">recomendado</div>
+        <p style="font-size:13px;margin:0;color:#3b4250">Guarda <code class="k">{ posición, padre }</code> previos y los vuelve a escribir. Correcto <b>aunque haya efectos colaterales</b>, y sin deriva de floats (restaura el valor absoluto anterior).</p>
+      </div>
+      <div class="split" style="--tc:var(--c-rect)">
+        <div class="sn">Inverso por lógica</div><div class="sw2">casos simples</div>
+        <p style="font-size:13px;margin:0;color:#3b4250">Recomputa la marcha atrás (<code class="k">-delta</code>). Solo para operaciones exacta y baratamente invertibles, <b>sin</b> efectos colaterales. Ojo: casi siempre acabas guardando el origen igualmente.</p>
+      </div>
+    </div>
+
+    <pre class="code" style="margin-top:14px">void execute() override {
+    if (!from_) from_ = scene_.placementOf(what_);   <span class="c">// MEMENTO: guardo lo que voy a pisar (1er execute)</span>
+    scene_.place(what_, to_);                         <span class="c">// posición + re-parent en la caja</span>
+}
+void undo() override {
+    scene_.place(what_, *from_);                      <span class="c">// restauro ese estado, exacto</span>
+}
+<span class="c">// redo = execute() otra vez: from_ ya está, solo reaplica to_</span></pre>
+    <p class="note">Detalle: se captura en <code class="k">execute()</code>, no en el constructor (el estado a restaurar
+    es el del momento en que se ejecuta), y el redo no vuelve a capturar.</p>
+
+    <p style="margin-top:16px"><b>Para operaciones futuras complejas</b>, no escribas un <code class="k">undo()</code>
+    gigante a mano:</p>
+    <div class="grid cols-2" style="align-items:start">
+      <div class="actor" style="--ac:var(--c-disp)">
+        <div class="st">Composite</div><div class="nm" style="font-size:15px">Macro de comandos</div>
+        <div class="ds">La operación compleja es un <code class="k">MacroCommand</code> de sub-comandos pequeños, cada uno con su propio undo. Deshacer = deshacer los hijos en orden inverso. Un solo paso de undo para el usuario.</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-scene)">
+        <div class="st">Journal · transacción</div><div class="nm" style="font-size:15px">Diario de cambios</div>
+        <div class="ds">El modelo registra cada mutación durante <code class="k">execute()</code> y el sistema de undo invierte el diario <b>automáticamente</b>. Nada de undo a mano; a cambio, el modelo debe soportar change-tracking.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 ============================================================= -->
   <section class="sec" id="patrones">
-    <div class="num">04</div>
+    <div class="num">06</div>
     <h2>Los patrones de diseño debajo</h2>
     <p class="sub">Cómo se llama cada idea y dónde aparece aquí</p>
     <div class="grid cols-2">
       <div class="pat">
         <div class="pn">Command</div>
-        <div class="pw">Encapsular una acción como objeto con <code class="k">execute</code> / <code class="k">undo</code>.</div>
+        <div class="pw">Encapsular un cambio como objeto con <code class="k">execute</code> / <code class="k">undo</code>.</div>
         <div class="lab">dónde aquí</div><div class="where"><span class="el cmd">MoveCommand</span> = “guardar rect#1 en la caja B” hecho objeto.</div>
         <div class="lab">qué te da</div><div class="gain">Undo/redo, colas, macros y scripting.</div>
       </div>
       <div class="pat">
         <div class="pn">State · máquina de estados</div>
         <div class="pw">El comportamiento cambia según el estado interno.</div>
-        <div class="lab">dónde aquí</div><div class="where"><span class="el tool">MoveTool</span>: EsperandoPick → Moviendo → coloca.</div>
-        <div class="lab">qué te da</div><div class="gain">El mismo click hace cosas distintas según la fase, sin <code class="k">if</code> gigantes.</div>
+        <div class="lab">dónde aquí</div><div class="where"><span class="el op">MoveOperation</span>: EsperandoPick → Moviendo → coloca.</div>
+        <div class="lab">qué te da</div><div class="gain">Centraliza la secuencia del gesto; escala si hay más pasos.</div>
       </div>
       <div class="pat">
         <div class="pn">Invoker + historial</div>
@@ -366,10 +492,10 @@
         <div class="lab">qué te da</div><div class="gain">Undo/redo centralizado, logging, validación.</div>
       </div>
       <div class="pat">
-        <div class="pn">Interface Segregation · role interfaces</div>
-        <div class="pw">Interfaces pequeñas, definidas por capacidad.</div>
-        <div class="lab">dónde aquí</div><div class="where"><code class="k">IHitTest</code> para los clicks, <code class="k">ITransformService</code> para recolocar.</div>
-        <div class="lab">qué te da</div><div class="gain">Cada quien ve solo lo que usa; refactors seguros.</div>
+        <div class="pn">Inyección de interfaces concretas</div>
+        <div class="pw">Cada uno recibe solo lo que usa — no un contexto con todo.</div>
+        <div class="lab">dónde aquí</div><div class="where"><span class="el op">Operación</span>: IPicker/IPreview · <span class="el cmd">comando</span>: ISceneEditor.</div>
+        <div class="lab">qué te da</div><div class="gain">Deps honestas, testeo con mocks, sin service locator.</div>
       </div>
       <div class="pat">
         <div class="pn">Observer</div>
@@ -378,17 +504,17 @@
         <div class="lab">qué te da</div><div class="gain">Render desacoplado; cualquier mutación refresca la vista.</div>
       </div>
       <div class="pat">
-        <div class="pn">Memento (ligero)</div>
+        <div class="pn">Memento</div>
         <div class="pw">Guardar lo justo para poder revertir.</div>
-        <div class="lab">dónde aquí</div><div class="where"><span class="el cmd">MoveCommand</span> guarda el origen (posición + padre).</div>
+        <div class="lab">dónde aquí</div><div class="where"><span class="el cmd">MoveCommand</span> guarda la colocación anterior (posición + padre).</div>
         <div class="lab">qué te da</div><div class="gain">Undo exacto sin clonar toda la escena.</div>
       </div>
     </div>
   </section>
 
   <footer>
-    Single-file · vanilla JS · el mismo gesto sirve para mover entre cajas, sacar de una caja o reordenar —
-    solo cambia a qué destino apunta el comando. <a href="#top" style="color:var(--accent);text-decoration:none;font-weight:700">↑ volver arriba</a>
+    Single-file · vanilla JS · la operación conduce el gesto, el comando registra el cambio.
+    <a href="#top" style="color:var(--accent);text-decoration:none;font-weight:700">↑ volver arriba</a>
   </footer>
 
 </div>
@@ -407,18 +533,18 @@
   spy();
 
   var steps=[
-    {phase:"Comando", from:"tool", to:"tool", code:"tool.activate();  estado = EsperandoPick", desc:"El usuario elige la opción Mover. La herramienta entra en modo y espera el primer click del usuario. Nada recogido aún.", item:"idle", hl:null, undo:0},
-    {phase:"Pick", from:"tool", to:"hit", code:"hit = hitTest.pick(p1)", desc:"Primer click. La herramienta pregunta qué hay bajo el cursor en ese punto.", item:"idle", hl:null, undo:0},
-    {phase:"Pick", from:"hit", to:"tool", code:"hit = { kind: Rect, id: rect#1 }   // válido", desc:"El hit-test devuelve rect#1 y la herramienta comprueba que es un elemento movible. Lo recoge y entra en estado Moviendo.", item:"picked", hl:null, undo:0},
-    {phase:"Moviendo", from:"tool", to:"ren", code:"preview.follow(cursor)   // se ve distinto", desc:"Mientras lo muevo se dibuja diferente —elevado y semitransparente— y sigue al cursor. Aún no hay comando ni undo.", item:"moving", hl:null, undo:0},
-    {phase:"Place", from:"tool", to:"hit", code:"target = hitTest.pick(p2)", desc:"Segundo click. Vuelvo a preguntar qué hay debajo: esta vez, una caja.", item:"moving", hl:null, undo:0},
-    {phase:"Place", from:"hit", to:"tool", code:"target = { kind: Box, id: caja B }", desc:"El destino es la caja B. Saber sobre qué he soltado decide CÓMO colocarlo: encaja en el hueco de esa caja.", item:"moving", hl:"B", undo:0},
-    {phase:"Commit", from:"tool", to:"disp", code:"dispatcher.execute( MoveCommand{ rect#1, into: caja B } )", desc:"Con el elemento y el destino, creo UN comando con ambos como parámetros y lo entrego al dispatcher.", item:"moving", hl:"B", undo:0},
-    {phase:"Commit", from:"disp", to:"cmd", code:"cmd.execute( ctx )", desc:"El dispatcher lo ejecuta pasándole el contexto: transforms + edición de escena.", item:"moving", hl:"B", undo:0},
-    {phase:"Commit", from:"cmd", to:"scene", code:"scene.place(rect#1, caja B)   // posición + re-parent", desc:"El comando recoloca rect#1 dentro de la caja: ajusta su posición y lo cuelga de la caja como nuevo padre.", item:"placed", hl:"B", undo:0},
-    {phase:"Render", from:"scene", to:"ren", code:"emit sceneChanged  ->  render.redraw();  undoStack.push(cmd)", desc:"La escena avisa, el render lo pinta ya colocado en la caja y queda un paso de undo. Un Ctrl+Z lo devolvería a su sitio.", item:"placed", hl:"B", undo:1}
+    {phase:"Operación", from:"op", to:"op", code:"op.run();  estado = EsperandoPick", desc:"La operación, elegida en el menú, arranca y se dispone a pedir el primer click. Aún no hay comando ni undo.", item:"idle", hl:null, undo:0},
+    {phase:"Pick", from:"op", to:"pick", code:"rect = co_await picker.pick(Movable)", desc:"La operación llama al Picker y queda a la espera del primer click (sin bloquear el hilo de UI).", item:"idle", hl:null, undo:0},
+    {phase:"Pick", from:"pick", to:"op", code:"rect = { id: rect#1 }   // válido", desc:"El Picker espera el click, hit-testea y devuelve rect#1 (movible). La operación lo recoge y entra en Moviendo.", item:"picked", hl:null, undo:0},
+    {phase:"Moviendo", from:"op", to:"ren", code:"preview.begin(rect#1)   // se ve distinto", desc:"La operación enciende el preview: rect#1 se dibuja elevado y semitransparente y sigue al cursor. 0 comandos.", item:"moving", hl:null, undo:0},
+    {phase:"Place", from:"op", to:"pick", code:"target = co_await picker.pick(BoxOrPoint)", desc:"Segundo click: la operación vuelve a pedir al Picker qué hay debajo.", item:"moving", hl:null, undo:0},
+    {phase:"Place", from:"pick", to:"op", code:"target = { Box: caja B }", desc:"El Picker devuelve la caja B. La operación ya tiene elemento + destino; saber sobre qué he soltado decide cómo colocarlo.", item:"moving", hl:"B", undo:0},
+    {phase:"Commit", from:"op", to:"disp", code:"bus.execute( make(rect#1, caja B) )", desc:"La operación pide a la factory un MoveCommand con sus deps y lo despacha. Aquí nace lo que va al undo.", item:"moving", hl:"B", undo:0},
+    {phase:"Commit", from:"disp", to:"cmd", code:"cmd.execute()   // sin contexto", desc:"El dispatcher lo ejecuta. El comando ya tiene sus interfaces por constructor; no necesita ningún contexto.", item:"moving", hl:"B", undo:0},
+    {phase:"Commit", from:"cmd", to:"scene", code:"from = scene.placementOf(rect#1);  scene.place(rect#1, caja B)", desc:"El comando guarda el estado anterior (memento) y recoloca rect#1 dentro de la caja: posición + re-parent.", item:"placed", hl:"B", undo:0},
+    {phase:"Render", from:"scene", to:"ren", code:"emit sceneChanged  ->  render.redraw();  undoStack.push(cmd)", desc:"La escena avisa, el render lo pinta ya colocado y queda un paso de undo. Ctrl+Z restaura el estado guardado.", item:"placed", hl:"B", undo:1}
   ];
-  var NAMES={tool:"MoveTool",hit:"HitTest",disp:"Dispatcher",cmd:"MoveCommand",scene:"Scene",ren:"Render"};
+  var NAMES={op:"MoveOperation",pick:"Picker",disp:"Dispatcher",cmd:"MoveCommand",scene:"Scene",ren:"Render"};
   var ITEM={
     idle:  {x:60,y:120,fill:"#eaf1ff",stroke:"var(--accent)",sw:2,dash:"",op:1,label:"rect#1"},
     picked:{x:60,y:120,fill:"#d4e2ff",stroke:"var(--accent)",sw:3.5,dash:"",op:1,label:"recogido"},
@@ -440,9 +566,8 @@
     count.textContent=(i+1)+" / "+steps.length;
     var as=document.querySelectorAll(".ac");
     for(var k=0;k<as.length;k++){ var a=as[k],key=a.getAttribute("data-actor"); a.className="ac";
-      if(key===s.from && s.from!==s.to) a.className+=" send";
-      else if(key===s.from && s.from===s.to) a.className+=" send";
-      else if(key===s.to) a.className+=" recv";
+      if(key===s.from) a.className+=" send";
+      else if(key===s.to && s.from!==s.to) a.className+=" recv";
       else a.className+=" dim"; }
     var st=ITEM[s.item];
     itemG.setAttribute("transform","translate("+st.x+","+st.y+")");
@@ -459,7 +584,7 @@
       boxBRect.setAttribute("stroke-width",2.5); boxBRect.setAttribute("stroke-dasharray",""); }
     else { boxBRect.setAttribute("stroke","var(--c-box)"); boxBRect.setAttribute("fill","#fff");
       boxBRect.setAttribute("stroke-width",2); boxBRect.setAttribute("stroke-dasharray","2 4"); }
-    undo.innerHTML = s.undo>0 ? '<span class="chip2" style="background:#ede9fe;color:#5b21b6">MoveCommand</span>' : '<span class="empty">vacía</span>';
+    undo.innerHTML = s.undo>0 ? '<span class="chip2" style="background:#ccece7;color:#0d5c54">MoveCommand</span>' : '<span class="empty">vacía</span>';
     var ds=dots.children; for(var d=0;d<ds.length;d++){ ds[d].className="dot"+(d===i?" on":(d<i?" done":"")); }
   }
   function go(n){ i=Math.max(0,Math.min(steps.length-1,n)); render(); }
