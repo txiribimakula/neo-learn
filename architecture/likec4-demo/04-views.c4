@@ -1,0 +1,188 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// 04 · VIEWS — cada vista responde UNA pregunta.
+//
+// El modelo es único; las vistas son consultas sobre él. Si una vista necesita
+// una leyenda para entenderse, normalmente es que está respondiendo dos
+// preguntas a la vez: pártela.
+// ─────────────────────────────────────────────────────────────────────────────
+views {
+
+  // ══ Nivel 1 · CONTEXT ══════════════════════════════════════════════════════
+  view index {
+    title 'C1 · Contexto del sistema'
+    description 'Quién nos usa y con qué hablamos. Nada de cómo está construido.'
+
+    include *
+
+    autoLayout LeftRight
+  }
+
+  // ══ Nivel 2 · CONTAINERS ═══════════════════════════════════════════════════
+  view containers of platform {
+    title 'C2 · Containers (estado actual)'
+    description 'Las unidades desplegables y cómo se comunican HOY (Kafka).'
+
+    include *
+    // Fuera el camino futuro: esta vista describe la realidad de producción
+    exclude * -> * where tag is #to-be
+
+    autoLayout LeftRight
+  }
+
+  view containersTarget of platform {
+    title 'C2 · Containers (estado objetivo)'
+    description 'El mismo modelo, filtrado al futuro: Service Bus en lugar de Kafka.'
+
+    include *
+    exclude * -> * where tag is #as-is
+    exclude kafkaCluster
+
+    autoLayout LeftRight
+  }
+
+  view migration {
+    title 'C2 · Migración Kafka → Service Bus (as-is + to-be)'
+    description '''
+      Las dos rutas a la vez: gris apagado lo que se retira, verde lo que llega.
+      Útil para la conversación de migración; NO para documentar producción.
+    '''
+
+    include
+      platform.ingestApi,
+      platform.tileRenderer,
+      kafkaCluster,
+      serviceBus,
+      platform.ingestApi -> kafkaCluster,
+      kafkaCluster -> platform.tileRenderer,
+      platform.ingestApi -> serviceBus,
+      serviceBus -> platform.tileRenderer
+
+    style element.tag = #kafka {
+      color muted
+      opacity 30%
+    }
+    style element.tag = #servicebus {
+      color green
+    }
+
+    autoLayout LeftRight
+  }
+
+  // ══ Nivel 3 · COMPONENTS ═══════════════════════════════════════════════════
+  view tileRenderer of platform.tileRenderer {
+    title 'C3 · Dentro del Tile Renderer (wrapper C# ↔ núcleo C++)'
+    description '''
+      El sándwich completo. Fíjate en que la frontera de interop es un
+      componente de primera clase: es donde viven los bugs.
+    '''
+
+    include *
+    include platform.tileRenderer.core.*
+
+    group 'Mundo gestionado (.NET)' {
+      include
+        platform.tileRenderer.host,
+        platform.tileRenderer.messaging,
+        platform.tileRenderer.uploader,
+        platform.tileRenderer.scratch
+    }
+    group 'Frontera (C ABI)' {
+      include platform.tileRenderer.interop
+    }
+    group 'Mundo nativo (C++)' {
+      include platform.tileRenderer.core
+    }
+
+    autoLayout TopBottom
+  }
+
+  // ══ Nivel 4 · CODE ═════════════════════════════════════════════════════════
+  view renderCore of platform.tileRenderer.core {
+    title 'C4 · Interior del Render Core'
+    description '''
+      Sólo se baja hasta aquí en las piezas que lo merecen: una frontera
+      estable, un algoritmo caliente, un punto de fallo recurrente.
+      El resto del código NO se dibuja: se lee.
+    '''
+
+    include *
+
+    autoLayout TopBottom
+  }
+
+  // ══ Vistas transversales (una pregunta concreta) ═══════════════════════════
+  view messagingOnly {
+    title 'Transversal · Sólo mensajería'
+    description 'Todo lo asíncrono del sistema, sin ruido REST ni de storage.'
+
+    include platform.**, kafkaCluster, serviceBus
+    exclude * -> * where tag is not #kafka and tag is not #servicebus
+
+    autoLayout LeftRight
+  }
+
+  // ══ Acoplamiento por ficheros ══════════════════════════════════════════════
+  view estadoCompartido {
+    title 'Transversal · quién comparte estado por ficheros'
+    description '''
+      Las integraciones que no pasan por una API ni por un broker: dos servicios
+      hablándose por un volumen montado a la vez. Es el acoplamiento que no
+      aparece en ningún contrato y el que más sorpresas da al desplegar.
+    '''
+
+    include platform.**, platform.sharedArea
+    exclude * -> * where tag is not #shared-state
+
+    autoLayout LeftRight
+  }
+
+  // ══ Vista dinámica: el flujo, paso a paso ══════════════════════════════════
+  dynamic view jobFlow {
+    title 'Flujo · de POST /jobs a los tiles en Blob'
+
+    clienteApi -> platform.ingestApi 'POST /jobs'
+    platform.ingestApi -> blobStorage 'guarda el fichero de entrada'
+    platform.ingestApi -> kafkaCluster 'publica job.requested'
+    kafkaCluster -> platform.tileRenderer.messaging 'consume (offset commit tras ack)'
+    platform.tileRenderer.messaging -> platform.tileRenderer.host 'entrega el trabajo'
+    platform.tileRenderer.host -> platform.tileRenderer.interop 'render_submit()'
+    platform.tileRenderer.interop -> platform.tileRenderer.core.api 'DllImport'
+
+    parallel {
+      platform.tileRenderer.core.raster -> platform.tileRenderer.core.io 'vuelca buffers al scratch'
+      platform.tileRenderer.core.scheduler -> platform.tileRenderer.core.raster 'despacha tiles'
+    }
+
+    platform.tileRenderer.host -> platform.tileRenderer.uploader 'publica resultados'
+    platform.tileRenderer.uploader -> blobStorage 'PUT tiles + manifiesto'
+    platform.tileRenderer.host -> serviceBus 'publica job.completed'
+    serviceBus -> platform.reportService 'recibe job.completed'
+  }
+
+  // ══ Vistas de despliegue ═══════════════════════════════════════════════════
+  deployment view prodDeployment {
+    title 'Deployment · West Europe'
+    description 'Dónde vive cada cosa: AKS, node pools, PaaS y el disco montado.'
+
+    include *
+    include prod.we.**
+
+    autoLayout TopBottom
+  }
+
+  // Las deployment views no admiten `of` (no tienen scope): se acotan con
+  // predicados. `includeAncestors` fuerza a pintar la jerarquía de contenedores
+  // de lo que sí es visible, para que se vea DÓNDE está desplegado cada trozo.
+  deployment view rendererDeployment {
+    title 'Deployment · node pool de compute'
+    description 'El StatefulSet del renderer, su disco y sus dependencias.'
+
+    includeAncestors: true
+
+    include prod.we.cluster.ns.compute.**
+    include prod.we.scratchDisk
+    include * -> *
+
+    autoLayout LeftRight
+  }
+}

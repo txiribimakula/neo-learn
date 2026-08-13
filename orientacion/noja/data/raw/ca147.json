@@ -1,0 +1,1641 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-07-16T14:51:02Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "way",
+  "id": 5181703,
+  "bounds": {
+    "minlat": 43.4643151,
+    "minlon": -3.5355308,
+    "maxlat": 43.4647034,
+    "maxlon": -3.5344325
+  },
+  "geometry": [
+    { "lat": 43.4643151, "lon": -3.5355308 },
+    { "lat": 43.4644226, "lon": -3.5352922 },
+    { "lat": 43.4644582, "lon": -3.5352131 },
+    { "lat": 43.4644928, "lon": -3.5351310 },
+    { "lat": 43.4645334, "lon": -3.5350203 },
+    { "lat": 43.4645730, "lon": -3.5349067 },
+    { "lat": 43.4646248, "lon": -3.5347587 },
+    { "lat": 43.4646509, "lon": -3.5346732 },
+    { "lat": 43.4646741, "lon": -3.5345929 },
+    { "lat": 43.4646941, "lon": -3.5345041 },
+    { "lat": 43.4647034, "lon": -3.5344325 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "lanes": "2",
+    "maxspeed": "40",
+    "name": "Beranga-Noja",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 5182084,
+  "bounds": {
+    "minlat": 43.4548615,
+    "minlon": -3.5545433,
+    "maxlat": 43.4549807,
+    "maxlon": -3.5542106
+  },
+  "geometry": [
+    { "lat": 43.4548615, "lon": -3.5542106 },
+    { "lat": 43.4548890, "lon": -3.5542182 },
+    { "lat": 43.4549125, "lon": -3.5542349 },
+    { "lat": 43.4549380, "lon": -3.5542610 },
+    { "lat": 43.4549612, "lon": -3.5543012 },
+    { "lat": 43.4549740, "lon": -3.5543413 },
+    { "lat": 43.4549807, "lon": -3.5543915 },
+    { "lat": 43.4549793, "lon": -3.5544336 },
+    { "lat": 43.4549692, "lon": -3.5544750 },
+    { "lat": 43.4549516, "lon": -3.5545152 },
+    { "lat": 43.4549324, "lon": -3.5545433 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "junction": "roundabout",
+    "maxspeed": "50",
+    "name": "Beranga-Noja",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 5182086,
+  "bounds": {
+    "minlat": 43.4544363,
+    "minlon": -3.5546288,
+    "maxlat": 43.4547442,
+    "maxlon": -3.5545313
+  },
+  "geometry": [
+    { "lat": 43.4547442, "lon": -3.5545313 },
+    { "lat": 43.4546145, "lon": -3.5545527 },
+    { "lat": 43.4544363, "lon": -3.5546288 }
+  ],
+  "tags": {
+    "destination": "Beranga",
+    "destination:ref": "CA-147",
+    "highway": "primary",
+    "lanes": "1",
+    "maxspeed:backward": "50",
+    "maxspeed:forward": "70",
+    "name": "Beranga-Noja",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 8115592,
+  "bounds": {
+    "minlat": 43.4651755,
+    "minlon": -3.5341249,
+    "maxlat": 43.4654630,
+    "maxlon": -3.5332711
+  },
+  "geometry": [
+    { "lat": 43.4654630, "lon": -3.5332711 },
+    { "lat": 43.4653825, "lon": -3.5334350 },
+    { "lat": 43.4653430, "lon": -3.5335246 },
+    { "lat": 43.4652920, "lon": -3.5336529 },
+    { "lat": 43.4652324, "lon": -3.5338315 },
+    { "lat": 43.4652091, "lon": -3.5339231 },
+    { "lat": 43.4651965, "lon": -3.5339903 },
+    { "lat": 43.4651755, "lon": -3.5341249 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "lanes": "2",
+    "maxspeed": "40",
+    "name": "Beranga-Noja",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 8115594,
+  "bounds": {
+    "minlat": 43.4649721,
+    "minlon": -3.5339141,
+    "maxlat": 43.4654630,
+    "maxlon": -3.5332711
+  },
+  "geometry": [
+    { "lat": 43.4649721, "lon": -3.5339141 },
+    { "lat": 43.4650274, "lon": -3.5338602 },
+    { "lat": 43.4650709, "lon": -3.5338111 },
+    { "lat": 43.4651388, "lon": -3.5337131 },
+    { "lat": 43.4651749, "lon": -3.5336600 },
+    { "lat": 43.4653055, "lon": -3.5334713 },
+    { "lat": 43.4654630, "lon": -3.5332711 }
+  ],
+  "tags": {
+    "destination": "Noja;Playas de Noja",
+    "destination:ref": "CA-141",
+    "destination:symbol": "beach",
+    "highway": "primary",
+    "lanes": "1",
+    "name": "Beranga-Noja",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 8115598,
+  "bounds": {
+    "minlat": 43.4696222,
+    "minlon": -3.5360899,
+    "maxlat": 43.4706160,
+    "maxlon": -3.5349275
+  },
+  "geometry": [
+    { "lat": 43.4696222, "lon": -3.5349275 },
+    { "lat": 43.4697361, "lon": -3.5351473 },
+    { "lat": 43.4698462, "lon": -3.5353456 },
+    { "lat": 43.4699748, "lon": -3.5355463 },
+    { "lat": 43.4700839, "lon": -3.5356825 },
+    { "lat": 43.4702869, "lon": -3.5358930 },
+    { "lat": 43.4704690, "lon": -3.5360183 },
+    { "lat": 43.4706160, "lon": -3.5360899 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "lanes": "2",
+    "name": "Beranga-Noja",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 8115603,
+  "bounds": {
+    "minlat": 43.4654630,
+    "minlon": -3.5332711,
+    "maxlat": 43.4671947,
+    "maxlon": -3.5322919
+  },
+  "geometry": [
+    { "lat": 43.4654630, "lon": -3.5332711 },
+    { "lat": 43.4655200, "lon": -3.5331893 },
+    { "lat": 43.4656327, "lon": -3.5330467 },
+    { "lat": 43.4657099, "lon": -3.5329591 },
+    { "lat": 43.4657621, "lon": -3.5329024 },
+    { "lat": 43.4658262, "lon": -3.5328405 },
+    { "lat": 43.4658770, "lon": -3.5327924 },
+    { "lat": 43.4659434, "lon": -3.5327352 },
+    { "lat": 43.4660097, "lon": -3.5326840 },
+    { "lat": 43.4661396, "lon": -3.5325919 },
+    { "lat": 43.4662489, "lon": -3.5325247 },
+    { "lat": 43.4663426, "lon": -3.5324740 },
+    { "lat": 43.4664601, "lon": -3.5324202 },
+    { "lat": 43.4665787, "lon": -3.5323777 },
+    { "lat": 43.4667051, "lon": -3.5323415 },
+    { "lat": 43.4668039, "lon": -3.5323198 },
+    { "lat": 43.4669176, "lon": -3.5323031 },
+    { "lat": 43.4670310, "lon": -3.5322931 },
+    { "lat": 43.4671947, "lon": -3.5322919 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "highway": "primary",
+    "lanes": "2",
+    "name": "Barrio de San Pantaleón",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 8115605,
+  "bounds": {
+    "minlat": 43.4778917,
+    "minlon": -3.5313534,
+    "maxlat": 43.4787803,
+    "maxlon": -3.5302712
+  },
+  "geometry": [
+    { "lat": 43.4778917, "lon": -3.5313534 },
+    { "lat": 43.4780551, "lon": -3.5311552 },
+    { "lat": 43.4781613, "lon": -3.5310250 },
+    { "lat": 43.4782166, "lon": -3.5309571 },
+    { "lat": 43.4782558, "lon": -3.5309086 },
+    { "lat": 43.4784469, "lon": -3.5306804 },
+    { "lat": 43.4784886, "lon": -3.5306306 },
+    { "lat": 43.4787803, "lon": -3.5302712 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "name": "Avenida de Santander",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 54153209,
+  "bounds": {
+    "minlat": 43.4635581,
+    "minlon": -3.5368334,
+    "maxlat": 43.4643151,
+    "maxlon": -3.5355308
+  },
+  "geometry": [
+    { "lat": 43.4643151, "lon": -3.5355308 },
+    { "lat": 43.4642537, "lon": -3.5356487 },
+    { "lat": 43.4641936, "lon": -3.5357624 },
+    { "lat": 43.4639878, "lon": -3.5361258 },
+    { "lat": 43.4637776, "lon": -3.5364805 },
+    { "lat": 43.4635581, "lon": -3.5368334 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "highway": "primary",
+    "maxspeed": "50",
+    "name": "Barrio San Pantaleón",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 54153211,
+  "bounds": {
+    "minlat": 43.4477898,
+    "minlon": -3.5613721,
+    "maxlat": 43.4531513,
+    "maxlon": -3.5554872
+  },
+  "geometry": [
+    { "lat": 43.4531513, "lon": -3.5554872 },
+    { "lat": 43.4528228, "lon": -3.5557411 },
+    { "lat": 43.4523167, "lon": -3.5561942 },
+    { "lat": 43.4515713, "lon": -3.5569360 },
+    { "lat": 43.4512971, "lon": -3.5571968 },
+    { "lat": 43.4509682, "lon": -3.5575184 },
+    { "lat": 43.4502491, "lon": -3.5582191 },
+    { "lat": 43.4501520, "lon": -3.5583148 },
+    { "lat": 43.4499826, "lon": -3.5584770 },
+    { "lat": 43.4498587, "lon": -3.5586017 },
+    { "lat": 43.4496324, "lon": -3.5588239 },
+    { "lat": 43.4495690, "lon": -3.5588825 },
+    { "lat": 43.4493205, "lon": -3.5591268 },
+    { "lat": 43.4492701, "lon": -3.5591743 },
+    { "lat": 43.4490999, "lon": -3.5593424 },
+    { "lat": 43.4489378, "lon": -3.5595081 },
+    { "lat": 43.4487544, "lon": -3.5597087 },
+    { "lat": 43.4486244, "lon": -3.5598571 },
+    { "lat": 43.4483621, "lon": -3.5602039 },
+    { "lat": 43.4481461, "lon": -3.5605625 },
+    { "lat": 43.4479643, "lon": -3.5609492 },
+    { "lat": 43.4477898, "lon": -3.5613721 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "maxspeed": "70",
+    "maxspeed:forward": "70",
+    "name": "Carretera de Beranga-Noja",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black"
+  }
+},
+{
+  "type": "way",
+  "id": 54153381,
+  "bounds": {
+    "minlat": 43.4647547,
+    "minlon": -3.5348159,
+    "maxlat": 43.4649108,
+    "maxlon": -3.5346300
+  },
+  "geometry": [
+    { "lat": 43.4649108, "lon": -3.5346300 },
+    { "lat": 43.4648678, "lon": -3.5346740 },
+    { "lat": 43.4648198, "lon": -3.5347278 },
+    { "lat": 43.4647547, "lon": -3.5348159 }
+  ],
+  "tags": {
+    "destination": "Meruelo;Beranga;Ermita de San Román de Escalante",
+    "destination:ref": "CA-147",
+    "destination:symbol": "historic",
+    "highway": "primary",
+    "lanes": "1",
+    "name": "Beranga-Noja",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 68359126,
+  "bounds": {
+    "minlat": 43.4623002,
+    "minlon": -3.5385556,
+    "maxlat": 43.4630708,
+    "maxlon": -3.5375581
+  },
+  "geometry": [
+    { "lat": 43.4630708, "lon": -3.5375581 },
+    { "lat": 43.4628961, "lon": -3.5377928 },
+    { "lat": 43.4627044, "lon": -3.5380505 },
+    { "lat": 43.4625631, "lon": -3.5382323 },
+    { "lat": 43.4624293, "lon": -3.5384000 },
+    { "lat": 43.4623002, "lon": -3.5385556 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "highway": "primary",
+    "maxspeed": "50",
+    "name": "Barrio San Pantaleón",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 68359202,
+  "bounds": {
+    "minlat": 43.4552452,
+    "minlon": -3.5540960,
+    "maxlat": 43.4589291,
+    "maxlon": -3.5508108
+  },
+  "geometry": [
+    { "lat": 43.4589291, "lon": -3.5508108 },
+    { "lat": 43.4588928, "lon": -3.5509629 },
+    { "lat": 43.4588630, "lon": -3.5510541 },
+    { "lat": 43.4588341, "lon": -3.5511258 },
+    { "lat": 43.4587807, "lon": -3.5512717 },
+    { "lat": 43.4587225, "lon": -3.5514036 },
+    { "lat": 43.4586169, "lon": -3.5516076 },
+    { "lat": 43.4585390, "lon": -3.5517289 },
+    { "lat": 43.4584765, "lon": -3.5518102 },
+    { "lat": 43.4584252, "lon": -3.5518822 },
+    { "lat": 43.4583513, "lon": -3.5519629 },
+    { "lat": 43.4582922, "lon": -3.5520178 },
+    { "lat": 43.4582273, "lon": -3.5520782 },
+    { "lat": 43.4581338, "lon": -3.5521678 },
+    { "lat": 43.4580101, "lon": -3.5522681 },
+    { "lat": 43.4577738, "lon": -3.5524301 },
+    { "lat": 43.4570711, "lon": -3.5528943 },
+    { "lat": 43.4569469, "lon": -3.5529731 },
+    { "lat": 43.4563538, "lon": -3.5533303 },
+    { "lat": 43.4552452, "lon": -3.5540960 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "highway": "primary",
+    "maxspeed": "50",
+    "name": "Barrio San Pedro",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black"
+  }
+},
+{
+  "type": "way",
+  "id": 110272036,
+  "bounds": {
+    "minlat": 43.4796642,
+    "minlon": -3.5277782,
+    "maxlat": 43.4799710,
+    "maxlon": -3.5225380
+  },
+  "geometry": [
+    { "lat": 43.4799710, "lon": -3.5225380 },
+    { "lat": 43.4799145, "lon": -3.5225958 },
+    { "lat": 43.4799047, "lon": -3.5226084 },
+    { "lat": 43.4798959, "lon": -3.5226212 },
+    { "lat": 43.4798851, "lon": -3.5226395 },
+    { "lat": 43.4798766, "lon": -3.5226581 },
+    { "lat": 43.4798689, "lon": -3.5226793 },
+    { "lat": 43.4798633, "lon": -3.5226997 },
+    { "lat": 43.4798596, "lon": -3.5227234 },
+    { "lat": 43.4798580, "lon": -3.5227484 },
+    { "lat": 43.4798406, "lon": -3.5231215 },
+    { "lat": 43.4798382, "lon": -3.5231880 },
+    { "lat": 43.4798350, "lon": -3.5232783 },
+    { "lat": 43.4798145, "lon": -3.5238207 },
+    { "lat": 43.4798121, "lon": -3.5238964 },
+    { "lat": 43.4797927, "lon": -3.5244733 },
+    { "lat": 43.4797826, "lon": -3.5247330 },
+    { "lat": 43.4797791, "lon": -3.5248264 },
+    { "lat": 43.4797758, "lon": -3.5249052 },
+    { "lat": 43.4797578, "lon": -3.5254002 },
+    { "lat": 43.4797503, "lon": -3.5255920 },
+    { "lat": 43.4797109, "lon": -3.5266944 },
+    { "lat": 43.4797090, "lon": -3.5267453 },
+    { "lat": 43.4797048, "lon": -3.5268588 },
+    { "lat": 43.4796714, "lon": -3.5275951 },
+    { "lat": 43.4796642, "lon": -3.5277782 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "lanes": "1",
+    "lit": "yes",
+    "name": "Avenida de Santander",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 110403594,
+  "bounds": {
+    "minlat": 43.4795233,
+    "minlon": -3.5289859,
+    "maxlat": 43.4795386,
+    "maxlon": -3.5285588
+  },
+  "geometry": [
+    { "lat": 43.4795261, "lon": -3.5289859 },
+    { "lat": 43.4795338, "lon": -3.5288538 },
+    { "lat": 43.4795374, "lon": -3.5287980 },
+    { "lat": 43.4795386, "lon": -3.5287439 },
+    { "lat": 43.4795361, "lon": -3.5286870 },
+    { "lat": 43.4795317, "lon": -3.5286341 },
+    { "lat": 43.4795233, "lon": -3.5285588 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "lanes": "2",
+    "name": "Avenida de Santander",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 110421935,
+  "bounds": {
+    "minlat": 43.4671947,
+    "minlon": -3.5323008,
+    "maxlat": 43.4673012,
+    "maxlon": -3.5322919
+  },
+  "geometry": [
+    { "lat": 43.4671947, "lon": -3.5322919 },
+    { "lat": 43.4673012, "lon": -3.5323008 }
+  ],
+  "tags": {
+    "bridge": "yes",
+    "highway": "primary",
+    "layer": "1",
+    "name": "Barrio de San Pantaleón",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 110421964,
+  "bounds": {
+    "minlat": 43.4673012,
+    "minlon": -3.5349275,
+    "maxlat": 43.4696222,
+    "maxlon": -3.5323008
+  },
+  "geometry": [
+    { "lat": 43.4673012, "lon": -3.5323008 },
+    { "lat": 43.4673953, "lon": -3.5323150 },
+    { "lat": 43.4674739, "lon": -3.5323303 },
+    { "lat": 43.4675695, "lon": -3.5323551 },
+    { "lat": 43.4676356, "lon": -3.5323756 },
+    { "lat": 43.4677028, "lon": -3.5323995 },
+    { "lat": 43.4677670, "lon": -3.5324248 },
+    { "lat": 43.4678331, "lon": -3.5324551 },
+    { "lat": 43.4678925, "lon": -3.5324838 },
+    { "lat": 43.4679523, "lon": -3.5325155 },
+    { "lat": 43.4680115, "lon": -3.5325493 },
+    { "lat": 43.4680707, "lon": -3.5325857 },
+    { "lat": 43.4681461, "lon": -3.5326377 },
+    { "lat": 43.4682206, "lon": -3.5326976 },
+    { "lat": 43.4683624, "lon": -3.5328201 },
+    { "lat": 43.4685749, "lon": -3.5330354 },
+    { "lat": 43.4687047, "lon": -3.5332033 },
+    { "lat": 43.4688268, "lon": -3.5333873 },
+    { "lat": 43.4690436, "lon": -3.5337721 },
+    { "lat": 43.4692893, "lon": -3.5342601 },
+    { "lat": 43.4696222, "lon": -3.5349275 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "lanes": "2",
+    "name": "Barrio de San Pantaleón",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 145681212,
+  "bounds": {
+    "minlat": 43.4549125,
+    "minlon": -3.5542349,
+    "maxlat": 43.4552452,
+    "maxlon": -3.5540960
+  },
+  "geometry": [
+    { "lat": 43.4549125, "lon": -3.5542349 },
+    { "lat": 43.4550126, "lon": -3.5542153 },
+    { "lat": 43.4552452, "lon": -3.5540960 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "destination": "Noja",
+    "destination:ref": "CA-147",
+    "highway": "primary",
+    "lanes": "1",
+    "maxspeed": "50",
+    "name": "Barrio San Pedro",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 145681213,
+  "bounds": {
+    "minlat": 43.4549807,
+    "minlon": -3.5543915,
+    "maxlat": 43.4552452,
+    "maxlon": -3.5540960
+  },
+  "geometry": [
+    { "lat": 43.4552452, "lon": -3.5540960 },
+    { "lat": 43.4550513, "lon": -3.5542910 },
+    { "lat": 43.4550146, "lon": -3.5543479 },
+    { "lat": 43.4549807, "lon": -3.5543915 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "highway": "primary",
+    "lanes": "1",
+    "maxspeed": "50",
+    "name": "Barrio San Pedro",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 234176755,
+  "bounds": {
+    "minlat": 43.4544363,
+    "minlon": -3.5546288,
+    "maxlat": 43.4547104,
+    "maxlon": -3.5543468
+  },
+  "geometry": [
+    { "lat": 43.4544363, "lon": -3.5546288 },
+    { "lat": 43.4545957, "lon": -3.5544952 },
+    { "lat": 43.4546569, "lon": -3.5544243 },
+    { "lat": 43.4547104, "lon": -3.5543468 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "lanes": "1",
+    "maxspeed:backward": "50",
+    "maxspeed:forward": "70",
+    "name": "Beranga-Noja",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 234176756,
+  "bounds": {
+    "minlat": 43.4531513,
+    "minlon": -3.5554872,
+    "maxlat": 43.4544363,
+    "maxlon": -3.5546288
+  },
+  "geometry": [
+    { "lat": 43.4544363, "lon": -3.5546288 },
+    { "lat": 43.4541189, "lon": -3.5548646 },
+    { "lat": 43.4531513, "lon": -3.5554872 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "maxspeed:backward": "50",
+    "maxspeed:forward": "70",
+    "name": "Beranga-Noja",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black"
+  }
+},
+{
+  "type": "way",
+  "id": 234178208,
+  "bounds": {
+    "minlat": 43.4794788,
+    "minlon": -3.5285915,
+    "maxlat": 43.4797080,
+    "maxlon": -3.5282755
+  },
+  "geometry": [
+    { "lat": 43.4796694, "lon": -3.5285523 },
+    { "lat": 43.4796587, "lon": -3.5285637 },
+    { "lat": 43.4796472, "lon": -3.5285734 },
+    { "lat": 43.4796322, "lon": -3.5285825 },
+    { "lat": 43.4796164, "lon": -3.5285886 },
+    { "lat": 43.4796001, "lon": -3.5285915 },
+    { "lat": 43.4795837, "lon": -3.5285912 },
+    { "lat": 43.4795675, "lon": -3.5285877 },
+    { "lat": 43.4795518, "lon": -3.5285810 },
+    { "lat": 43.4795370, "lon": -3.5285714 },
+    { "lat": 43.4795233, "lon": -3.5285588 },
+    { "lat": 43.4795142, "lon": -3.5285481 },
+    { "lat": 43.4795060, "lon": -3.5285361 },
+    { "lat": 43.4794971, "lon": -3.5285197 },
+    { "lat": 43.4794899, "lon": -3.5285019 },
+    { "lat": 43.4794844, "lon": -3.5284829 },
+    { "lat": 43.4794807, "lon": -3.5284631 },
+    { "lat": 43.4794788, "lon": -3.5284428 },
+    { "lat": 43.4794791, "lon": -3.5284202 },
+    { "lat": 43.4794816, "lon": -3.5283978 },
+    { "lat": 43.4794865, "lon": -3.5283762 },
+    { "lat": 43.4794935, "lon": -3.5283558 },
+    { "lat": 43.4795026, "lon": -3.5283369 },
+    { "lat": 43.4795135, "lon": -3.5283201 },
+    { "lat": 43.4795240, "lon": -3.5283076 },
+    { "lat": 43.4795355, "lon": -3.5282970 },
+    { "lat": 43.4795479, "lon": -3.5282884 },
+    { "lat": 43.4795635, "lon": -3.5282809 },
+    { "lat": 43.4795797, "lon": -3.5282766 },
+    { "lat": 43.4795962, "lon": -3.5282755 },
+    { "lat": 43.4796126, "lon": -3.5282777 },
+    { "lat": 43.4796287, "lon": -3.5282831 },
+    { "lat": 43.4796440, "lon": -3.5282916 },
+    { "lat": 43.4796583, "lon": -3.5283031 },
+    { "lat": 43.4796712, "lon": -3.5283172 },
+    { "lat": 43.4796825, "lon": -3.5283338 },
+    { "lat": 43.4796903, "lon": -3.5283488 },
+    { "lat": 43.4796968, "lon": -3.5283649 },
+    { "lat": 43.4797024, "lon": -3.5283841 },
+    { "lat": 43.4797062, "lon": -3.5284041 },
+    { "lat": 43.4797080, "lon": -3.5284247 },
+    { "lat": 43.4797079, "lon": -3.5284454 },
+    { "lat": 43.4797058, "lon": -3.5284660 },
+    { "lat": 43.4797018, "lon": -3.5284859 },
+    { "lat": 43.4796959, "lon": -3.5285050 },
+    { "lat": 43.4796882, "lon": -3.5285229 },
+    { "lat": 43.4796789, "lon": -3.5285392 },
+    { "lat": 43.4796694, "lon": -3.5285523 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "junction": "roundabout",
+    "lanes": "2",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 234178209,
+  "bounds": {
+    "minlat": 43.4795479,
+    "minlon": -3.5282884,
+    "maxlat": 43.4797966,
+    "maxlon": -3.5230320
+  },
+  "geometry": [
+    { "lat": 43.4795479, "lon": -3.5282884 },
+    { "lat": 43.4795949, "lon": -3.5281444 },
+    { "lat": 43.4796017, "lon": -3.5281237 },
+    { "lat": 43.4796073, "lon": -3.5281023 },
+    { "lat": 43.4796129, "lon": -3.5280785 },
+    { "lat": 43.4796153, "lon": -3.5280503 },
+    { "lat": 43.4796248, "lon": -3.5277746 },
+    { "lat": 43.4796565, "lon": -3.5268567 },
+    { "lat": 43.4796610, "lon": -3.5267430 },
+    { "lat": 43.4796631, "lon": -3.5266899 },
+    { "lat": 43.4796939, "lon": -3.5258525 },
+    { "lat": 43.4797036, "lon": -3.5255888 },
+    { "lat": 43.4797161, "lon": -3.5252575 },
+    { "lat": 43.4797360, "lon": -3.5247301 },
+    { "lat": 43.4797602, "lon": -3.5240653 },
+    { "lat": 43.4797668, "lon": -3.5238936 },
+    { "lat": 43.4797929, "lon": -3.5232753 },
+    { "lat": 43.4797966, "lon": -3.5231799 },
+    { "lat": 43.4797964, "lon": -3.5231652 },
+    { "lat": 43.4797952, "lon": -3.5231509 },
+    { "lat": 43.4797930, "lon": -3.5231391 },
+    { "lat": 43.4797890, "lon": -3.5231223 },
+    { "lat": 43.4797845, "lon": -3.5231075 },
+    { "lat": 43.4797793, "lon": -3.5230962 },
+    { "lat": 43.4797739, "lon": -3.5230845 },
+    { "lat": 43.4797439, "lon": -3.5230320 }
+  ],
+  "tags": {
+    "destination": "Avenida de Santander;Centro de la villa;Playa de Tregandín",
+    "destination:symbol": "beach",
+    "highway": "primary",
+    "lanes": "1",
+    "name": "Avenida de Santander",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 293268968,
+  "bounds": {
+    "minlat": 43.4547078,
+    "minlon": -3.5545875,
+    "maxlat": 43.4549324,
+    "maxlon": -3.5542095
+  },
+  "geometry": [
+    { "lat": 43.4549324, "lon": -3.5545433 },
+    { "lat": 43.4548963, "lon": -3.5545714 },
+    { "lat": 43.4548590, "lon": -3.5545875 },
+    { "lat": 43.4548191, "lon": -3.5545848 },
+    { "lat": 43.4547801, "lon": -3.5545679 },
+    { "lat": 43.4547442, "lon": -3.5545313 },
+    { "lat": 43.4547239, "lon": -3.5544952 },
+    { "lat": 43.4547093, "lon": -3.5544453 },
+    { "lat": 43.4547078, "lon": -3.5543988 },
+    { "lat": 43.4547104, "lon": -3.5543468 },
+    { "lat": 43.4547248, "lon": -3.5543038 },
+    { "lat": 43.4547446, "lon": -3.5542657 },
+    { "lat": 43.4547695, "lon": -3.5542376 },
+    { "lat": 43.4547984, "lon": -3.5542191 },
+    { "lat": 43.4548312, "lon": -3.5542095 },
+    { "lat": 43.4548615, "lon": -3.5542106 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "junction": "roundabout",
+    "lanes": "1",
+    "maxspeed": "50",
+    "name": "Beranga-Noja",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 366210173,
+  "bounds": {
+    "minlat": 43.4630708,
+    "minlon": -3.5375581,
+    "maxlat": 43.4634275,
+    "maxlon": -3.5370314
+  },
+  "geometry": [
+    { "lat": 43.4634275, "lon": -3.5370314 },
+    { "lat": 43.4632517, "lon": -3.5372944 },
+    { "lat": 43.4630708, "lon": -3.5375581 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "highway": "primary",
+    "maxspeed": "50",
+    "name": "Barrio San Pantaleón",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 390654477,
+  "bounds": {
+    "minlat": 43.4643151,
+    "minlon": -3.5355308,
+    "maxlat": 43.4647547,
+    "maxlon": -3.5348159
+  },
+  "geometry": [
+    { "lat": 43.4647547, "lon": -3.5348159 },
+    { "lat": 43.4647127, "lon": -3.5348719 },
+    { "lat": 43.4646579, "lon": -3.5349541 },
+    { "lat": 43.4646091, "lon": -3.5350351 },
+    { "lat": 43.4645360, "lon": -3.5351576 },
+    { "lat": 43.4644638, "lon": -3.5352834 },
+    { "lat": 43.4643151, "lon": -3.5355308 }
+  ],
+  "tags": {
+    "destination": "Meruelo;Beranga;Ermita de San Román de Escalante",
+    "destination:ref": "CA-147",
+    "destination:symbol": "historic",
+    "highway": "primary",
+    "lanes": "1",
+    "name": "Beranga-Noja",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 396735388,
+  "bounds": {
+    "minlat": 43.4607174,
+    "minlon": -3.5407434,
+    "maxlat": 43.4609348,
+    "maxlon": -3.5403257
+  },
+  "geometry": [
+    { "lat": 43.4609348, "lon": -3.5403257 },
+    { "lat": 43.4607174, "lon": -3.5407434 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "highway": "primary",
+    "maxspeed": "50",
+    "name": "Barrio Zoña",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black"
+  }
+},
+{
+  "type": "way",
+  "id": 396735389,
+  "bounds": {
+    "minlat": 43.4634275,
+    "minlon": -3.5370314,
+    "maxlat": 43.4635581,
+    "maxlon": -3.5368334
+  },
+  "geometry": [
+    { "lat": 43.4635581, "lon": -3.5368334 },
+    { "lat": 43.4634275, "lon": -3.5370314 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "maxspeed": "50",
+    "name": "Beranga-Noja",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 396735390,
+  "bounds": {
+    "minlat": 43.4589291,
+    "minlon": -3.5508108,
+    "maxlat": 43.4607174,
+    "maxlon": -3.5407434
+  },
+  "geometry": [
+    { "lat": 43.4607174, "lon": -3.5407434 },
+    { "lat": 43.4606755, "lon": -3.5408413 },
+    { "lat": 43.4605936, "lon": -3.5410505 },
+    { "lat": 43.4605220, "lon": -3.5412736 },
+    { "lat": 43.4604669, "lon": -3.5414961 },
+    { "lat": 43.4604440, "lon": -3.5416038 },
+    { "lat": 43.4603963, "lon": -3.5418872 },
+    { "lat": 43.4603074, "lon": -3.5423984 },
+    { "lat": 43.4601769, "lon": -3.5431920 },
+    { "lat": 43.4600170, "lon": -3.5441547 },
+    { "lat": 43.4599682, "lon": -3.5444707 },
+    { "lat": 43.4599483, "lon": -3.5445883 },
+    { "lat": 43.4599089, "lon": -3.5448318 },
+    { "lat": 43.4598946, "lon": -3.5449177 },
+    { "lat": 43.4597946, "lon": -3.5455192 },
+    { "lat": 43.4597827, "lon": -3.5455907 },
+    { "lat": 43.4596513, "lon": -3.5464051 },
+    { "lat": 43.4596293, "lon": -3.5465411 },
+    { "lat": 43.4595166, "lon": -3.5472459 },
+    { "lat": 43.4593777, "lon": -3.5480988 },
+    { "lat": 43.4593359, "lon": -3.5483615 },
+    { "lat": 43.4593255, "lon": -3.5484269 },
+    { "lat": 43.4592169, "lon": -3.5491061 },
+    { "lat": 43.4591147, "lon": -3.5497448 },
+    { "lat": 43.4590515, "lon": -3.5501461 },
+    { "lat": 43.4589902, "lon": -3.5505067 },
+    { "lat": 43.4589291, "lon": -3.5508108 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "highway": "primary",
+    "maxspeed": "50",
+    "name": "Barrio Zoña",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black"
+  }
+},
+{
+  "type": "way",
+  "id": 396735391,
+  "bounds": {
+    "minlat": 43.4609348,
+    "minlon": -3.5403257,
+    "maxlat": 43.4611692,
+    "maxlon": -3.5399751
+  },
+  "geometry": [
+    { "lat": 43.4611692, "lon": -3.5399751 },
+    { "lat": 43.4610561, "lon": -3.5401418 },
+    { "lat": 43.4609761, "lon": -3.5402606 },
+    { "lat": 43.4609348, "lon": -3.5403257 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "highway": "primary",
+    "maxspeed": "50",
+    "name": "Barrio Zoña",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black"
+  }
+},
+{
+  "type": "way",
+  "id": 538465811,
+  "bounds": {
+    "minlat": 43.4796529,
+    "minlon": -3.5283338,
+    "maxlat": 43.4796825,
+    "maxlon": -3.5277782
+  },
+  "geometry": [
+    { "lat": 43.4796642, "lon": -3.5277782 },
+    { "lat": 43.4796529, "lon": -3.5280847 },
+    { "lat": 43.4796530, "lon": -3.5281311 },
+    { "lat": 43.4796552, "lon": -3.5281787 },
+    { "lat": 43.4796618, "lon": -3.5282333 },
+    { "lat": 43.4796825, "lon": -3.5283338 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "lanes": "1",
+    "name": "Avenida de Santander",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 538465828,
+  "bounds": {
+    "minlat": 43.4795650,
+    "minlon": -3.5288810,
+    "maxlat": 43.4796472,
+    "maxlon": -3.5285734
+  },
+  "geometry": [
+    { "lat": 43.4796472, "lon": -3.5285734 },
+    { "lat": 43.4795650, "lon": -3.5288810 }
+  ],
+  "tags": {
+    "destination": "Santander;Bilbao",
+    "destination:int_ref": "E 70",
+    "destination:ref": "A-9",
+    "highway": "primary",
+    "lanes": "1",
+    "name": "Avenida de Santander",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 653421853,
+  "bounds": {
+    "minlat": 43.4797439,
+    "minlon": -3.5230320,
+    "maxlat": 43.4798271,
+    "maxlon": -3.5225187
+  },
+  "geometry": [
+    { "lat": 43.4797716, "lon": -3.5225187 },
+    { "lat": 43.4798022, "lon": -3.5225542 },
+    { "lat": 43.4798127, "lon": -3.5225704 },
+    { "lat": 43.4798195, "lon": -3.5225862 },
+    { "lat": 43.4798246, "lon": -3.5226096 },
+    { "lat": 43.4798271, "lon": -3.5226376 },
+    { "lat": 43.4798271, "lon": -3.5226724 },
+    { "lat": 43.4798156, "lon": -3.5229306 },
+    { "lat": 43.4798076, "lon": -3.5229532 },
+    { "lat": 43.4797982, "lon": -3.5229702 },
+    { "lat": 43.4797866, "lon": -3.5229847 },
+    { "lat": 43.4797730, "lon": -3.5230003 },
+    { "lat": 43.4797439, "lon": -3.5230320 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "lanes": "1",
+    "lit": "yes",
+    "name": "Avenida de Santander",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 653421859,
+  "bounds": {
+    "minlat": 43.4798143,
+    "minlon": -3.5231215,
+    "maxlat": 43.4798406,
+    "maxlon": -3.5229306
+  },
+  "geometry": [
+    { "lat": 43.4798156, "lon": -3.5229306 },
+    { "lat": 43.4798143, "lon": -3.5229992 },
+    { "lat": 43.4798153, "lon": -3.5230212 },
+    { "lat": 43.4798190, "lon": -3.5230403 },
+    { "lat": 43.4798406, "lon": -3.5231215 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "name": "Avenida Santander",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 659526638,
+  "bounds": {
+    "minlat": 43.4795261,
+    "minlon": -3.5289859,
+    "maxlat": 43.4795650,
+    "maxlon": -3.5288810
+  },
+  "geometry": [
+    { "lat": 43.4795650, "lon": -3.5288810 },
+    { "lat": 43.4795261, "lon": -3.5289859 }
+  ],
+  "tags": {
+    "destination": "Santander;Bilbao",
+    "destination:int_ref": "E 70",
+    "destination:ref": "A-9",
+    "highway": "primary",
+    "lanes": "1",
+    "name": "Avenida de Santander",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 659526639,
+  "bounds": {
+    "minlat": 43.4794808,
+    "minlon": -3.5291494,
+    "maxlat": 43.4795261,
+    "maxlon": -3.5289859
+  },
+  "geometry": [
+    { "lat": 43.4794808, "lon": -3.5291494 },
+    { "lat": 43.4795261, "lon": -3.5289859 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "name": "Avenida de Santander",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 659526641,
+  "bounds": {
+    "minlat": 43.4788679,
+    "minlon": -3.5301647,
+    "maxlat": 43.4794808,
+    "maxlon": -3.5291494
+  },
+  "geometry": [
+    { "lat": 43.4788679, "lon": -3.5301647 },
+    { "lat": 43.4789591, "lon": -3.5300554 },
+    { "lat": 43.4790705, "lon": -3.5299173 },
+    { "lat": 43.4791280, "lon": -3.5298443 },
+    { "lat": 43.4792183, "lon": -3.5297244 },
+    { "lat": 43.4792548, "lon": -3.5296696 },
+    { "lat": 43.4792879, "lon": -3.5296121 },
+    { "lat": 43.4793446, "lon": -3.5295050 },
+    { "lat": 43.4793753, "lon": -3.5294400 },
+    { "lat": 43.4794254, "lon": -3.5293123 },
+    { "lat": 43.4794588, "lon": -3.5292191 },
+    { "lat": 43.4794808, "lon": -3.5291494 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "lanes": "2",
+    "name": "Avenida de Santander",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 659526643,
+  "bounds": {
+    "minlat": 43.4787803,
+    "minlon": -3.5302712,
+    "maxlat": 43.4788679,
+    "maxlon": -3.5301647
+  },
+  "geometry": [
+    { "lat": 43.4787803, "lon": -3.5302712 },
+    { "lat": 43.4788679, "lon": -3.5301647 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "lanes": "2",
+    "name": "Avenida de Santander",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 700493350,
+  "bounds": {
+    "minlat": 43.4615947,
+    "minlon": -3.5394261,
+    "maxlat": 43.4623002,
+    "maxlon": -3.5385556
+  },
+  "geometry": [
+    { "lat": 43.4623002, "lon": -3.5385556 },
+    { "lat": 43.4620737, "lon": -3.5388382 },
+    { "lat": 43.4618325, "lon": -3.5391261 },
+    { "lat": 43.4617713, "lon": -3.5392033 },
+    { "lat": 43.4617037, "lon": -3.5392886 },
+    { "lat": 43.4615947, "lon": -3.5394261 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "highway": "primary",
+    "maxspeed": "50",
+    "name": "Barrio Zoña",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black"
+  }
+},
+{
+  "type": "way",
+  "id": 783655339,
+  "bounds": {
+    "minlat": 43.4796631,
+    "minlon": -3.5266944,
+    "maxlat": 43.4797109,
+    "maxlon": -3.5266899
+  },
+  "geometry": [
+    { "lat": 43.4797109, "lon": -3.5266944 },
+    { "lat": 43.4796631, "lon": -3.5266899 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "lanes": "1",
+    "name": "Avenida de Santander",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 790820931,
+  "bounds": {
+    "minlat": 43.4798271,
+    "minlon": -3.5226724,
+    "maxlat": 43.4799710,
+    "maxlon": -3.5225380
+  },
+  "geometry": [
+    { "lat": 43.4799710, "lon": -3.5225380 },
+    { "lat": 43.4799190, "lon": -3.5225633 },
+    { "lat": 43.4798954, "lon": -3.5225809 },
+    { "lat": 43.4798758, "lon": -3.5225988 },
+    { "lat": 43.4798493, "lon": -3.5226245 },
+    { "lat": 43.4798424, "lon": -3.5226365 },
+    { "lat": 43.4798348, "lon": -3.5226528 },
+    { "lat": 43.4798271, "lon": -3.5226724 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "lanes": "1",
+    "lit": "yes",
+    "name": "Avenida de Santander",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 841711428,
+  "bounds": {
+    "minlat": 43.4706160,
+    "minlon": -3.5362154,
+    "maxlat": 43.4735191,
+    "maxlon": -3.5346401
+  },
+  "geometry": [
+    { "lat": 43.4706160, "lon": -3.5360899 },
+    { "lat": 43.4707843, "lon": -3.5361605 },
+    { "lat": 43.4709527, "lon": -3.5362041 },
+    { "lat": 43.4711224, "lon": -3.5362154 },
+    { "lat": 43.4711755, "lon": -3.5362145 },
+    { "lat": 43.4712368, "lon": -3.5362124 },
+    { "lat": 43.4712967, "lon": -3.5362029 },
+    { "lat": 43.4713647, "lon": -3.5361923 },
+    { "lat": 43.4714607, "lon": -3.5361695 },
+    { "lat": 43.4715620, "lon": -3.5361364 },
+    { "lat": 43.4716400, "lon": -3.5361016 },
+    { "lat": 43.4717169, "lon": -3.5360565 },
+    { "lat": 43.4718633, "lon": -3.5359689 },
+    { "lat": 43.4721480, "lon": -3.5357593 },
+    { "lat": 43.4726343, "lon": -3.5353632 },
+    { "lat": 43.4727506, "lon": -3.5352680 },
+    { "lat": 43.4733267, "lon": -3.5347977 },
+    { "lat": 43.4734311, "lon": -3.5347137 },
+    { "lat": 43.4735036, "lon": -3.5346530 },
+    { "lat": 43.4735191, "lon": -3.5346401 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "highway": "primary",
+    "lanes": "2",
+    "name": "Avenida de Santander",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1299231305,
+  "bounds": {
+    "minlat": 43.4611692,
+    "minlon": -3.5399751,
+    "maxlat": 43.4615947,
+    "maxlon": -3.5394261
+  },
+  "geometry": [
+    { "lat": 43.4615947, "lon": -3.5394261 },
+    { "lat": 43.4613520, "lon": -3.5397305 },
+    { "lat": 43.4612584, "lon": -3.5398544 },
+    { "lat": 43.4611692, "lon": -3.5399751 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "highway": "primary",
+    "maxspeed:forward": "50",
+    "name": "Barrio Zoña",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black"
+  }
+},
+{
+  "type": "way",
+  "id": 1448287779,
+  "bounds": {
+    "minlat": 43.4740265,
+    "minlon": -3.5340589,
+    "maxlat": 43.4743202,
+    "maxlon": -3.5339935
+  },
+  "geometry": [
+    { "lat": 43.4740265, "lon": -3.5340589 },
+    { "lat": 43.4741270, "lon": -3.5340575 },
+    { "lat": 43.4742146, "lon": -3.5340336 },
+    { "lat": 43.4743202, "lon": -3.5339935 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "highway": "primary",
+    "lanes": "2",
+    "name": "Avenida de Santander",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1448287780,
+  "bounds": {
+    "minlat": 43.4740906,
+    "minlon": -3.5342619,
+    "maxlat": 43.4743202,
+    "maxlon": -3.5339935
+  },
+  "geometry": [
+    { "lat": 43.4743202, "lon": -3.5339935 },
+    { "lat": 43.4741750, "lon": -3.5341319 },
+    { "lat": 43.4741250, "lon": -3.5341974 },
+    { "lat": 43.4740906, "lon": -3.5342619 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "highway": "primary",
+    "lanes": "2",
+    "name": "Avenida de Santander",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1448287781,
+  "bounds": {
+    "minlat": 43.4735191,
+    "minlon": -3.5346401,
+    "maxlat": 43.4738877,
+    "maxlon": -3.5343893
+  },
+  "geometry": [
+    { "lat": 43.4738877, "lon": -3.5343893 },
+    { "lat": 43.4738322, "lon": -3.5344138 },
+    { "lat": 43.4737272, "lon": -3.5344868 },
+    { "lat": 43.4735191, "lon": -3.5346401 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "highway": "primary",
+    "lanes": "2",
+    "name": "Avenida de Santander",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1448287782,
+  "bounds": {
+    "minlat": 43.4735191,
+    "minlon": -3.5346401,
+    "maxlat": 43.4738167,
+    "maxlon": -3.5342250
+  },
+  "geometry": [
+    { "lat": 43.4735191, "lon": -3.5346401 },
+    { "lat": 43.4736351, "lon": -3.5345148 },
+    { "lat": 43.4737099, "lon": -3.5344240 },
+    { "lat": 43.4737639, "lon": -3.5343394 },
+    { "lat": 43.4737921, "lon": -3.5342895 },
+    { "lat": 43.4738167, "lon": -3.5342250 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "highway": "primary",
+    "lanes": "2",
+    "name": "Avenida de Santander",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1448287783,
+  "bounds": {
+    "minlat": 43.4738167,
+    "minlon": -3.5344136,
+    "maxlat": 43.4740942,
+    "maxlon": -3.5340312
+  },
+  "geometry": [
+    { "lat": 43.4738362, "lon": -3.5343202 },
+    { "lat": 43.4738219, "lon": -3.5342744 },
+    { "lat": 43.4738167, "lon": -3.5342250 },
+    { "lat": 43.4738209, "lon": -3.5341754 },
+    { "lat": 43.4738343, "lon": -3.5341290 },
+    { "lat": 43.4738560, "lon": -3.5340890 },
+    { "lat": 43.4738844, "lon": -3.5340581 },
+    { "lat": 43.4739177, "lon": -3.5340384 },
+    { "lat": 43.4739535, "lon": -3.5340312 },
+    { "lat": 43.4739895, "lon": -3.5340370 },
+    { "lat": 43.4740232, "lon": -3.5340555 },
+    { "lat": 43.4740265, "lon": -3.5340589 },
+    { "lat": 43.4740522, "lon": -3.5340854 },
+    { "lat": 43.4740746, "lon": -3.5341245 },
+    { "lat": 43.4740890, "lon": -3.5341704 },
+    { "lat": 43.4740942, "lon": -3.5342198 },
+    { "lat": 43.4740906, "lon": -3.5342619 },
+    { "lat": 43.4740899, "lon": -3.5342694 },
+    { "lat": 43.4740765, "lon": -3.5343157 },
+    { "lat": 43.4740549, "lon": -3.5343558 },
+    { "lat": 43.4740264, "lon": -3.5343867 },
+    { "lat": 43.4739932, "lon": -3.5344064 },
+    { "lat": 43.4739573, "lon": -3.5344136 },
+    { "lat": 43.4739213, "lon": -3.5344077 },
+    { "lat": 43.4738877, "lon": -3.5343893 },
+    { "lat": 43.4738586, "lon": -3.5343594 },
+    { "lat": 43.4738362, "lon": -3.5343202 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "highway": "primary",
+    "lanes": "2",
+    "name": "Avenida de Santander",
+    "oneway": "yes",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1448287784,
+  "bounds": {
+    "minlat": 43.4743202,
+    "minlon": -3.5339935,
+    "maxlat": 43.4778917,
+    "maxlon": -3.5313534
+  },
+  "geometry": [
+    { "lat": 43.4743202, "lon": -3.5339935 },
+    { "lat": 43.4743438, "lon": -3.5339742 },
+    { "lat": 43.4745930, "lon": -3.5337709 },
+    { "lat": 43.4750631, "lon": -3.5333913 },
+    { "lat": 43.4754619, "lon": -3.5330671 },
+    { "lat": 43.4757127, "lon": -3.5328725 },
+    { "lat": 43.4759966, "lon": -3.5326677 },
+    { "lat": 43.4762971, "lon": -3.5324605 },
+    { "lat": 43.4767747, "lon": -3.5321620 },
+    { "lat": 43.4772699, "lon": -3.5318559 },
+    { "lat": 43.4775700, "lon": -3.5316622 },
+    { "lat": 43.4776747, "lon": -3.5315805 },
+    { "lat": 43.4777970, "lon": -3.5314642 },
+    { "lat": 43.4778917, "lon": -3.5313534 }
+  ],
+  "tags": {
+    "alt_name": "Beranga-Noja",
+    "highway": "primary",
+    "lanes": "2",
+    "name": "Avenida de Santander",
+    "ref": "CA-147",
+    "ref:colour": "orange",
+    "ref:colour_bg": "orange",
+    "ref:colour_tx": "black",
+    "surface": "asphalt"
+  }
+}
+
+  ]
+}

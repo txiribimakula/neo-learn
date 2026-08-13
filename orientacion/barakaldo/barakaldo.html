@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orientarse en Barakaldo · técnicas de orientación urbana</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root {
+      --paper: #f4efe6;
+      --paper-deep: #e9e0d1;
+      --ink: #20242a;
+      --muted: #666d76;
+      --line: #cfc6b7;
+      --hito: #a65c39;      /* landmarks */
+      --senda: #4b63b3;     /* paths */
+      --borde: #2f766c;     /* edges */
+      --nodo: #a47825;      /* nodes */
+      --barrio: #6b4c8f;    /* districts */
+      --accent: #a65c39;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; display: grid; grid-template-columns: minmax(0, 290px) minmax(0, 1fr) minmax(0, 330px); grid-template-rows: auto minmax(0, 1fr); height: 100dvh; overflow: hidden; }
+
+    /* ---------- Barra superior ---------- */
+    .topbar { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; padding: 12px 22px 10px; border-bottom: 1px solid var(--line); }
+    .topbar h1 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 1.35rem; letter-spacing: -.02em; }
+    .topbar .eyebrow { color: var(--accent); font-size: .64rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    .topbar .hint { margin: 0 0 0 auto; color: var(--muted); font-size: .72rem; max-width: 460px; }
+
+    /* ---------- Columna de técnicas ---------- */
+    .tech-pane { grid-column: 1; grid-row: 2; overflow-y: auto; border-right: 1px solid var(--line); background: #f9f6f0; padding: 12px 14px 20px; scrollbar-width: thin; }
+    .tech-pane h2 { margin: 2px 0 10px; font-size: .66rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+    .tech { display: block; width: 100%; text-align: left; margin: 0 0 8px; padding: 9px 11px; border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; font: inherit; color: inherit; transition: box-shadow .15s, border-color .15s; }
+    .tech:hover { box-shadow: 0 2px 8px rgba(32,36,42,.1); }
+    .tech.active { border-left-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+    .tech .num { display: inline-block; min-width: 20px; color: var(--accent); font-family: Georgia, serif; font-weight: 700; }
+    .tech b { font-size: .82rem; }
+    .tech small { display: block; margin-top: 3px; color: var(--muted); font-size: .68rem; line-height: 1.35; }
+
+    /* ---------- Mapa ---------- */
+    .map-pane { grid-column: 2; grid-row: 2; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 8px 10px 6px; }
+    #map { flex: 1; min-height: 0; border-radius: 10px; border: 1px solid var(--line); background: #dfe8ea; }
+    .legend { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 2px 4px; align-items: center; }
+    .legend .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 99px; background: #fff; padding: 3px 10px; font-size: .66rem; font-weight: 700; cursor: pointer; color: var(--ink); user-select: none; }
+    .chip i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; background: var(--c); }
+    .chip.off { opacity: .4; text-decoration: line-through; }
+    .legend .fineprint { margin-left: auto; color: var(--muted); font-size: .6rem; }
+
+    /* Capas Lynch (panes de Leaflet): se apagan con las fichas de la leyenda */
+    body[data-off~="hitos"] .leaflet-hitos-pane,
+    body[data-off~="sendas"] .leaflet-sendas-pane,
+    body[data-off~="bordes"] .leaflet-bordes-pane,
+    body[data-off~="nodos"] .leaflet-nodos-pane,
+    body[data-off~="barrios"] .leaflet-barrios-pane { display: none; }
+
+    .leaflet-hitos-pane, .leaflet-sendas-pane, .leaflet-bordes-pane,
+    .leaflet-nodos-pane, .leaflet-barrios-pane, .leaflet-overlay-tech-pane { transition: opacity .4s; }
+
+    /* Foco por técnica: atenúa las capas que no tocan */
+    body[data-tech="t2"] :is(.leaflet-sendas-pane, .leaflet-nodos-pane, .leaflet-barrios-pane) { opacity: .15; }
+    body[data-tech="t3"] :is(.leaflet-bordes-pane, .leaflet-barrios-pane, .leaflet-hitos-pane) { opacity: .2; }
+    body[data-tech="t4"] :is(.leaflet-bordes-pane, .leaflet-barrios-pane, .leaflet-hitos-pane) { opacity: .2; }
+    body[data-tech="t5"] .leaflet-tile-pane { filter: grayscale(.85) opacity(.75); }
+    body[data-tech="t6"] :is(.leaflet-sendas-pane, .leaflet-barrios-pane) { opacity: .2; }
+    body[data-tech="t7"] .leaflet-tooltip { display: none; }
+    body[data-tech="r1"] :is(.leaflet-sendas-pane, .leaflet-barrios-pane, .leaflet-nodos-pane) { opacity: .12; }
+    body[data-tech="r1"] :is(.leaflet-hitos-pane, .leaflet-bordes-pane) { opacity: .3; }
+    .leaflet-tile-pane { transition: filter .4s; }
+
+    /* Waypoints numerados de la ruta */
+    .wp { display: flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; border: 2px solid #fff; border-radius: 50%; font-weight: 800; font-size: 12px; box-shadow: 0 1px 4px rgba(32,36,42,.4); }
+
+    /* Tarjetas de tramo en el panel de detalle */
+    .leg-card { display: block; width: 100%; text-align: left; margin: 0 0 7px; padding: 8px 10px; border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; font: inherit; color: inherit; }
+    .leg-card:hover { box-shadow: 0 2px 8px rgba(32,36,42,.1); }
+    .leg-card.active { border-left-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+    .leg-card b.head { font-size: .76rem; }
+    .leg-card .meta { float: right; color: var(--muted); font-size: .7rem; font-variant-numeric: tabular-nums; }
+    .leg-card .pcd { display: none; margin-top: 6px; font-size: .72rem; line-height: 1.5; color: var(--ink); }
+    .leg-card .pcd b { color: var(--accent); }
+    .leg-card.active .pcd { display: block; }
+    .route-actions { display: flex; gap: 6px; margin: 8px 0 4px; }
+    .route-actions button { flex: 1; border: 1px solid var(--line); border-radius: 6px; background: #fff; padding: 5px 8px; font-size: .7rem; font-weight: 700; cursor: pointer; color: var(--ink); }
+    .route-actions button:hover { box-shadow: 0 1px 5px rgba(32,36,42,.12); }
+
+    /* Etiquetas: tooltips permanentes sin caja */
+    .leaflet-tooltip.lbl { background: transparent; border: none; box-shadow: none; font-weight: 700; font-size: 11px; color: var(--ink); text-shadow: 0 1px 3px rgba(255,255,255,.95), 0 -1px 3px rgba(255,255,255,.95), 1px 0 3px rgba(255,255,255,.95), -1px 0 3px rgba(255,255,255,.95); }
+    .leaflet-tooltip.lbl::before { display: none; }
+    .lbl.lbl-hito { color: var(--hito); }
+    .lbl.lbl-senda { color: var(--senda); }
+    .lbl.lbl-borde { color: var(--borde); font-style: italic; }
+    .lbl.lbl-nodo { color: var(--nodo); }
+    .lbl.lbl-barrio { color: var(--barrio); text-transform: uppercase; letter-spacing: .08em; font-size: 10px; }
+    .lbl.lbl-accent { color: var(--accent); font-size: 12px; }
+
+    /* Ancla que late (técnica 2 y 6) */
+    .anchor-pulse { position: relative; }
+    .anchor-pulse::after { content: ""; position: absolute; inset: 0; border: 2px solid var(--accent); border-radius: 50%; animation: pulse 2s ease-out infinite; }
+    @keyframes pulse { from { transform: scale(.4); opacity: .95; } to { transform: scale(2.4); opacity: 0; } }
+
+    /* Brújula (técnica 2) */
+    .compass-ctl { background: rgba(255,255,255,.92); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 12px; font-size: .7rem; line-height: 1.45; max-width: 210px; color: var(--ink); box-shadow: 0 2px 8px rgba(32,36,42,.15); }
+    .compass-ctl b { color: var(--accent); }
+
+    /* Inventario desplegable de la técnica 1 */
+    .inv, .inv details.grupo { border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+    .inv > summary { padding: 8px 11px; font-size: .76rem; font-weight: 700; cursor: pointer; }
+    .inv details.grupo { margin: 6px 8px; }
+    .grupo > summary { padding: 7px 10px; font-size: .74rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 7px; }
+    .grupo > summary i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+    .grupo > summary small { color: var(--muted); font-weight: 600; }
+    .elem { display: block; width: 100%; text-align: left; border: none; border-top: 1px solid var(--paper-deep); background: transparent; padding: 6px 12px; font: inherit; font-size: .75rem; font-weight: 650; color: var(--ink); cursor: pointer; }
+    .elem::before { content: '◦ '; color: var(--muted); }
+    .elem:hover { background: #f6f2ea; }
+    .elem-wrap.open .elem::before { content: '● '; color: var(--accent); }
+    .ficha { display: none; padding: 0 12px 9px; font-size: .72rem; line-height: 1.5; color: var(--muted); }
+    .ficha b { color: var(--ink); }
+    .elem-wrap.open .ficha { display: block; }
+
+    /* Callejero: red de calles */
+    body[data-tech="c1"] :is(.leaflet-hitos-pane, .leaflet-nodos-pane, .leaflet-barrios-pane, .leaflet-bordes-pane) { opacity: .1; }
+    body[data-tech="c1"] .leaflet-sendas-pane { opacity: .12; }
+    .st-lbl { background: transparent; border: none; box-shadow: none; font-size: 9.5px; font-weight: 700; color: #3a4048; text-shadow: 0 1px 3px rgba(255,255,255,.95), 1px 0 3px rgba(255,255,255,.95), -1px 0 3px rgba(255,255,255,.95), 0 -1px 3px rgba(255,255,255,.95); }
+    .st-lbl::before { display: none; }
+    .st-lbl.on { color: var(--accent); font-size: 11px; }
+
+    .eje-card { display: block; width: 100%; text-align: left; margin: 0 0 6px; padding: 7px 10px; border: 1px solid var(--line); border-left: 4px solid var(--senda); border-radius: 6px; background: #fff; cursor: pointer; font: inherit; color: inherit; }
+    .eje-card:hover { box-shadow: 0 2px 8px rgba(32,36,42,.1); }
+    .eje-card.active { border-left-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+    .eje-card b { font-size: .78rem; }
+    .eje-card .hook { display: block; margin-top: 2px; color: var(--muted); font-size: .7rem; line-height: 1.35; }
+    .cx-box { margin: 4px 0 12px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 6px; background: #fff; font-size: .74rem; line-height: 1.5; }
+    .cx-box .none { color: var(--muted); }
+    .st-chip { display: inline-block; margin: 3px 4px 0 0; padding: 2px 9px; border: 1px solid var(--line); border-radius: 99px; background: #f6f2ea; font-size: .7rem; font-weight: 650; cursor: pointer; color: var(--ink); }
+    .st-chip:hover { border-color: var(--accent); color: var(--accent); }
+    .st-chip.eje { border-color: color-mix(in srgb, var(--senda) 50%, var(--line)); }
+
+    /* ---------- Panel de detalle ---------- */
+    .info-pane { grid-column: 3; grid-row: 2; overflow-y: auto; border-left: 1px solid var(--line); background: #f9f6f0; padding: 14px 18px 20px; scrollbar-width: thin; }
+    .info-pane .kicker { margin: 0; color: var(--muted); font-size: .64rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .info-pane h2 { margin: 4px 0 0; font-family: Georgia, "Times New Roman", serif; font-size: 1.25rem; line-height: 1.2; letter-spacing: -.01em; }
+    .info-pane h3 { margin: 16px 0 6px; font-size: .64rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
+    .info-pane p, .info-pane li { font-size: .8rem; line-height: 1.55; margin: 6px 0; }
+    .info-pane ul { margin: 4px 0; padding-left: 18px; }
+    .info-pane .evidence { background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--borde); border-radius: 6px; padding: 8px 11px; font-size: .74rem; color: var(--muted); }
+    .info-pane .evidence b { color: var(--ink); }
+
+    @media (max-width: 900px) {
+      body { display: block; height: auto; overflow: auto; }
+      .tech-pane, .info-pane { border: none; border-top: 1px solid var(--line); }
+      .map-pane { height: 58vh; }
+      .topbar .hint { display: none; }
+    }
+  </style>
+</head>
+<body data-tech="t1" data-off="">
+  <header class="topbar">
+    <span class="eyebrow">Orientación urbana · 02</span>
+    <h1>Aprender a orientarse: Barakaldo (Bizkaia)</h1>
+    <p class="hint">Elige una técnica a la izquierda: el mapa real resalta cómo aplicarla en Barakaldo y el panel derecho explica la evidencia y cómo extrapolarla a otro municipio. Las fichas de la leyenda encienden y apagan capas.</p>
+  </header>
+
+  <aside class="tech-pane" aria-label="Técnicas de orientación">
+    <h2>Técnicas contrastadas</h2>
+    <div id="techList"></div>
+    <h2 style="margin-top: 18px;">Callejero</h2>
+    <div id="calleList"></div>
+  </aside>
+
+  <main class="map-pane">
+    <div id="map" role="application" aria-label="Mapa de Noja"></div>
+    <div class="legend" id="legend">
+      <span class="chip" data-layer="hitos" style="--c: var(--hito)"><i></i>Hitos</span>
+      <span class="chip" data-layer="sendas" style="--c: var(--senda)"><i></i>Sendas</span>
+      <span class="chip" data-layer="bordes" style="--c: var(--borde)"><i></i>Bordes</span>
+      <span class="chip" data-layer="nodos" style="--c: var(--nodo)"><i></i>Nodos</span>
+      <span class="chip" data-layer="barrios" style="--c: var(--barrio)"><i></i>Barrios</span>
+      <span class="fineprint">Cartografía y datos © OpenStreetMap</span>
+    </div>
+  </main>
+
+  <aside class="info-pane" id="infoPane" aria-live="polite"></aside>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="data/bara-geo.js"></script>
+  <script>window.addEventListener('error', e => { window.__err = (e.error && e.error.stack) || e.message; });</script>
+  <script>
+    const TECHS = [
+      {
+        id: 't1',
+        title: 'Lee el pueblo con los 5 elementos de Lynch',
+        tagline: 'Hitos, sendas, bordes, nodos y barrios: el vocabulario de cualquier mapa mental.',
+        evidence: '<b>Kevin Lynch, <i>The Image of the City</i> (1960)</b>: estudiando cómo la gente recuerda sus ciudades, identificó que todos los mapas mentales se construyen con los mismos cinco elementos. Sigue siendo la base del diseño de señalética y de la investigación en <i>wayfinding</i>.',
+        local: `<p>La <b>ría del Nervión</b> cierra Barakaldo por el norte (la cota baja); los <b>montes</b> lo cierran por el sur (cuesta arriba). El <b>metro L2</b> y la carretera de la ría son las sendas mayores; la <b>Herriko Plaza</b> (el Ayuntamiento) es el nodo-ancla, y el <b>BEC</b> el hito imposible de no ver. Despliega el inventario y pulsa cada elemento: verás su ficha aquí y su posición en el mapa.</p>`,
+        extrapolar: 'Al llegar a cualquier municipio, dedica 10 minutos a rellenar esta plantilla de cinco huecos: ¿cuáles son sus bordes (río, vía de tren, ronda)?, ¿su espina?, ¿sus 3 hitos?, ¿sus 2 nodos?, ¿sus barrios? Con eso ya tienes el esqueleto del mapa mental.'
+      },
+      {
+        id: 't2',
+        title: 'Ancla + brújula natural',
+        tagline: 'Un punto fijo del que sabes salir siempre, y una referencia que te da los puntos cardinales.',
+        evidence: '<b>Puntos de anclaje</b>: la investigación en cognición espacial (Couclelis et al., 1987, «anchor-point theory») muestra que organizamos el espacio alrededor de unos pocos puntos de referencia personales, no de forma uniforme. Mantener un marco de referencia fijo (alocéntrico) es lo que distingue a los buenos navegantes.',
+        local: `<p>La brújula de Barakaldo es la <b>pendiente</b> y la ría: <b>el agua siempre abajo, al norte; el monte siempre arriba, al sur</b>. Si bajas, vas hacia la ría (Desierto, Lutxana); si subes, hacia los barrios altos (Cruces, El Regato). Río abajo (noroeste) queda el mar y Portugalete; río arriba (sureste), Bilbao. Como ancla usa la <b>Herriko Plaza</b> (el Ayuntamiento), en pleno centro: reconocible y con salidas en todas direcciones.</p>`,
+        extrapolar: 'En otro municipio busca su brújula natural: la pendiente (el casco viejo suele estar arriba o junto al río), una sierra visible, el sol (al sur a mediodía), una torre que sobresale. Y elige un ancla céntrica el primer día: tu alojamiento no vale si está en las afueras; mejor la plaza mayor.'
+      },
+      {
+        id: 't3',
+        title: 'Primero rutas, luego mapa',
+        tagline: 'Domina una ruta espina y ve colgando el resto de ella hasta que emerja el mapa mental.',
+        evidence: '<b>Siegel & White (1975)</b>: el conocimiento espacial progresa por etapas — primero hitos sueltos, luego rutas que los conectan, y por último «conocimiento de mapa» (survey knowledge) que permite atajar e improvisar. No intentes memorizar el plano de golpe: se construye desde las rutas.',
+        local: `<p>Ruta espina para Barakaldo: el <b>metro L2</b> como mapa mental (Desertu–Barakaldo–Ansio–Cruces) marca el eje noreste–suroeste. En superficie, la <b>carretera Bilbao–Sestao</b> junto a la ría (este–oeste) y la <b>avenida Ismael Gorostiza</b> subiendo al sur hacia El Regato. Camina esas tres y el resto de la ciudad cuelga de ellas.</p>`,
+        extrapolar: 'En cualquier municipio: identifica la calle que lo cruza (casi siempre la travesía de la carretera comarcal) y camínala entera el primer día, ida y vuelta. Después añade una ruta perpendicular por día. El mapa mental aparece solo cuando dos rutas conocidas se cruzan.'
+      },
+      {
+        id: 't4',
+        title: 'Mira atrás en cada decisión',
+        tagline: 'La vuelta no se parece a la ida: memoriza también la vista en sentido contrario.',
+        evidence: '<b>Vistas dependientes del punto de mira</b>: reconocemos los lugares desde el ángulo en que los aprendimos (alignment effects, estudios clásicos de reconocimiento de escenas). Girarse en los cruces para codificar la vista de vuelta es una técnica estándar en montañismo y en entrenamiento de <i>wayfinding</i>.',
+        local: `<p>En una ciudad densa como Barakaldo los cruces se parecen entre sí. Cada vez que gires en un nodo — la salida de la Herriko Plaza, la rotonda del BEC, el cruce de Cruces — <b>párate dos segundos y date la vuelta</b>. Pregúntate: "¿qué veré aquí cuando vuelva?". Fíjate en un edificio alto o en si la calle sube o baja: esa esquina de vuelta no se parece a la de ida.</p>`,
+        extrapolar: 'Es la técnica más barata y universal: funciona igual en un pueblo, en un bosque o en un aparcamiento. Hazla solo en los nodos (donde decides), no en cada portal: son 3-5 miradas atrás por paseo.'
+      },
+      {
+        id: 't5',
+        title: 'GPS para corregir, no para guiar',
+        tagline: 'Navega con la cabeza; consulta el móvil solo para confirmar o rescatarte.',
+        evidence: '<b>Ishikawa et al. (2008)</b> y <b>Dahmani & Bohbot (2020)</b>: quienes siguen indicaciones GPS paso a paso forman peores mapas mentales y recuerdan peor las rutas que quienes navegan con mapa o por su cuenta; el uso habitual del GPS se asocia a peor memoria espacial. El esfuerzo de decidir es justo lo que graba el mapa.',
+        local: `<p>Barakaldo tiene una trama densa y regular; es fácil fiarlo todo al móvil. Justo por eso: guárdalo. Usa la regla de la cota (¿subo o bajo?) para no perder el norte —la ría siempre abajo—, apuesta antes de mirar ("el centro está cuesta abajo por ahí"), y reserva el GPS para rescatarte. (El mapa se atenúa: esta técnica se practica sin él.)</p>`,
+        extrapolar: 'En municipios mayores, mismo protocolo con red de seguridad: mira el mapa antes de salir (30 segundos, memoriza la forma general), guarda el móvil, y úsalo solo si llevas 10 minutos genuinamente perdido. Nunca con indicaciones giro a giro andando.'
+      },
+      {
+        id: 't6',
+        title: 'Bucles crecientes desde el ancla',
+        tagline: 'Explora en círculos cada vez más amplios que siempre vuelven al punto de anclaje.',
+        evidence: '<b>Práctica espaciada + exposición incremental</b>: volver al ancla en cada bucle re-testea lo aprendido (efecto test) y añade novedad en dosis pequeñas. Es la estructura de exploración que usan los estudios de aprendizaje de entornos nuevos: ampliar el perímetro conocido, no saltar a zonas inconexas.',
+        local: `<p>Día 1: el círculo pequeño — la <b>Herriko Plaza</b> y el centro de San Vicente. Día 2: baja a la ría (Desierto) y vuelve, o sube al <b>BEC</b> y vuelve. Día 3: barrios más lejos — Cruces, Lutxana, Kareaga — regresando siempre al centro. Cada bucle termina donde empezó: la vuelta es el examen del día anterior.</p>`,
+        extrapolar: 'Regla general: nunca explores una zona nueva que no conecte con tu perímetro ya conocido. En un municipio grande, los bucles pueden ser semanas en vez de días; la estructura es la misma.'
+      },
+      {
+        id: 't7',
+        title: 'Dibuja el pueblo de memoria',
+        tagline: 'El examen final: un croquis sin mirar. Los huecos te dicen qué explorar mañana.',
+        evidence: '<b>Sketch maps + efecto test</b>: dibujar el mapa de memoria es la herramienta clásica para medir conocimiento espacial (desde Lynch hasta hoy) y, como todo recuerdo activo (Roediger & Karpicke, 2006), también lo consolida. Lo que no sabes dibujar es exactamente lo que no sabes.',
+        local: `<p>Papel en blanco: la ría arriba (norte), los montes abajo (sur), y a colocar el metro, la Herriko Plaza, el BEC y los barrios. <b>Con esta vista el mapa oculta todos los nombres</b>: úsala para autoevaluarte señalando cada punto y diciendo su nombre en voz alta. Compara luego con la vista normal y anota los huecos.</p>`,
+        extrapolar: 'Hazlo el día 2 o 3 en cada municipio nuevo, no al final: el primer croquis malo es el más útil, porque convierte "me suena todo" en una lista concreta de huecos que rellenar en el siguiente paseo.'
+      }
+    ];
+
+    // Rutas preparadas: pendiente para Barakaldo (se añadirán como en Noja).
+    const RUTAS = [];
+
+
+    const CALLE = {
+      id: 'c1',
+      title: 'Callejero: nombres y cómo se enredan',
+      tagline: 'Aprende la red del centro: unos pocos ejes y el resto colgando de ellos. Pulsa una calle y verás con cuáles se cruza.',
+      evidence: '<b>Aprender una red = un grafo, no una lista</b>: memorizar decenas de nombres sueltos es agotador; memorizar <i>unos ejes + de qué eje cuelga cada calle</i> es <b>chunking</b> (Chase & Simon, 1973). En Barakaldo casi todo está en euskera: aprender el <b>patrón del sufijo</b> ya ordena la mitad — <i>kalea</i> = calle, <i>etorbidea</i> = avenida (los ejes), <i>plaza</i>, <i>pasealekua</i> = paseo. Y por <b>asociación</b>, los nombres propios (Gernikako Arbola = el Árbol de Gernika, Askatasuna = libertad) se anclan a lo que ya conoces.',
+      method: `<ol>
+        <li><b>Aprende primero los ejes (etorbideak)</b>: <b>Askatasun etorbidea</b> (la más conectada del centro), <b>Euskadi etorbidea</b> y <b>Gernikako Arbola etorbidea</b>. Son las avenidas anchas de las que cuelga todo.</li>
+        <li><b>Cuelga cada calle (kalea) de su eje</b>: no memorizas «Elcano kalea» en el vacío, sino «una de las que salen de Askatasun».</li>
+        <li><b>Usa el sufijo y el significado</b>: <i>etorbidea</i> = avenida (eje) frente a <i>kalea</i> = calle (rama); y ancla los nombres propios a su idea (Gernika, libertad, los apellidos).</li>
+        <li><b>Recita un cruce de memoria</b>: «de Askatasun salgo a Euskadi, Elcano, Juan de Garay, Foruen…». Con dos o tres ejes dominados, el centro ya está en tu cabeza.</li></ol>`,
+      // Ganchos de memoria por eje (significado + su papel en la red)
+      hooks: {
+        'Askatasun etorbidea': 'askatasuna = «libertad» en euskera; la avenida más conectada del centro, cruza con casi todo.',
+        'Euskadi etorbidea': 'avenida de Euskadi; eje central que enlaza con Askatasun y Gernikako Arbola.',
+        'Gernikako Arbola etorbidea': 'el Árbol de Gernika (símbolo foral vasco); avenida larga y recta del centro.',
+        'Arana kalea': 'arana = «valle» en euskera; calle del centro.',
+        'San Juan kalea': 'San Juan; calle del casco, junto a la Herriko Plaza.',
+        'Bulevar de Beurko': 'el bulevar del barrio de Beurko, hacia el norte y la ría.',
+      },
+    };
+
+    /* ---------- Mapa Leaflet ---------- */
+    const C = { hito: '#a65c39', senda: '#4b63b3', borde: '#2f766c', nodo: '#a47825', barrio: '#6b4c8f', accent: '#a65c39' };
+    const PLAZA = [43.2976, -2.9859];   // Herriko Plaza (Ayuntamiento) — ancla
+
+    // Límites administrativos de Barakaldo según OSM/Nominatim (relación 340585)
+    const NOJA_BOUNDS = L.latLngBounds([[43.23788, -3.04906], [43.30524, -2.97056]]);
+    const map = L.map('map', { zoomSnap: .5, maxBounds: NOJA_BOUNDS.pad(.4), maxBoundsViscosity: .5 });
+    map.fitBounds(NOJA_BOUNDS, { padding: [10, 10] });
+    const tilesLabels = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+    const tilesNoLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/light_nolabels/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19, attribution: '© OpenStreetMap · © CARTO'
+    });
+
+    // Un pane por elemento de Lynch para poder atenuarlos/apagarlos por CSS
+    ['bordes', 'barrios', 'sendas', 'nodos', 'hitos', 'streets', 'overlay-tech'].forEach((p, i) => {
+      map.createPane(p).style.zIndex = 610 + i * 10;
+    });
+
+    const lbl = (kind, dir = 'right') => ({ permanent: true, direction: dir, className: `lbl lbl-${kind}`, pane: kind === 'accent' ? 'overlay-tech' : { hito: 'hitos', senda: 'sendas', borde: 'bordes', nodo: 'nodos', barrio: 'barrios' }[kind] });
+
+    // Metro L2 (esquemático): polilínea por las estaciones de Barakaldo, N→S.
+    const METRO = [[43.3004, -2.9845], [43.2989, -2.9927], [43.2956, -2.9893], [43.2891, -2.9872], [43.2831, -2.9824]];
+
+    // Inventario: cada elemento con su ficha (d = qué es, o = origen, c = curiosidad).
+    // De aquí salen tanto las capas del mapa como el desplegable de la técnica 1.
+    const FICHAS = {
+      hitos: [
+        { n: 'BEC (Bilbao Exhibition Centre)', ll: [43.2880, -2.9906], dir: 'bottom',
+          d: 'El gigantesco recinto ferial, con la Torre BEC y el pabellón Bizkaia Arena. El hito más visible de Barakaldo.',
+          o: 'Inaugurado en 2004 sobre los terrenos de la antigua Altos Hornos de Vizcaya, la siderúrgica que definió la ciudad.',
+          c: 'Se ve desde media ciudad y tiene metro propio (Ansio); su torre sirve de referencia a distancia.' },
+        { n: 'Ayuntamiento (Herriko Plaza)', ll: [43.29765, -2.9861],
+          d: 'La casa consistorial, en la Herriko Plaza, corazón peatonal del centro.',
+          c: 'La plaza y sus soportales son el punto de encuentro del casco: tu ancla natural.' },
+        { n: 'Hospital San Eloy', ll: [43.2967, -2.9935], dir: 'top',
+          d: 'Hospital del centro de Barakaldo.',
+          c: 'No confundir con el Hospital de Cruces (mucho mayor), que queda al sureste, en el límite con Bilbao.' },
+        { n: 'Mercado de San Vicente', ll: [43.2960, -2.9963], dir: 'left',
+          d: 'El mercado del casco histórico de San Vicente.',
+          c: 'San Vicente es el núcleo antiguo del que creció Barakaldo antes de la industria.' },
+        { n: 'Lasesarre', ll: [43.3029, -2.9865], dir: 'top',
+          d: 'El estadio del Barakaldo CF y su parque, al norte, cerca de la ría.',
+          c: 'Da nombre al parque de Lasesarre, uno de los grandes espacios verdes tras la reconversión industrial.' },
+        { n: 'Hospital de Cruces', ll: [43.2846, -2.9793], dir: 'bottom',
+          d: 'Uno de los grandes hospitales del País Vasco, al sureste, en el barrio de Cruces (Gurutzeta).',
+          c: 'Está justo en la muga con Bilbao; el barrio y el metro se llaman Gurutzeta / Cruces.' },
+      ],
+      sendas: [
+        { n: 'Metro L2', geo: 'metro', ll: [43.2956, -2.9893], dir: 'right',
+          d: 'La línea 2 del metro cruza Barakaldo de noreste a suroeste (Desertu · Bagatza · Barakaldo · Ansio · Cruces).',
+          c: 'Aunque va bajo tierra, es la mejor «espina» mental: memoriza el orden de las estaciones y ya tienes el eje de la ciudad.' },
+        { n: 'Bilbao – Sestao errepidea', geo: 'Bilbao - Sestao errepidea', ll: [43.2995, -2.9885], dir: 'top',
+          d: 'La carretera que recorre la orilla de la ría, de Bilbao (este) a Sestao (oeste).',
+          c: 'Es el eje de cota baja: si vas por ella, vas pegado al agua.' },
+        { n: 'Ismael Gorostiza etorbidea', geo: 'Ismael Gorostiza etorbidea', ll: [43.2835, -2.9950], dir: 'left',
+          d: 'La avenida que sube del centro hacia el sur, hacia Gorostiza y el valle de El Regato.',
+          c: 'El eje que gana altura: síguela y estás yendo hacia el monte.' },
+        { n: 'Gernikako Arbola etorbidea', geo: 'Gernikako Arbola etorbidea', ll: [43.2905, -2.9955], dir: 'right',
+          d: 'Avenida central, larga y recta, que estructura el centro.',
+          c: 'Lleva el nombre del Árbol de Gernika, símbolo de las libertades vascas.' },
+      ],
+      bordes: [
+        { n: 'La ría del Nervión', geo: 'ria', ll: [43.3010, -2.9880], dir: 'top',
+          d: 'El gran borde norte: la ría (Nervión–Ibaizabal) marca el límite y la cota más baja de la ciudad.',
+          o: 'Fue el motor industrial de Barakaldo (Altos Hornos, astilleros); hoy sus muelles son paseos y parques.',
+          c: 'Regla de oro: la ría siempre está al norte y abajo. Si bajas, vas hacia ella.' },
+        { n: 'Los montes del sur', geo: 'montes', ll: [43.2470, -3.0000], dir: 'bottom',
+          d: 'El borde sur: la ciudad topa con los montes (Argalario, valle de El Regato), que suben hacia el interior.',
+          c: 'La otra mitad de la brújula: el monte siempre al sur y arriba. Si subes, te alejas de la ría.' },
+      ],
+      nodos: [
+        { n: 'Herriko Plaza', ll: PLAZA, dir: 'bottom', t: 'Herriko Plaza — el ancla',
+          d: 'La plaza del Ayuntamiento, en pleno centro: el ancla de todas las técnicas.',
+          c: 'De ella salen las calles principales del casco en todas direcciones.' },
+        { n: 'Metro Barakaldo', ll: [43.2956, -2.9893], dir: 'bottom', t: 'estación Metro Barakaldo',
+          d: 'La estación central del metro, bajo el centro: el nodo de transporte de referencia.' },
+        { n: 'Entorno del BEC', ll: [43.2892, -2.9885], dir: 'right', t: 'nudo del BEC (Ansio)',
+          d: 'El gran nudo del suroeste: BEC, metro Ansio, Megapark y las rotondas de acceso.',
+          c: 'Mucho aparcamiento y rotondas parecidas: buen sitio para la técnica 4 (mirar atrás).' },
+        { n: 'Cruce de Cruces', ll: [43.2831, -2.9824], dir: 'bottom', t: 'Cruces / Gurutzeta',
+          d: 'El nodo del sureste, junto al Hospital de Cruces, ya lindando con Bilbao.' },
+      ],
+      barrios: [
+        { n: 'San Vicente', ll: [43.2954, -2.9970], d: 'El casco histórico, junto a la ría: el núcleo del que nació Barakaldo antes de la industria.' },
+        { n: 'Larrea', ll: [43.2980, -2.9819], d: 'Al noreste, entre el centro y la ría, junto al parque de Lasesarre.' },
+        { n: 'Arrontegi', ll: [43.2960, -2.9830], d: 'Rontegi: hacia el puente de Rontegi sobre la ría, al noreste.' },
+        { n: 'Beurko', ll: [43.2990, -2.9942], d: 'Al norte, hacia la ría; con su bulevar y parque tras la reconversión.' },
+        { n: 'Zaballa', ll: [43.2970, -2.9901], d: 'Barrio céntrico, al norte del casco de San Vicente.' },
+        { n: 'Arteagabeitia', ll: [43.2921, -2.9937], d: 'Al oeste del centro, con su propio mercado.' },
+        { n: 'Ansio', ll: [43.2868, -2.9945], d: 'Al suroeste: aquí están el BEC, el metro Ansio y Megapark.' },
+        { n: 'Kareaga', ll: [43.2866, -3.0058], d: 'Al oeste, subiendo del centro hacia el valle.' },
+        { n: 'La Paz', ll: [43.2812, -2.9879], d: 'Barrio del sur del centro, de raíz obrera e industrial.' },
+        { n: 'Gurutzeta', ll: [43.2812, -2.9830], d: 'Cruces: al sureste, junto al gran hospital, ya en la muga con Bilbao.' },
+        { n: 'Lutxana', ll: [43.2895, -2.9792], d: 'Al noreste, en la ría, junto a la desembocadura del río Kadagua.' },
+        { n: 'Burtzeña', ll: [43.2801, -2.9781], d: 'Al este, junto a la ría y el puente de Burtzeña, con su iglesia histórica.' },
+        { n: 'El Regato', ll: [43.2641, -3.0163], d: 'El gran barrio verde del sur, en el valle del río Castaños, con su embalse.',
+          c: 'Rural y de paseo: contrasta con la ciudad industrial del norte. Barakaldo fue un rosario de barrios que la industria cosió.' },
+      ],
+    };
+
+    // BORDES: la ría (norte) y los montes (sur) como líneas del término municipal
+    const edgeLine = (pts, w) => L.polyline(pts, { pane: 'bordes', color: C.borde, weight: w, opacity: .8 });
+    const gBordes = L.layerGroup([
+      edgeLine(BARA_GEO.ria, 5),
+      edgeLine(BARA_GEO.montes, 4),
+      ...FICHAS.bordes.map(f => L.marker(f.ll, { opacity: 0, pane: 'bordes' }).bindTooltip(f.n + (f.geo === 'ria' ? ' — norte, cota baja' : ' — sur, cuesta arriba'), lbl('borde', 'center'))),
+    ], { pane: 'bordes' });
+
+    // SENDAS: ejes viarios reales (BARA_GEO.axes) + el metro esquemático
+    const gSendas = L.layerGroup([
+      ...(BARA_GEO.axes['Bilbao - Sestao errepidea'] || []).map(s => L.polyline(s, { pane: 'sendas', color: C.senda, weight: 4 })),
+      ...(BARA_GEO.axes['Ismael Gorostiza etorbidea'] || []).map(s => L.polyline(s, { pane: 'sendas', color: C.senda, weight: 4 })),
+      ...(BARA_GEO.axes['Gernikako Arbola etorbidea'] || []).map(s => L.polyline(s, { pane: 'sendas', color: C.senda, weight: 3.5 })),
+      L.polyline(METRO, { pane: 'sendas', color: C.senda, weight: 3, dashArray: '2 7' }),
+      ...METRO.map(ll => L.circleMarker(ll, { pane: 'sendas', radius: 3.5, color: C.senda, weight: 2, fillColor: '#fff', fillOpacity: 1 })),
+      ...FICHAS.sendas.map(f => L.marker(f.ll, { opacity: 0, pane: 'sendas' }).bindTooltip(f.n, lbl('senda', f.dir))),
+    ], { pane: 'sendas' });
+
+    // HITOS
+    const gHitos = L.layerGroup(FICHAS.hitos.map(f =>
+      L.circleMarker(f.ll, { pane: 'hitos', radius: 6, color: '#fff', weight: 2, fillColor: C.hito, fillOpacity: 1 })
+        .bindTooltip(f.n, lbl('hito', f.dir))));
+
+    // NODOS
+    const gNodos = L.layerGroup(FICHAS.nodos.map(f =>
+      L.circleMarker(f.ll, { pane: 'nodos', radius: 7, color: C.nodo, weight: 3, fillColor: '#fff', fillOpacity: 1 })
+        .bindTooltip(f.t, lbl('nodo', f.dir))));
+
+    // BARRIOS: áreas contiguas (Voronoi de los centros recortado al término municipal)
+    const gBarrios = L.layerGroup(BARA_GEO.barrios.flatMap(b => [
+      L.polygon(b.poly, { pane: 'barrios', color: C.barrio, weight: 1.5, dashArray: '4 4', fillColor: C.barrio, fillOpacity: .12 }),
+      L.marker(b.mid, { opacity: 0, pane: 'barrios' }).bindTooltip(b.n, lbl('barrio', 'center')),
+    ]));
+
+    const LYNCH = { hitos: gHitos, sendas: gSendas, bordes: gBordes, nodos: gNodos, barrios: gBarrios };
+    Object.values(LYNCH).forEach(g => g.addTo(map));
+
+    /* ---------- Overlays por técnica ---------- */
+    const pulse = ll => L.marker(ll, { pane: 'overlay-tech', icon: L.divIcon({ className: 'anchor-pulse', iconSize: [26, 26] }) });
+
+    const ovAnchor = L.layerGroup([pulse(PLAZA)]);
+    const ovRoute = L.layerGroup([
+      L.polyline(METRO, { pane: 'overlay-tech', color: C.accent, weight: 8, opacity: .5 }),
+      ...(BARA_GEO.axes['Bilbao - Sestao errepidea'] || []).map(s => L.polyline(s, { pane: 'overlay-tech', color: C.accent, weight: 7, opacity: .45 })),
+      ...(BARA_GEO.axes['Ismael Gorostiza etorbidea'] || []).map(s => L.polyline(s, { pane: 'overlay-tech', color: C.accent, weight: 7, opacity: .45 })),
+      L.marker([43.2891, -2.9872], { opacity: 0 }).bindTooltip('1º el metro (espina)', lbl('accent', 'right')),
+      L.marker([43.3000, -2.9890], { opacity: 0 }).bindTooltip('2º la ría (Bilbao–Sestao)', lbl('accent', 'top')),
+      L.marker([43.2835, -2.9950], { opacity: 0 }).bindTooltip('3º subir por Ismael Gorostiza', lbl('accent', 'left')),
+    ]);
+    const ovGlance = L.layerGroup(
+      [[43.2892, -2.9885], PLAZA, [43.2831, -2.9824]].map((ll, i) =>
+        L.circleMarker(ll, { pane: 'overlay-tech', radius: 9, color: C.accent, weight: 3, fillOpacity: 0 })
+          .bindTooltip(i === 0 ? 'date la vuelta aquí' : '…y aquí', lbl('accent', i === 2 ? 'left' : 'right')))
+    );
+    const ovLoops = L.layerGroup([
+      ...[[400, 'día 1'], [900, 'día 2'], [1800, 'día 3+']].map(([r, txt]) =>
+        L.circle(PLAZA, { pane: 'overlay-tech', radius: r, color: C.accent, weight: 2, dashArray: '6 6', fillOpacity: 0 })
+          .bindTooltip(txt, { ...lbl('accent'), direction: 'top' })),
+      pulse(PLAZA),
+    ]);
+
+    // Rutas preparadas: por cada ruta, una polilínea por tramo + sus waypoints.
+    const routeArt = {};  // id → { legLines, ov, bounds }
+    RUTAS.forEach(r => {
+      const legLines = BARA_GEO[r.geoKey].map(leg =>
+        L.polyline(leg.pts, { pane: 'overlay-tech', color: C.accent, weight: 5, opacity: .85 }));
+      const ov = L.layerGroup([
+        ...legLines,
+        ...r.waypoints.map(([ll, n, name]) =>
+          L.marker(ll, { pane: 'overlay-tech', icon: L.divIcon({ className: 'wp', html: n, iconSize: [22, 22] }) })
+            .bindTooltip(name, { direction: 'top', className: 'lbl lbl-accent' })),
+      ]);
+      routeArt[r.id] = { legLines, ov, bounds: L.latLngBounds(BARA_GEO[r.geoKey].flatMap(l => l.pts)) };
+    });
+
+    function focusLeg(id, i) {
+      const { legLines, bounds } = routeArt[id];
+      legLines.forEach((line, j) => line.setStyle(i === -1 || i === j ? { opacity: .9, weight: 6 } : { opacity: .2, weight: 4 }));
+      map.fitBounds(i === -1 ? bounds : legLines[i].getBounds(), { padding: [30, 30] });
+      document.querySelectorAll('.leg-card').forEach((c, j) => c.classList.toggle('active', i === j));
+    }
+
+    // Callejero: una polilínea por calle (todas sus lines) + etiqueta; clic = selección.
+    const STREETS = BARA_GEO.streets;
+    const stByName = {};
+    const ovCalles = L.layerGroup(STREETS.flatMap(s => {
+      const layers = s.lines.map(line => L.polyline(line, { pane: 'streets', color: '#7a828c', weight: s.main ? 4 : 2.5, opacity: .9 }));
+      const tip = L.marker(s.mid, { opacity: 0, pane: 'streets' }).bindTooltip(s.n.replace(/ (kalea|etorbidea|plaza|pasealekua|zeharkalea)$/, ''), { permanent: true, direction: 'center', className: 'st-lbl' });
+      stByName[s.n] = { lines: layers, tip };
+      layers.forEach(l => l.on('click', () => selectStreet(s.n)));
+      return [...layers, tip];
+    }));
+    const callesBounds = L.latLngBounds(STREETS.flatMap(s => s.lines.flat()));
+
+    let curStreet = null;
+    function selectStreet(name) {
+      curStreet = name;
+      const s = STREETS.find(x => x.n === name);
+      const near = new Set([name, ...s.connects]);
+      STREETS.forEach(o => {
+        const sel = o.n === name, adj = s.connects.includes(o.n);
+        stByName[o.n].lines.forEach(l => l.setStyle({
+          color: sel ? C.accent : adj ? '#c98a5e' : '#b9bec6',
+          weight: sel ? 6 : adj ? 4 : 2,
+          opacity: sel || adj ? 1 : .5,
+        }));
+        stByName[o.n].tip.getTooltip().getElement()?.classList.toggle('on', near.has(o.n));
+      });
+      const detalle = document.getElementById('calleDetalle');
+      if (detalle) detalle.innerHTML = calleDetalle(s);
+      document.querySelectorAll('.eje-card').forEach(c => c.classList.toggle('active', c.dataset.street === name));
+    }
+
+    const compassCtl = L.control({ position: 'topright' });
+    compassCtl.onAdd = () => {
+      const d = L.DomUtil.create('div', 'compass-ctl');
+      d.innerHTML = '<b>Brújula de Barakaldo</b><br>La <b>ría</b> siempre al <b>N</b> y abajo (Desierto, Lutxana).<br>Los <b>montes</b> siempre al <b>S</b> y arriba (Cruces, El Regato).<br>¿Bajas? vas a la ría. ¿Subes? al monte.<br>Río abajo (<b>NO</b>) el mar; río arriba (<b>SE</b>) Bilbao.';
+      return d;
+    };
+
+    const OVERLAYS = { t2: [ovAnchor], t3: [ovRoute], t4: [ovGlance], t6: [ovLoops, ovAnchor], c1: [ovCalles] };
+    RUTAS.forEach(r => OVERLAYS[r.id] = [routeArt[r.id].ov]);
+
+    /* ---------- Interfaz ---------- */
+    const body = document.body;
+    const techList = document.getElementById('techList');
+    const infoPane = document.getElementById('infoPane');
+
+    const card = (parent, t, num) => {
+      const btn = document.createElement('button');
+      btn.className = 'tech';
+      btn.dataset.id = t.id;
+      btn.innerHTML = `<span class="num">${num}</span><b>${t.title}</b><small>${t.tagline}</small>`;
+      btn.addEventListener('click', () => select(t.id));
+      parent.appendChild(btn);
+    };
+    TECHS.forEach((t, i) => card(techList, t, `${i + 1}.`));
+    RUTAS.forEach(r => card(document.getElementById('rutaList'), { ...r, title: r.short }, '→'));
+    card(document.getElementById('calleList'), CALLE, '⌗');
+
+    function select(id) {
+      body.dataset.tech = id;
+      document.querySelectorAll('.tech').forEach(b => b.classList.toggle('active', b.dataset.id === id));
+
+      Object.values(OVERLAYS).flat().forEach(g => map.removeLayer(g));
+      (OVERLAYS[id] || []).forEach(g => g.addTo(map));
+      if (id === 't2') compassCtl.addTo(map); else compassCtl.remove();
+      // Modo examen: teselas sin nombres (los tooltips los oculta el CSS)
+      if (id === 't7') { tilesNoLabels.addTo(map); tilesLabels.remove(); }
+      else if (!map.hasLayer(tilesLabels)) { tilesLabels.addTo(map); tilesNoLabels.remove(); }
+
+      const ruta = RUTAS.find(r => r.id === id);
+      infoPane.innerHTML = ruta ? rutaInfo(ruta) : id === 'c1' ? calleInfo() : techInfo(TECHS.find(t => t.id === id));
+      if (ruta) {
+        document.querySelectorAll('.leg-card').forEach((c, i) => c.addEventListener('click', () => focusLeg(id, i)));
+        document.getElementById('legAll').addEventListener('click', () => focusLeg(id, -1));
+        focusLeg(id, -1);
+      } else if (id === 'c1') {
+        curStreet = null;
+        STREETS.forEach(o => {
+          o.lines && stByName[o.n].lines.forEach(l => l.setStyle({ color: '#7a828c', weight: o.main ? 4 : 2.5, opacity: .9 }));
+          stByName[o.n].tip.getTooltip().getElement()?.classList.remove('on');
+        });
+        map.fitBounds(callesBounds, { padding: [16, 16] });
+      } else {
+        map.fitBounds(NOJA_BOUNDS, { padding: [10, 10] });
+      }
+      infoPane.scrollTop = 0;
+    }
+
+    const techInfo = t => `
+        <p class="kicker">Técnica ${TECHS.indexOf(t) + 1} de ${TECHS.length}</p>
+        <h2>${t.title}</h2>
+        <h3>Por qué funciona</h3>
+        <p class="evidence">${t.evidence}</p>
+        <h3>Cómo practicarla en Barakaldo</h3>
+        ${t.local}
+        ${t.id === 't1' ? inventario() : ''}
+        <h3>Cómo llevarla a otro municipio</h3>
+        <p>${t.extrapolar}</p>`;
+
+    const GRUPOS = {
+      hitos: ['Hitos', 'hito', 'referencias que se ven o se recuerdan'],
+      sendas: ['Sendas', 'senda', 'las líneas por las que te mueves'],
+      bordes: ['Bordes', 'borde', 'los límites que encajonan el pueblo'],
+      nodos: ['Nodos', 'nodo', 'los puntos donde decides'],
+      barrios: ['Barrios', 'barrio', 'zonas con carácter propio'],
+    };
+
+    const inventario = () => `
+      <details class="inv" open>
+        <summary>El inventario de Noja, elemento a elemento</summary>
+        ${Object.entries(GRUPOS).map(([k, [titulo, color, def]]) => `
+          <details class="grupo">
+            <summary><i style="background: var(--${color})"></i>${titulo} <small>· ${def}</small></summary>
+            ${FICHAS[k].map((f, i) => `
+              <div class="elem-wrap">
+                <button class="elem" data-g="${k}" data-i="${i}">${f.n}</button>
+                <div class="ficha">
+                  <b>Qué es:</b> ${f.d}
+                  ${f.o ? `<br><b>Origen:</b> ${f.o}` : ''}
+                  ${f.c ? `<br><b>Curiosidad:</b> ${f.c}` : ''}
+                </div>
+              </div>`).join('')}
+          </details>`).join('')}
+      </details>`;
+
+    const shortSt = n => n.replace(/ (kalea|etorbidea|plaza|pasealekua|zeharkalea)$/, '');
+
+    function calleInfo() {
+      const ejes = STREETS.filter(s => s.main);
+      return `
+        <p class="kicker">Callejero · ${STREETS.length} calles · ${ejes.length} ejes</p>
+        <h2>${CALLE.title}</h2>
+        <h3>Por qué funciona</h3>
+        <p class="evidence">${CALLE.evidence}</p>
+        <h3>Cómo aprender el callejero</h3>
+        ${CALLE.method}
+        <h3>Los ejes — pulsa uno (o una calle del mapa)</h3>
+        ${ejes.map(s => `
+          <button class="eje-card" data-street="${s.n}">
+            <b>${s.n}</b>
+            ${CALLE.hooks[s.n] ? `<span class="hook">${CALLE.hooks[s.n]}</span>` : ''}
+          </button>`).join('')}
+        <div class="cx-box" id="calleDetalle"><span class="none">Pulsa un eje o una calle del mapa para ver con cuáles se cruza.</span></div>
+        <h3>Cómo llevarlo a otro municipio</h3>
+        <p>El método es la plantilla: quédate con 2-3 ejes, cuelga de ellos las calles menores y aprovecha los nombres que puedas dibujar. En un callejero en cuadrícula (ensanche) es aún más fácil — ejes numerados o alfabéticos — y en un casco medieval enrevesado, más necesario.</p>`;
+    }
+
+    function calleDetalle(s) {
+      const chips = s.connects.map(n => {
+        const eje = STREETS.find(x => x.n === n)?.main;
+        return `<span class="st-chip${eje ? ' eje' : ''}" data-street="${n}">${shortSt(n)}</span>`;
+      }).join('');
+      return `
+        <b>${s.n}</b>${s.main ? ' · eje' : ''}
+        ${CALLE.hooks[s.n] ? `<br><span style="color:var(--muted)">${CALLE.hooks[s.n]}</span>` : ''}
+        <br><b style="font-size:.7rem">Se cruza con ${s.connects.length}:</b><br>${chips || '<span class="none">—</span>'}`;
+    }
+
+    // Callejero: clic en eje-card o chip selecciona esa calle (y la enfoca)
+    infoPane.addEventListener('click', e => {
+      const el = e.target.closest('[data-street]');
+      if (!el) return;
+      selectStreet(el.dataset.street);
+      map.panInside(L.latLng(STREETS.find(s => s.n === el.dataset.street).mid), { padding: [40, 40] });
+    });
+
+    // Clic en un elemento del inventario: despliega su ficha y lo enfoca en el mapa
+    const hlElem = L.marker([0, 0], { pane: 'overlay-tech', icon: L.divIcon({ className: 'anchor-pulse', iconSize: [26, 26] }) });
+    infoPane.addEventListener('click', e => {
+      const btn = e.target.closest('.elem');
+      if (!btn) return;
+      const f = FICHAS[btn.dataset.g][+btn.dataset.i];
+      if (btn.parentElement.classList.toggle('open')) {
+        hlElem.setLatLng(f.ll).addTo(map);
+        map.flyTo(f.ll, Math.max(map.getZoom(), 15));
+      } else {
+        map.removeLayer(hlElem);
+      }
+    });
+
+    function rutaInfo(r) {
+      const dists = BARA_GEO[r.geoKey].map(l => l.dist);
+      const total = dists.reduce((a, b) => a + b, 0);
+      const fmt = km => km.toFixed(km < 10 ? 2 : 1).replace('.', ',');
+      return `
+        <p class="kicker">Ruta preparada · bucle · ${fmt(total)} km (~${Math.round(total / 4 * 60)} min andando)</p>
+        <h2>${r.title}</h2>
+        <h3>Por qué funciona prepararla así</h3>
+        <p class="evidence">${r.evidence}</p>
+        <h3>Cómo prepararla la víspera</h3>
+        ${r.prep}
+        <h3>Los ${r.legs.length} tramos — pulsa para enfocar</h3>
+        <div class="route-actions"><button id="legAll">Ver ruta completa</button></div>
+        ${r.legs.map((l, i) => `
+          <button class="leg-card">
+            <span class="meta">${fmt(dists[i])} km</span>
+            <b class="head">${i + 1} · ${l.name}</b>
+            <span class="pcd">
+              <b>Pasamanos:</b> ${l.pasamanos}<br>
+              <b>Punto de captura:</b> ${l.captura}<br>
+              ${l.bifurcaciones ? `<b>Bifurcaciones:</b> ${l.bifurcaciones}` : `<b>Decisión:</b> ${l.decision}`}
+            </span>
+          </button>`).join('')}
+        <h3>Cómo llevarlo a otra ruta</h3>
+        <p>El método es la plantilla, no esta ruta: trocea en tramos con final inconfundible, memoriza pasamanos + captura + decisión por tramo, recita la cadena con el mapa cerrado y sal con el GPS de rescate en el bolsillo. Funciona igual para un recado en una ciudad nueva que para una travesía de montaña.</p>`;
+    }
+
+    // Leyenda: apagar/encender capas de Lynch (vía CSS sobre los panes)
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        chip.classList.toggle('off');
+        body.dataset.off = [...document.querySelectorAll('.chip.off')].map(c => c.dataset.layer).join(' ');
+      });
+    });
+
+    select('t1');
+  </script>
+</body>
+</html>

@@ -1,0 +1,2085 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-07-20T13:38:05Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "way",
+  "id": 27451143,
+  "bounds": {
+    "minlat": 43.2947439,
+    "minlon": -2.9917290,
+    "maxlat": 43.2978729,
+    "maxlon": -2.9883535
+  },
+  "geometry": [
+    { "lat": 43.2947439, "lon": -2.9883535 },
+    { "lat": 43.2947508, "lon": -2.9883951 },
+    { "lat": 43.2947621, "lon": -2.9884505 },
+    { "lat": 43.2947715, "lon": -2.9885179 },
+    { "lat": 43.2947759, "lon": -2.9886204 },
+    { "lat": 43.2947860, "lon": -2.9887046 },
+    { "lat": 43.2948076, "lon": -2.9887734 },
+    { "lat": 43.2948496, "lon": -2.9888267 },
+    { "lat": 43.2948759, "lon": -2.9888442 },
+    { "lat": 43.2949018, "lon": -2.9888614 },
+    { "lat": 43.2949478, "lon": -2.9888660 },
+    { "lat": 43.2950408, "lon": -2.9888515 },
+    { "lat": 43.2950958, "lon": -2.9888449 },
+    { "lat": 43.2951683, "lon": -2.9888479 },
+    { "lat": 43.2951820, "lon": -2.9888503 },
+    { "lat": 43.2951893, "lon": -2.9888539 },
+    { "lat": 43.2951932, "lon": -2.9888559 },
+    { "lat": 43.2952394, "lon": -2.9889009 },
+    { "lat": 43.2952838, "lon": -2.9889432 },
+    { "lat": 43.2953355, "lon": -2.9889997 },
+    { "lat": 43.2956540, "lon": -2.9893498 },
+    { "lat": 43.2956607, "lon": -2.9893576 },
+    { "lat": 43.2957164, "lon": -2.9894219 },
+    { "lat": 43.2959339, "lon": -2.9896733 },
+    { "lat": 43.2959888, "lon": -2.9897300 },
+    { "lat": 43.2960545, "lon": -2.9897979 },
+    { "lat": 43.2964241, "lon": -2.9901798 },
+    { "lat": 43.2965481, "lon": -2.9903090 },
+    { "lat": 43.2969648, "lon": -2.9907456 },
+    { "lat": 43.2970425, "lon": -2.9908285 },
+    { "lat": 43.2971428, "lon": -2.9909372 },
+    { "lat": 43.2971857, "lon": -2.9909838 },
+    { "lat": 43.2977829, "lon": -2.9916314 },
+    { "lat": 43.2978729, "lon": -2.9917290 }
+  ],
+  "tags": {
+    "highway": "tertiary",
+    "lanes": "2",
+    "name": "Askatasun etorbidea",
+    "name:es": "Avenida de la Libertad",
+    "name:eu": "Askatasun etorbidea",
+    "official_name": "Avenida de la Libertad / Askatasun etorbidea",
+    "oneway": "yes",
+    "sidewalk": "both",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 27505016,
+  "bounds": {
+    "minlat": 43.2940503,
+    "minlon": -3.0009845,
+    "maxlat": 43.2942874,
+    "maxlon": -2.9964084
+  },
+  "geometry": [
+    { "lat": 43.2941743, "lon": -3.0009845 },
+    { "lat": 43.2941733, "lon": -3.0009597 },
+    { "lat": 43.2941713, "lon": -3.0009075 },
+    { "lat": 43.2941616, "lon": -3.0006533 },
+    { "lat": 43.2941353, "lon": -3.0004806 },
+    { "lat": 43.2941283, "lon": -3.0004336 },
+    { "lat": 43.2941084, "lon": -3.0003148 },
+    { "lat": 43.2940799, "lon": -3.0001444 },
+    { "lat": 43.2940595, "lon": -2.9999838 },
+    { "lat": 43.2940503, "lon": -2.9998173 },
+    { "lat": 43.2940517, "lon": -2.9995950 },
+    { "lat": 43.2940560, "lon": -2.9995094 },
+    { "lat": 43.2940651, "lon": -2.9993304 },
+    { "lat": 43.2940794, "lon": -2.9991592 },
+    { "lat": 43.2941158, "lon": -2.9987246 },
+    { "lat": 43.2941278, "lon": -2.9985805 },
+    { "lat": 43.2941371, "lon": -2.9984537 },
+    { "lat": 43.2941883, "lon": -2.9977849 },
+    { "lat": 43.2942249, "lon": -2.9971740 },
+    { "lat": 43.2942504, "lon": -2.9967994 },
+    { "lat": 43.2942711, "lon": -2.9966230 },
+    { "lat": 43.2942874, "lon": -2.9964084 }
+  ],
+  "tags": {
+    "highway": "tertiary",
+    "lit": "yes",
+    "name": "Gernikako Arbola etorbidea",
+    "name:es": "Avenida Gernikako Arbola",
+    "name:eu": "Gernikako Arbola etorbidea",
+    "official_name": "Avenida Gernikako Arbola / Gernikako Arbola etorbidea",
+    "oneway": "yes",
+    "sidewalk": "both",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 27512100,
+  "bounds": {
+    "minlat": 43.2831892,
+    "minlon": -2.9779145,
+    "maxlat": 43.2845249,
+    "maxlon": -2.9769342
+  },
+  "geometry": [
+    { "lat": 43.2845249, "lon": -2.9769342 },
+    { "lat": 43.2844379, "lon": -2.9769870 },
+    { "lat": 43.2843078, "lon": -2.9770356 },
+    { "lat": 43.2840056, "lon": -2.9771145 },
+    { "lat": 43.2837198, "lon": -2.9772247 },
+    { "lat": 43.2835859, "lon": -2.9773163 },
+    { "lat": 43.2834566, "lon": -2.9774419 },
+    { "lat": 43.2833491, "lon": -2.9775942 },
+    { "lat": 43.2832573, "lon": -2.9777558 },
+    { "lat": 43.2831892, "lon": -2.9779145 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "lanes": "2",
+    "maxspeed": "50",
+    "name": "Bilbao - Sestao errepidea",
+    "old_ref": "BI-739",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 40332653,
+  "bounds": {
+    "minlat": 43.2950124,
+    "minlon": -2.9786818,
+    "maxlat": 43.2953558,
+    "maxlon": -2.9774278
+  },
+  "geometry": [
+    { "lat": 43.2953558, "lon": -2.9786818 },
+    { "lat": 43.2950124, "lon": -2.9774278 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "maxspeed": "30",
+    "name": "Bilbao - Sestao errepidea",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 53087949,
+  "bounds": {
+    "minlat": 43.2850684,
+    "minlon": -2.9940317,
+    "maxlat": 43.2871547,
+    "maxlon": -2.9871853
+  },
+  "geometry": [
+    { "lat": 43.2871547, "lon": -2.9872172 },
+    { "lat": 43.2870290, "lon": -2.9871853 },
+    { "lat": 43.2868486, "lon": -2.9872131 },
+    { "lat": 43.2867569, "lon": -2.9872385 },
+    { "lat": 43.2866639, "lon": -2.9872802 },
+    { "lat": 43.2865052, "lon": -2.9873808 },
+    { "lat": 43.2863796, "lon": -2.9874622 },
+    { "lat": 43.2862094, "lon": -2.9876300 },
+    { "lat": 43.2860169, "lon": -2.9879154 },
+    { "lat": 43.2859034, "lon": -2.9881017 },
+    { "lat": 43.2858232, "lon": -2.9882994 },
+    { "lat": 43.2857681, "lon": -2.9884614 },
+    { "lat": 43.2857226, "lon": -2.9886419 },
+    { "lat": 43.2856607, "lon": -2.9889499 },
+    { "lat": 43.2856017, "lon": -2.9892388 },
+    { "lat": 43.2855052, "lon": -2.9897409 },
+    { "lat": 43.2852761, "lon": -2.9909522 },
+    { "lat": 43.2851427, "lon": -2.9917294 },
+    { "lat": 43.2851296, "lon": -2.9918059 },
+    { "lat": 43.2850795, "lon": -2.9922053 },
+    { "lat": 43.2850684, "lon": -2.9925638 },
+    { "lat": 43.2850739, "lon": -2.9928094 },
+    { "lat": 43.2850919, "lon": -2.9930618 },
+    { "lat": 43.2851262, "lon": -2.9932737 },
+    { "lat": 43.2851759, "lon": -2.9934706 },
+    { "lat": 43.2852756, "lon": -2.9937439 },
+    { "lat": 43.2852901, "lon": -2.9937805 },
+    { "lat": 43.2853587, "lon": -2.9939534 },
+    { "lat": 43.2853898, "lon": -2.9940317 }
+  ],
+  "tags": {
+    "cycleway:right": "no",
+    "highway": "secondary",
+    "lanes": "2",
+    "name": "Ismael Gorostiza etorbidea",
+    "name:es": "Ronda Ismael Gorostiza",
+    "name:eu": "Ismael Gorostiza etorbidea",
+    "official_name": "Ismael Gorostiza etorbidea / Avenida Ismael Gorostiza",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 53087952,
+  "bounds": {
+    "minlat": 43.2849623,
+    "minlon": -2.9938496,
+    "maxlat": 43.2865484,
+    "maxlon": -2.9872275
+  },
+  "geometry": [
+    { "lat": 43.2851547, "lon": -2.9938496 },
+    { "lat": 43.2851464, "lon": -2.9938212 },
+    { "lat": 43.2850524, "lon": -2.9934721 },
+    { "lat": 43.2850135, "lon": -2.9932605 },
+    { "lat": 43.2849854, "lon": -2.9930569 },
+    { "lat": 43.2849682, "lon": -2.9927944 },
+    { "lat": 43.2849623, "lon": -2.9925486 },
+    { "lat": 43.2849654, "lon": -2.9923413 },
+    { "lat": 43.2849766, "lon": -2.9921396 },
+    { "lat": 43.2850354, "lon": -2.9916975 },
+    { "lat": 43.2851461, "lon": -2.9911577 },
+    { "lat": 43.2851590, "lon": -2.9911063 },
+    { "lat": 43.2852976, "lon": -2.9904347 },
+    { "lat": 43.2854137, "lon": -2.9896673 },
+    { "lat": 43.2855055, "lon": -2.9891919 },
+    { "lat": 43.2855656, "lon": -2.9888842 },
+    { "lat": 43.2856464, "lon": -2.9885493 },
+    { "lat": 43.2856964, "lon": -2.9883800 },
+    { "lat": 43.2857596, "lon": -2.9882260 },
+    { "lat": 43.2858448, "lon": -2.9880537 },
+    { "lat": 43.2859352, "lon": -2.9878935 },
+    { "lat": 43.2860484, "lon": -2.9877099 },
+    { "lat": 43.2861742, "lon": -2.9875557 },
+    { "lat": 43.2863278, "lon": -2.9873972 },
+    { "lat": 43.2864387, "lon": -2.9873043 },
+    { "lat": 43.2865484, "lon": -2.9872275 }
+  ],
+  "tags": {
+    "highway": "secondary",
+    "lanes": "2",
+    "name": "Ismael Gorostiza etorbidea",
+    "name:es": "Ronda Ismael Gorostiza",
+    "name:eu": "Ismael Gorostiza etorbidea",
+    "official_name": "Ismael Gorostiza etorbidea / Avenida Ismael Gorostiza",
+    "oneway": "yes",
+    "sidewalk": "right",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 53087996,
+  "bounds": {
+    "minlat": 43.2881672,
+    "minlon": -2.9869642,
+    "maxlat": 43.2901831,
+    "maxlon": -2.9862536
+  },
+  "geometry": [
+    { "lat": 43.2901831, "lon": -2.9866587 },
+    { "lat": 43.2901273, "lon": -2.9865699 },
+    { "lat": 43.2900629, "lon": -2.9864974 },
+    { "lat": 43.2899772, "lon": -2.9864124 },
+    { "lat": 43.2898935, "lon": -2.9863490 },
+    { "lat": 43.2897811, "lon": -2.9862913 },
+    { "lat": 43.2896631, "lon": -2.9862645 },
+    { "lat": 43.2895826, "lon": -2.9862542 },
+    { "lat": 43.2894707, "lon": -2.9862536 },
+    { "lat": 43.2893888, "lon": -2.9862584 },
+    { "lat": 43.2892211, "lon": -2.9862882 },
+    { "lat": 43.2890281, "lon": -2.9863436 },
+    { "lat": 43.2888159, "lon": -2.9864394 },
+    { "lat": 43.2886479, "lon": -2.9865479 },
+    { "lat": 43.2884054, "lon": -2.9867445 },
+    { "lat": 43.2883859, "lon": -2.9867625 },
+    { "lat": 43.2881672, "lon": -2.9869642 }
+  ],
+  "tags": {
+    "highway": "secondary",
+    "lanes": "2",
+    "name": "Ismael Gorostiza etorbidea",
+    "name:es": "Ronda Ismael Gorostiza",
+    "name:eu": "Ismael Gorostiza etorbidea",
+    "official_name": "Ismael Gorostiza etorbidea / Avenida Ismael Gorostiza",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 53087997,
+  "bounds": {
+    "minlat": 43.2875430,
+    "minlon": -2.9870017,
+    "maxlat": 43.2893816,
+    "maxlon": -2.9861424
+  },
+  "geometry": [
+    { "lat": 43.2875430, "lon": -2.9868891 },
+    { "lat": 43.2876277, "lon": -2.9869467 },
+    { "lat": 43.2876983, "lon": -2.9869815 },
+    { "lat": 43.2877666, "lon": -2.9870009 },
+    { "lat": 43.2878475, "lon": -2.9870017 },
+    { "lat": 43.2879219, "lon": -2.9869831 },
+    { "lat": 43.2880272, "lon": -2.9869352 },
+    { "lat": 43.2881250, "lon": -2.9868706 },
+    { "lat": 43.2883355, "lon": -2.9866705 },
+    { "lat": 43.2883469, "lon": -2.9866596 },
+    { "lat": 43.2886146, "lon": -2.9864386 },
+    { "lat": 43.2888127, "lon": -2.9863125 },
+    { "lat": 43.2890102, "lon": -2.9862174 },
+    { "lat": 43.2891934, "lon": -2.9861675 },
+    { "lat": 43.2893816, "lon": -2.9861424 }
+  ],
+  "tags": {
+    "highway": "secondary",
+    "lanes": "2",
+    "name": "Ismael Gorostiza etorbidea",
+    "name:es": "Ronda Ismael Gorostiza",
+    "name:eu": "Ismael Gorostiza etorbidea",
+    "official_name": "Ismael Gorostiza etorbidea / Avenida Ismael Gorostiza",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 61742521,
+  "bounds": {
+    "minlat": 43.2938550,
+    "minlon": -2.9893582,
+    "maxlat": 43.2942211,
+    "maxlon": -2.9892469
+  },
+  "geometry": [
+    { "lat": 43.2942211, "lon": -2.9892469 },
+    { "lat": 43.2940968, "lon": -2.9893034 },
+    { "lat": 43.2939773, "lon": -2.9893379 },
+    { "lat": 43.2938550, "lon": -2.9893582 }
+  ],
+  "tags": {
+    "cycleway:right": "no",
+    "highway": "tertiary",
+    "lanes": "3",
+    "name": "Euskadi etorbidea",
+    "name:es": "Avenida Euskadi",
+    "name:eu": "Euskadi etorbidea",
+    "official_name": "Avenida Euskadi / Euskadi etorbidea",
+    "oneway": "yes",
+    "sidewalk": "both",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 84996595,
+  "bounds": {
+    "minlat": 43.3020924,
+    "minlon": -2.9924988,
+    "maxlat": 43.3021809,
+    "maxlon": -2.9924375
+  },
+  "geometry": [
+    { "lat": 43.3020924, "lon": -2.9924375 },
+    { "lat": 43.3021262, "lon": -2.9924447 },
+    { "lat": 43.3021535, "lon": -2.9924661 },
+    { "lat": 43.3021809, "lon": -2.9924988 }
+  ],
+  "tags": {
+    "highway": "tertiary",
+    "name": "Askatasun etorbidea",
+    "name:es": "Avenida de la Libertad",
+    "name:eu": "Askatasun etorbidea",
+    "official_name": "Avenida de la Libertad / Askatasun etorbidea",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 84996601,
+  "bounds": {
+    "minlat": 43.3018897,
+    "minlon": -2.9927318,
+    "maxlat": 43.3024922,
+    "maxlon": -2.9925724
+  },
+  "geometry": [
+    { "lat": 43.3024922, "lon": -2.9927318 },
+    { "lat": 43.3024098, "lon": -2.9926636 },
+    { "lat": 43.3023603, "lon": -2.9926398 },
+    { "lat": 43.3022902, "lon": -2.9926284 },
+    { "lat": 43.3022286, "lon": -2.9926326 },
+    { "lat": 43.3021904, "lon": -2.9926410 },
+    { "lat": 43.3020265, "lon": -2.9926870 },
+    { "lat": 43.3019611, "lon": -2.9926963 },
+    { "lat": 43.3019174, "lon": -2.9926783 },
+    { "lat": 43.3018912, "lon": -2.9925838 },
+    { "lat": 43.3018897, "lon": -2.9925724 }
+  ],
+  "tags": {
+    "highway": "residential",
+    "lit": "yes",
+    "name": "Askatasun etorbidea",
+    "name:es": "Avenida de la Libertad",
+    "name:eu": "Askatasun etorbidea",
+    "official_name": "Avenida de la Libertad / Askatasun etorbidea",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 84996626,
+  "bounds": {
+    "minlat": 43.3023068,
+    "minlon": -2.9925769,
+    "maxlat": 43.3025225,
+    "maxlon": -2.9921983
+  },
+  "geometry": [
+    { "lat": 43.3023068, "lon": -2.9925769 },
+    { "lat": 43.3023577, "lon": -2.9925334 },
+    { "lat": 43.3024150, "lon": -2.9924781 },
+    { "lat": 43.3024415, "lon": -2.9924248 },
+    { "lat": 43.3024816, "lon": -2.9923384 },
+    { "lat": 43.3025225, "lon": -2.9921983 }
+  ],
+  "tags": {
+    "highway": "residential",
+    "name": "Askatasun etorbidea",
+    "name:es": "Avenida de la Libertad",
+    "name:eu": "Askatasun etorbidea",
+    "official_name": "Avenida de la Libertad / Askatasun etorbidea",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 84998466,
+  "bounds": {
+    "minlat": 43.2942211,
+    "minlon": -2.9892469,
+    "maxlat": 43.2948076,
+    "maxlon": -2.9887734
+  },
+  "geometry": [
+    { "lat": 43.2948076, "lon": -2.9887734 },
+    { "lat": 43.2945929, "lon": -2.9889447 },
+    { "lat": 43.2945668, "lon": -2.9889656 },
+    { "lat": 43.2942211, "lon": -2.9892469 }
+  ],
+  "tags": {
+    "bicycle": "yes",
+    "bus": "no",
+    "foot": "yes",
+    "highway": "living_street",
+    "horse": "no",
+    "lanes": "1",
+    "motor_vehicle": "designated",
+    "name": "Euskadi etorbidea",
+    "name:es": "Avenida Euskadi",
+    "name:eu": "Euskadi etorbidea",
+    "official_name": "Avenida Euskadi / Euskadi etorbidea",
+    "oneway": "yes",
+    "psv": "no",
+    "taxi": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 85645073,
+  "bounds": {
+    "minlat": 43.2938942,
+    "minlon": -3.0005000,
+    "maxlat": 43.2940142,
+    "maxlon": -2.9992874
+  },
+  "geometry": [
+    { "lat": 43.2939348, "lon": -2.9992874 },
+    { "lat": 43.2939078, "lon": -2.9994535 },
+    { "lat": 43.2939065, "lon": -2.9994825 },
+    { "lat": 43.2938942, "lon": -2.9997595 },
+    { "lat": 43.2939194, "lon": -3.0001354 },
+    { "lat": 43.2939553, "lon": -3.0003658 },
+    { "lat": 43.2939837, "lon": -3.0004521 },
+    { "lat": 43.2940142, "lon": -3.0005000 }
+  ],
+  "tags": {
+    "highway": "residential",
+    "lit": "yes",
+    "name": "Gernikako Arbola etorbidea",
+    "name:es": "Avenida Gernikako Arbola",
+    "name:eu": "Gernikako Arbola etorbidea",
+    "official_name": "Avenida Gernikako Arbola / Gernikako Arbola etorbidea",
+    "oneway": "yes",
+    "sidewalk": "both",
+    "sidewalk:both:surface": "paving_stones",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 141610223,
+  "bounds": {
+    "minlat": 43.2994196,
+    "minlon": -2.9932705,
+    "maxlat": 43.3020924,
+    "maxlon": -2.9924375
+  },
+  "geometry": [
+    { "lat": 43.2994196, "lon": -2.9930447 },
+    { "lat": 43.2994502, "lon": -2.9930721 },
+    { "lat": 43.2994984, "lon": -2.9931344 },
+    { "lat": 43.2995408, "lon": -2.9932032 },
+    { "lat": 43.2995865, "lon": -2.9932545 },
+    { "lat": 43.2996229, "lon": -2.9932705 },
+    { "lat": 43.2996840, "lon": -2.9932705 },
+    { "lat": 43.2997455, "lon": -2.9932509 },
+    { "lat": 43.2998044, "lon": -2.9932343 },
+    { "lat": 43.3000758, "lon": -2.9931460 },
+    { "lat": 43.3003043, "lon": -2.9930945 },
+    { "lat": 43.3007498, "lon": -2.9929730 },
+    { "lat": 43.3008276, "lon": -2.9929465 },
+    { "lat": 43.3014023, "lon": -2.9927701 },
+    { "lat": 43.3015169, "lon": -2.9927356 },
+    { "lat": 43.3015732, "lon": -2.9927110 },
+    { "lat": 43.3018897, "lon": -2.9925724 },
+    { "lat": 43.3020924, "lon": -2.9924375 }
+  ],
+  "tags": {
+    "highway": "tertiary",
+    "name": "Askatasun etorbidea",
+    "name:es": "Avenida de la Libertad",
+    "name:eu": "Askatasun etorbidea",
+    "official_name": "Avenida de la Libertad / Askatasun etorbidea",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 142411047,
+  "bounds": {
+    "minlat": 43.2942517,
+    "minlon": -2.9903653,
+    "maxlat": 43.2945213,
+    "maxlon": -2.9893363
+  },
+  "geometry": [
+    { "lat": 43.2943850, "lon": -2.9903653 },
+    { "lat": 43.2944764, "lon": -2.9901717 },
+    { "lat": 43.2945201, "lon": -2.9900299 },
+    { "lat": 43.2945213, "lon": -2.9899222 },
+    { "lat": 43.2945045, "lon": -2.9898153 },
+    { "lat": 43.2944693, "lon": -2.9897268 },
+    { "lat": 43.2944207, "lon": -2.9896595 },
+    { "lat": 43.2943444, "lon": -2.9895542 },
+    { "lat": 43.2942517, "lon": -2.9893363 }
+  ],
+  "tags": {
+    "cycleway:right": "no",
+    "foot": "no",
+    "highway": "tertiary",
+    "lanes": "1",
+    "name": "Gernikako Arbola etorbidea",
+    "name:es": "Avenida Gernikako Arbola",
+    "name:eu": "Gernikako Arbola etorbidea",
+    "official_name": "Avenida Gernikako Arbola / Gernikako Arbola etorbidea",
+    "oneway": "yes",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 143208156,
+  "bounds": {
+    "minlat": 43.2942391,
+    "minlon": -2.9933979,
+    "maxlat": 43.2944591,
+    "maxlon": -2.9922611
+  },
+  "geometry": [
+    { "lat": 43.2942391, "lon": -2.9922611 },
+    { "lat": 43.2942528, "lon": -2.9923318 },
+    { "lat": 43.2944368, "lon": -2.9932829 },
+    { "lat": 43.2944503, "lon": -2.9933523 },
+    { "lat": 43.2944591, "lon": -2.9933979 }
+  ],
+  "tags": {
+    "highway": "residential",
+    "lanes": "1",
+    "lit": "yes",
+    "name": "Gernikako Arbola etorbidea",
+    "name:es": "Avenida Gernikako Arbola",
+    "name:eu": "Gernikako Arbola etorbidea",
+    "oneway": "yes",
+    "sidewalk": "both",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 147636408,
+  "bounds": {
+    "minlat": 43.2914177,
+    "minlon": -2.9922016,
+    "maxlat": 43.2915685,
+    "maxlon": -2.9916235
+  },
+  "geometry": [
+    { "lat": 43.2915685, "lon": -2.9922016 },
+    { "lat": 43.2915519, "lon": -2.9921393 },
+    { "lat": 43.2914425, "lon": -2.9917190 },
+    { "lat": 43.2914267, "lon": -2.9916582 },
+    { "lat": 43.2914177, "lon": -2.9916235 }
+  ],
+  "tags": {
+    "highway": "residential",
+    "lanes": "1",
+    "lit": "yes",
+    "name": "Euskadi etorbidea",
+    "name:es": "Avenida Euskadi",
+    "name:eu": "Euskadi etorbidea",
+    "official_name": "Euskadi etorbidea / Avenida Euskadi",
+    "oneway": "yes",
+    "sidewalk": "both",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 148978520,
+  "bounds": {
+    "minlat": 43.3002496,
+    "minlon": -2.9930945,
+    "maxlat": 43.3003043,
+    "maxlon": -2.9926373
+  },
+  "geometry": [
+    { "lat": 43.3003043, "lon": -2.9930945 },
+    { "lat": 43.3002901, "lon": -2.9929685 },
+    { "lat": 43.3002496, "lon": -2.9926373 }
+  ],
+  "tags": {
+    "highway": "living_street",
+    "name": "Askatasun etorbidea"
+  }
+},
+{
+  "type": "way",
+  "id": 150891941,
+  "bounds": {
+    "minlat": 43.2941206,
+    "minlon": -2.9967994,
+    "maxlat": 43.2942504,
+    "maxlon": -2.9966123
+  },
+  "geometry": [
+    { "lat": 43.2942504, "lon": -2.9967994 },
+    { "lat": 43.2942135, "lon": -2.9967169 },
+    { "lat": 43.2941706, "lon": -2.9966472 },
+    { "lat": 43.2941206, "lon": -2.9966123 }
+  ],
+  "tags": {
+    "cycleway:right": "no",
+    "highway": "tertiary",
+    "lanes": "1",
+    "lit": "yes",
+    "name": "Gernikako Arbola etorbidea",
+    "name:es": "Avenida Gernikako Arbola",
+    "name:eu": "Gernikako Arbola etorbidea",
+    "official_name": "Avenida Gernikako Arbola / Gernikako Arbola etorbidea",
+    "oneway": "yes",
+    "sidewalk": "right",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 151409888,
+  "bounds": {
+    "minlat": 43.2942517,
+    "minlon": -2.9893363,
+    "maxlat": 43.2946222,
+    "maxlon": -2.9890183
+  },
+  "geometry": [
+    { "lat": 43.2946222, "lon": -2.9890183 },
+    { "lat": 43.2942517, "lon": -2.9893363 }
+  ],
+  "tags": {
+    "highway": "pedestrian",
+    "lit": "yes",
+    "name": "Euskadi etorbidea",
+    "name:es": "Avenida Euskadi",
+    "name:eu": "Euskadi etorbidea",
+    "official_name": "Avenida Euskadi / Euskadi etorbidea",
+    "surface": "paving_stones"
+  }
+},
+{
+  "type": "way",
+  "id": 151473132,
+  "bounds": {
+    "minlat": 43.2856444,
+    "minlon": -2.9942619,
+    "maxlat": 43.2907529,
+    "maxlon": -2.9919394
+  },
+  "geometry": [
+    { "lat": 43.2907529, "lon": -2.9919394 },
+    { "lat": 43.2905604, "lon": -2.9920270 },
+    { "lat": 43.2903922, "lon": -2.9920980 },
+    { "lat": 43.2903688, "lon": -2.9921078 },
+    { "lat": 43.2897958, "lon": -2.9923497 },
+    { "lat": 43.2894313, "lon": -2.9925103 },
+    { "lat": 43.2886253, "lon": -2.9928727 },
+    { "lat": 43.2885068, "lon": -2.9929272 },
+    { "lat": 43.2872153, "lon": -2.9935218 },
+    { "lat": 43.2869568, "lon": -2.9936388 },
+    { "lat": 43.2868418, "lon": -2.9936867 },
+    { "lat": 43.2863098, "lon": -2.9939355 },
+    { "lat": 43.2862358, "lon": -2.9939701 },
+    { "lat": 43.2858122, "lon": -2.9941588 },
+    { "lat": 43.2857153, "lon": -2.9942212 },
+    { "lat": 43.2856444, "lon": -2.9942619 }
+  ],
+  "tags": {
+    "highway": "tertiary",
+    "lanes": "2",
+    "name": "Euskadi etorbidea",
+    "name:es": "Avenida Euskadi",
+    "name:eu": "Euskadi etorbidea",
+    "official_name": "Avenida Euskadi / Euskadi etorbidea",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 158490992,
+  "bounds": {
+    "minlat": 43.2943436,
+    "minlon": -2.9953275,
+    "maxlat": 43.2945605,
+    "maxlon": -2.9920608
+  },
+  "geometry": [
+    { "lat": 43.2943936, "lon": -2.9953275 },
+    { "lat": 43.2944052, "lon": -2.9952180 },
+    { "lat": 43.2944181, "lon": -2.9950962 },
+    { "lat": 43.2944410, "lon": -2.9948821 },
+    { "lat": 43.2945234, "lon": -2.9940869 },
+    { "lat": 43.2945481, "lon": -2.9938298 },
+    { "lat": 43.2945605, "lon": -2.9933549 },
+    { "lat": 43.2945581, "lon": -2.9932736 },
+    { "lat": 43.2943828, "lon": -2.9922721 },
+    { "lat": 43.2943436, "lon": -2.9920608 }
+  ],
+  "tags": {
+    "cycleway:right": "no",
+    "highway": "tertiary",
+    "lanes": "1",
+    "name": "Gernikako Arbola etorbidea",
+    "name:es": "Avenida Gernikako Arbola",
+    "name:eu": "Gernikako Arbola etorbidea",
+    "official_name": "Avenida Gernikako Arbola / Gernikako Arbola etorbidea",
+    "oneway": "yes",
+    "sidewalk": "both",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 158494712,
+  "bounds": {
+    "minlat": 43.2978729,
+    "minlon": -2.9923571,
+    "maxlat": 43.2985033,
+    "maxlon": -2.9917290
+  },
+  "geometry": [
+    { "lat": 43.2978729, "lon": -2.9917290 },
+    { "lat": 43.2979587, "lon": -2.9918120 },
+    { "lat": 43.2981993, "lon": -2.9920447 },
+    { "lat": 43.2984532, "lon": -2.9923056 },
+    { "lat": 43.2985033, "lon": -2.9923571 }
+  ],
+  "tags": {
+    "highway": "tertiary",
+    "lanes": "2",
+    "name": "Askatasun etorbidea",
+    "name:es": "Avenida de la Libertad",
+    "name:eu": "Askatasun etorbidea",
+    "official_name": "Avenida de la Libertad / Askatasun etorbidea",
+    "oneway": "yes",
+    "sidewalk": "both",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 160457674,
+  "bounds": {
+    "minlat": 43.2906801,
+    "minlon": -2.9774278,
+    "maxlat": 43.2950124,
+    "maxlon": -2.9743836
+  },
+  "geometry": [
+    { "lat": 43.2906801, "lon": -2.9750262 },
+    { "lat": 43.2908902, "lon": -2.9749489 },
+    { "lat": 43.2917245, "lon": -2.9746013 },
+    { "lat": 43.2920947, "lon": -2.9744539 },
+    { "lat": 43.2923101, "lon": -2.9744051 },
+    { "lat": 43.2924771, "lon": -2.9743836 },
+    { "lat": 43.2926500, "lon": -2.9743936 },
+    { "lat": 43.2928055, "lon": -2.9744304 },
+    { "lat": 43.2931379, "lon": -2.9745873 },
+    { "lat": 43.2935671, "lon": -2.9748699 },
+    { "lat": 43.2940006, "lon": -2.9752773 },
+    { "lat": 43.2941508, "lon": -2.9754437 },
+    { "lat": 43.2943854, "lon": -2.9757037 },
+    { "lat": 43.2945232, "lon": -2.9759035 },
+    { "lat": 43.2946239, "lon": -2.9761588 },
+    { "lat": 43.2947426, "lon": -2.9765392 },
+    { "lat": 43.2950124, "lon": -2.9774278 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "lit": "yes",
+    "maxspeed": "30",
+    "name": "Bilbao - Sestao errepidea",
+    "old_ref": "BI-739",
+    "oneway": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 160457681,
+  "bounds": {
+    "minlat": 43.2950124,
+    "minlon": -2.9784206,
+    "maxlat": 43.2955477,
+    "maxlon": -2.9774278
+  },
+  "geometry": [
+    { "lat": 43.2950124, "lon": -2.9774278 },
+    { "lat": 43.2953014, "lon": -2.9781455 },
+    { "lat": 43.2954736, "lon": -2.9783589 },
+    { "lat": 43.2955477, "lon": -2.9784206 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "maxspeed": "30",
+    "name": "Bilbao - Sestao errepidea",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 166221940,
+  "bounds": {
+    "minlat": 43.2941811,
+    "minlon": -2.9920608,
+    "maxlat": 43.2947386,
+    "maxlon": -2.9896994
+  },
+  "geometry": [
+    { "lat": 43.2943436, "lon": -2.9920608 },
+    { "lat": 43.2942330, "lon": -2.9914640 },
+    { "lat": 43.2942201, "lon": -2.9913784 },
+    { "lat": 43.2942059, "lon": -2.9912845 },
+    { "lat": 43.2942030, "lon": -2.9912653 },
+    { "lat": 43.2941952, "lon": -2.9912137 },
+    { "lat": 43.2941811, "lon": -2.9911205 },
+    { "lat": 43.2941846, "lon": -2.9909177 },
+    { "lat": 43.2942233, "lon": -2.9906983 },
+    { "lat": 43.2942923, "lon": -2.9905007 },
+    { "lat": 43.2943669, "lon": -2.9903918 },
+    { "lat": 43.2943850, "lon": -2.9903653 },
+    { "lat": 43.2946921, "lon": -2.9899522 },
+    { "lat": 43.2947236, "lon": -2.9898939 },
+    { "lat": 43.2947386, "lon": -2.9898480 },
+    { "lat": 43.2947348, "lon": -2.9897744 },
+    { "lat": 43.2947279, "lon": -2.9897349 },
+    { "lat": 43.2947210, "lon": -2.9896994 }
+  ],
+  "tags": {
+    "highway": "tertiary",
+    "incline": "down",
+    "lanes": "1",
+    "name": "Gernikako Arbola etorbidea",
+    "name:es": "Avenida Gernikako Arbola",
+    "name:eu": "Gernikako Arbola etorbidea",
+    "official_name": "Avenida Gernikako Arbola / Gernikako Arbola etorbidea",
+    "oneway": "yes",
+    "sidewalk": "both",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 166221985,
+  "bounds": {
+    "minlat": 43.2942874,
+    "minlon": -2.9964084,
+    "maxlat": 43.2943936,
+    "maxlon": -2.9953275
+  },
+  "geometry": [
+    { "lat": 43.2942874, "lon": -2.9964084 },
+    { "lat": 43.2942965, "lon": -2.9963322 },
+    { "lat": 43.2943110, "lon": -2.9961744 },
+    { "lat": 43.2943709, "lon": -2.9955596 },
+    { "lat": 43.2943821, "lon": -2.9954449 },
+    { "lat": 43.2943936, "lon": -2.9953275 }
+  ],
+  "tags": {
+    "cycleway:right": "no",
+    "highway": "tertiary",
+    "lanes": "1",
+    "lit": "yes",
+    "name": "Gernikako Arbola etorbidea",
+    "name:es": "Avenida Gernikako Arbola",
+    "name:eu": "Gernikako Arbola etorbidea",
+    "oneway": "yes",
+    "sidewalk": "both",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 166221991,
+  "bounds": {
+    "minlat": 43.2921592,
+    "minlon": -2.9913061,
+    "maxlat": 43.2932706,
+    "maxlon": -2.9907447
+  },
+  "geometry": [
+    { "lat": 43.2932706, "lon": -2.9907447 },
+    { "lat": 43.2931701, "lon": -2.9908507 },
+    { "lat": 43.2930737, "lon": -2.9909066 },
+    { "lat": 43.2930231, "lon": -2.9909305 },
+    { "lat": 43.2929344, "lon": -2.9909705 },
+    { "lat": 43.2927950, "lon": -2.9910194 },
+    { "lat": 43.2924863, "lon": -2.9911522 },
+    { "lat": 43.2922976, "lon": -2.9912410 },
+    { "lat": 43.2922606, "lon": -2.9912584 },
+    { "lat": 43.2921592, "lon": -2.9913061 }
+  ],
+  "tags": {
+    "highway": "tertiary",
+    "incline": "down",
+    "lanes": "1",
+    "name": "Euskadi etorbidea",
+    "name:es": "Avenida Euskadi",
+    "name:eu": "Euskadi etorbidea",
+    "official_name": "Avenida Euskadi / Euskadi etorbidea",
+    "oneway": "yes",
+    "sidewalk": "both",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 172698559,
+  "bounds": {
+    "minlat": 43.2932706,
+    "minlon": -2.9907447,
+    "maxlat": 43.2938550,
+    "maxlon": -2.9893582
+  },
+  "geometry": [
+    { "lat": 43.2938550, "lon": -2.9893582 },
+    { "lat": 43.2937166, "lon": -2.9894467 },
+    { "lat": 43.2936084, "lon": -2.9895900 },
+    { "lat": 43.2935315, "lon": -2.9898171 },
+    { "lat": 43.2934776, "lon": -2.9900313 },
+    { "lat": 43.2934463, "lon": -2.9901399 },
+    { "lat": 43.2934021, "lon": -2.9903001 },
+    { "lat": 43.2933884, "lon": -2.9903498 },
+    { "lat": 43.2932889, "lon": -2.9906744 },
+    { "lat": 43.2932706, "lon": -2.9907447 }
+  ],
+  "tags": {
+    "cycleway:right": "no",
+    "highway": "tertiary",
+    "lanes": "1",
+    "name": "Euskadi etorbidea",
+    "name:es": "Avenida Euskadi",
+    "name:eu": "Euskadi etorbidea",
+    "official_name": "Avenida Euskadi / Euskadi etorbidea",
+    "oneway": "yes",
+    "sidewalk": "both",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 175072089,
+  "bounds": {
+    "minlat": 43.2816899,
+    "minlon": -2.9801878,
+    "maxlat": 43.2826196,
+    "maxlon": -2.9798966
+  },
+  "geometry": [
+    { "lat": 43.2826196, "lon": -2.9798966 },
+    { "lat": 43.2824831, "lon": -2.9800547 },
+    { "lat": 43.2824138, "lon": -2.9800938 },
+    { "lat": 43.2823756, "lon": -2.9801188 },
+    { "lat": 43.2822565, "lon": -2.9801692 },
+    { "lat": 43.2821593, "lon": -2.9801878 },
+    { "lat": 43.2820635, "lon": -2.9801626 },
+    { "lat": 43.2816899, "lon": -2.9799913 }
+  ],
+  "tags": {
+    "highway": "primary_link",
+    "lanes": "2",
+    "maxspeed": "50",
+    "name": "Bilbao - Sestao errepidea",
+    "old_ref": "BI-739",
+    "oneway": "yes",
+    "surface": "asphalt",
+    "turn:lanes": "merge_to_right|"
+  }
+},
+{
+  "type": "way",
+  "id": 349861521,
+  "bounds": {
+    "minlat": 43.2921604,
+    "minlon": -2.9912584,
+    "maxlat": 43.2922606,
+    "maxlon": -2.9911626
+  },
+  "geometry": [
+    { "lat": 43.2922606, "lon": -2.9912584 },
+    { "lat": 43.2922059, "lon": -2.9912118 },
+    { "lat": 43.2921604, "lon": -2.9911626 }
+  ],
+  "tags": {
+    "highway": "residential",
+    "lanes": "1",
+    "lit": "yes",
+    "name": "Euskadi etorbidea",
+    "name:es": "Avenida de Euskadi",
+    "name:eu": "Euskadi etorbidea",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 349861522,
+  "bounds": {
+    "minlat": 43.2907529,
+    "minlon": -2.9919394,
+    "maxlat": 43.2921592,
+    "maxlon": -2.9913061
+  },
+  "geometry": [
+    { "lat": 43.2921592, "lon": -2.9913061 },
+    { "lat": 43.2920208, "lon": -2.9913597 },
+    { "lat": 43.2919907, "lon": -2.9913728 },
+    { "lat": 43.2919786, "lon": -2.9913781 },
+    { "lat": 43.2916041, "lon": -2.9915420 },
+    { "lat": 43.2914177, "lon": -2.9916235 },
+    { "lat": 43.2912518, "lon": -2.9917017 },
+    { "lat": 43.2911716, "lon": -2.9917394 },
+    { "lat": 43.2910143, "lon": -2.9918136 },
+    { "lat": 43.2909287, "lon": -2.9918547 },
+    { "lat": 43.2908751, "lon": -2.9918806 },
+    { "lat": 43.2907529, "lon": -2.9919394 }
+  ],
+  "tags": {
+    "highway": "tertiary",
+    "name": "Euskadi etorbidea",
+    "name:es": "Avenida Euskadi",
+    "name:eu": "Euskadi etorbidea",
+    "official_name": "Avenida Euskadi / Euskadi etorbidea",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 354083931,
+  "bounds": {
+    "minlat": 43.2985033,
+    "minlon": -2.9930447,
+    "maxlat": 43.2994196,
+    "maxlon": -2.9923571
+  },
+  "geometry": [
+    { "lat": 43.2985033, "lon": -2.9923571 },
+    { "lat": 43.2985427, "lon": -2.9923891 },
+    { "lat": 43.2989975, "lon": -2.9927593 },
+    { "lat": 43.2993697, "lon": -2.9930110 },
+    { "lat": 43.2994196, "lon": -2.9930447 }
+  ],
+  "tags": {
+    "highway": "tertiary",
+    "lanes": "2",
+    "name": "Askatasun etorbidea",
+    "name:es": "Avenida de la Libertad",
+    "name:eu": "Askatasun etorbidea",
+    "official_name": "Avenida de la Libertad / Askatasun etorbidea",
+    "oneway": "yes",
+    "sidewalk": "both",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 403088419,
+  "bounds": {
+    "minlat": 43.2865484,
+    "minlon": -2.9872275,
+    "maxlat": 43.2871076,
+    "maxlon": -2.9869121
+  },
+  "geometry": [
+    { "lat": 43.2865484, "lon": -2.9872275 },
+    { "lat": 43.2867191, "lon": -2.9871273 },
+    { "lat": 43.2868647, "lon": -2.9870648 },
+    { "lat": 43.2869730, "lon": -2.9870087 },
+    { "lat": 43.2870474, "lon": -2.9869686 },
+    { "lat": 43.2871076, "lon": -2.9869121 }
+  ],
+  "tags": {
+    "highway": "secondary",
+    "lanes": "3",
+    "name": "Ismael Gorostiza etorbidea",
+    "name:es": "Ronda Ismael Gorostiza",
+    "name:eu": "Ismael Gorostiza etorbidea",
+    "official_name": "Ismael Gorostiza etorbidea / Avenida Ismael Gorostiza",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 505502218,
+  "bounds": {
+    "minlat": 43.2855571,
+    "minlon": -2.9760816,
+    "maxlat": 43.2856540,
+    "maxlon": -2.9760259
+  },
+  "geometry": [
+    { "lat": 43.2856540, "lon": -2.9760259 },
+    { "lat": 43.2855571, "lon": -2.9760816 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "maxspeed": "50",
+    "name": "Bilbao - Sestao errepidea",
+    "old_ref": "BI-739",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 505502221,
+  "bounds": {
+    "minlat": 43.2845249,
+    "minlon": -2.9769342,
+    "maxlat": 43.2855571,
+    "maxlon": -2.9760816
+  },
+  "geometry": [
+    { "lat": 43.2855571, "lon": -2.9760816 },
+    { "lat": 43.2853786, "lon": -2.9761223 },
+    { "lat": 43.2852841, "lon": -2.9761850 },
+    { "lat": 43.2852344, "lon": -2.9762262 },
+    { "lat": 43.2851391, "lon": -2.9763050 },
+    { "lat": 43.2847733, "lon": -2.9767138 },
+    { "lat": 43.2845661, "lon": -2.9769196 },
+    { "lat": 43.2845249, "lon": -2.9769342 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "lanes": "2",
+    "maxspeed": "50",
+    "name": "Bilbao - Sestao errepidea",
+    "old_ref": "BI-739",
+    "oneway": "yes",
+    "surface": "asphalt",
+    "turn:lanes": "through|merge_to_left"
+  }
+},
+{
+  "type": "way",
+  "id": 505502225,
+  "bounds": {
+    "minlat": 43.2829807,
+    "minlon": -2.9788062,
+    "maxlat": 43.2831892,
+    "maxlon": -2.9779145
+  },
+  "geometry": [
+    { "lat": 43.2831892, "lon": -2.9779145 },
+    { "lat": 43.2831342, "lon": -2.9780985 },
+    { "lat": 43.2830142, "lon": -2.9786080 },
+    { "lat": 43.2829807, "lon": -2.9788062 }
+  ],
+  "tags": {
+    "highway": "primary",
+    "lanes": "2",
+    "maxspeed": "50",
+    "name": "Bilbao - Sestao errepidea",
+    "old_ref": "BI-739",
+    "oneway": "yes",
+    "surface": "asphalt",
+    "turn:lanes": "through|through"
+  }
+},
+{
+  "type": "way",
+  "id": 505502229,
+  "bounds": {
+    "minlat": 43.2826196,
+    "minlon": -2.9798966,
+    "maxlat": 43.2829807,
+    "maxlon": -2.9788062
+  },
+  "geometry": [
+    { "lat": 43.2829807, "lon": -2.9788062 },
+    { "lat": 43.2829518, "lon": -2.9789686 },
+    { "lat": 43.2829198, "lon": -2.9791408 },
+    { "lat": 43.2828643, "lon": -2.9793398 },
+    { "lat": 43.2828115, "lon": -2.9795246 },
+    { "lat": 43.2827278, "lon": -2.9797279 },
+    { "lat": 43.2826196, "lon": -2.9798966 }
+  ],
+  "tags": {
+    "highway": "primary_link",
+    "lanes": "2",
+    "maxspeed": "50",
+    "name": "Bilbao - Sestao errepidea",
+    "old_ref": "BI-739",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 505502233,
+  "bounds": {
+    "minlat": 43.2809506,
+    "minlon": -2.9799913,
+    "maxlat": 43.2816899,
+    "maxlon": -2.9796200
+  },
+  "geometry": [
+    { "lat": 43.2816899, "lon": -2.9799913 },
+    { "lat": 43.2815072, "lon": -2.9799063 },
+    { "lat": 43.2811318, "lon": -2.9797330 },
+    { "lat": 43.2809506, "lon": -2.9796200 }
+  ],
+  "tags": {
+    "highway": "primary_link",
+    "lanes": "1",
+    "maxspeed": "50",
+    "name": "Bilbao - Sestao errepidea",
+    "old_ref": "BI-739",
+    "oneway": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 549744825,
+  "bounds": {
+    "minlat": 43.2851566,
+    "minlon": -2.9945230,
+    "maxlat": 43.2853205,
+    "maxlon": -2.9944918
+  },
+  "geometry": [
+    { "lat": 43.2853205, "lon": -2.9945230 },
+    { "lat": 43.2852321, "lon": -2.9944918 },
+    { "lat": 43.2851735, "lon": -2.9944945 },
+    { "lat": 43.2851566, "lon": -2.9944986 }
+  ],
+  "tags": {
+    "cycleway:right": "no",
+    "highway": "tertiary",
+    "lanes": "2",
+    "name": "Euskadi etorbidea",
+    "name:es": "Avenida Euskadi",
+    "name:eu": "Euskadi etorbidea",
+    "official_name": "Avenida Euskadi / Euskadi etorbidea",
+    "oneway": "yes",
+    "parking:both": "no",
+    "postal_code": "48903",
+    "sidewalk": "right",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 549744826,
+  "bounds": {
+    "minlat": 43.2833315,
+    "minlon": -2.9952529,
+    "maxlat": 43.2843793,
+    "maxlon": -2.9947722
+  },
+  "geometry": [
+    { "lat": 43.2833315, "lon": -2.9952529 },
+    { "lat": 43.2834426, "lon": -2.9952187 },
+    { "lat": 43.2835685, "lon": -2.9951664 },
+    { "lat": 43.2838220, "lon": -2.9950432 },
+    { "lat": 43.2838976, "lon": -2.9950064 },
+    { "lat": 43.2842223, "lon": -2.9948486 },
+    { "lat": 43.2842832, "lon": -2.9948191 },
+    { "lat": 43.2843793, "lon": -2.9947722 }
+  ],
+  "tags": {
+    "cycleway:right": "no",
+    "highway": "tertiary",
+    "lanes": "2",
+    "name": "Euskadi etorbidea",
+    "name:es": "Avenida Euskadi",
+    "name:eu": "Euskadi etorbidea",
+    "official_name": "Avenida Euskadi / Euskadi etorbidea",
+    "oneway": "yes",
+    "postal_code": "48903",
+    "sidewalk": "right",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 549744827,
+  "bounds": {
+    "minlat": 43.2846635,
+    "minlon": -2.9947279,
+    "maxlat": 43.2847560,
+    "maxlon": -2.9946810
+  },
+  "geometry": [
+    { "lat": 43.2847560, "lon": -2.9946810 },
+    { "lat": 43.2846635, "lon": -2.9947279 }
+  ],
+  "tags": {
+    "cycleway:right": "no",
+    "highway": "tertiary",
+    "lanes": "2",
+    "lit": "yes",
+    "name": "Euskadi etorbidea",
+    "name:es": "Avenida Euskadi",
+    "name:eu": "Euskadi etorbidea",
+    "official_name": "Avenida Euskadi / Euskadi Etorbidea",
+    "oneway": "yes",
+    "postal_code": "48903",
+    "sidewalk": "right",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 549744828,
+  "bounds": {
+    "minlat": 43.2833679,
+    "minlon": -2.9954080,
+    "maxlat": 43.2842427,
+    "maxlon": -2.9949352
+  },
+  "geometry": [
+    { "lat": 43.2842427, "lon": -2.9949352 },
+    { "lat": 43.2839162, "lon": -2.9950839 },
+    { "lat": 43.2838388, "lon": -2.9951191 },
+    { "lat": 43.2836818, "lon": -2.9951905 },
+    { "lat": 43.2835832, "lon": -2.9952402 },
+    { "lat": 43.2835275, "lon": -2.9952750 },
+    { "lat": 43.2834660, "lon": -2.9953233 },
+    { "lat": 43.2833991, "lon": -2.9953810 },
+    { "lat": 43.2833679, "lon": -2.9954080 }
+  ],
+  "tags": {
+    "cycleway:left": "shared_lane",
+    "highway": "tertiary",
+    "lanes": "2",
+    "lit": "yes",
+    "name": "Euskadi etorbidea",
+    "name:es": "Avenida Euskadi",
+    "name:eu": "Euskadi etorbidea",
+    "official_name": "Avenida Euskadi / Euskadi etorbidea",
+    "oneway": "yes",
+    "postal_code": "48903",
+    "sidewalk": "right",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 554918860,
+  "bounds": {
+    "minlat": 43.3021809,
+    "minlon": -2.9924988,
+    "maxlat": 43.3022491,
+    "maxlon": -2.9923423
+  },
+  "geometry": [
+    { "lat": 43.3022491, "lon": -2.9923423 },
+    { "lat": 43.3021842, "lon": -2.9924287 },
+    { "lat": 43.3021809, "lon": -2.9924988 }
+  ],
+  "tags": {
+    "highway": "residential",
+    "name": "Askatasun etorbidea",
+    "name:es": "Avenida de la Libertad",
+    "name:eu": "Askatasun etorbidea",
+    "official_name": "Avenida de la Libertad / Askatasun etorbidea",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 554918862,
+  "bounds": {
+    "minlat": 43.3020924,
+    "minlon": -2.9924375,
+    "maxlat": 43.3022491,
+    "maxlon": -2.9923423
+  },
+  "geometry": [
+    { "lat": 43.3020924, "lon": -2.9924375 },
+    { "lat": 43.3022491, "lon": -2.9923423 }
+  ],
+  "tags": {
+    "highway": "residential",
+    "name": "Askatasun etorbidea",
+    "name:es": "Avenida de la Libertad",
+    "name:eu": "Askatasun etorbidea",
+    "official_name": "Avenida de la Libertad / Askatasun etorbidea",
+    "oneway": "yes",
+    "sidewalk": "right",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 558005518,
+  "bounds": {
+    "minlat": 43.2993395,
+    "minlon": -2.9954017,
+    "maxlat": 43.2999105,
+    "maxlon": -2.9945511
+  },
+  "geometry": [
+    { "lat": 43.2995166, "lon": -2.9945511 },
+    { "lat": 43.2993395, "lon": -2.9948731 },
+    { "lat": 43.2993675, "lon": -2.9949101 },
+    { "lat": 43.2993417, "lon": -2.9949686 },
+    { "lat": 43.2994033, "lon": -2.9950361 },
+    { "lat": 43.2997564, "lon": -2.9954017 },
+    { "lat": 43.2997947, "lon": -2.9952336 },
+    { "lat": 43.2997574, "lon": -2.9952155 },
+    { "lat": 43.2997711, "lon": -2.9951461 },
+    { "lat": 43.2998753, "lon": -2.9951776 },
+    { "lat": 43.2999105, "lon": -2.9951207 },
+    { "lat": 43.2998555, "lon": -2.9950911 },
+    { "lat": 43.2998439, "lon": -2.9949685 },
+    { "lat": 43.2998069, "lon": -2.9949461 },
+    { "lat": 43.2997756, "lon": -2.9950535 },
+    { "lat": 43.2996950, "lon": -2.9950210 },
+    { "lat": 43.2996994, "lon": -2.9950047 },
+    { "lat": 43.2996964, "lon": -2.9949885 },
+    { "lat": 43.2996839, "lon": -2.9949712 },
+    { "lat": 43.2994819, "lon": -2.9948777 },
+    { "lat": 43.2994893, "lon": -2.9948543 },
+    { "lat": 43.2995803, "lon": -2.9949072 },
+    { "lat": 43.2996047, "lon": -2.9948238 },
+    { "lat": 43.2995482, "lon": -2.9947896 },
+    { "lat": 43.2995869, "lon": -2.9946411 },
+    { "lat": 43.2995726, "lon": -2.9946408 },
+    { "lat": 43.2995599, "lon": -2.9946340 },
+    { "lat": 43.2995492, "lon": -2.9946193 },
+    { "lat": 43.2995443, "lon": -2.9945952 },
+    { "lat": 43.2995473, "lon": -2.9945737 },
+    { "lat": 43.2995166, "lon": -2.9945511 }
+  ],
+  "tags": {
+    "area": "yes",
+    "highway": "pedestrian",
+    "name": "Bulevar de Beurko"
+  }
+},
+{
+  "type": "way",
+  "id": 558005519,
+  "bounds": {
+    "minlat": 43.2997564,
+    "minlon": -2.9955636,
+    "maxlat": 43.3000669,
+    "maxlon": -2.9950459
+  },
+  "geometry": [
+    { "lat": 43.2997564, "lon": -2.9954017 },
+    { "lat": 43.2997947, "lon": -2.9952336 },
+    { "lat": 43.2998355, "lon": -2.9952534 },
+    { "lat": 43.2998753, "lon": -2.9951776 },
+    { "lat": 43.2999105, "lon": -2.9951207 },
+    { "lat": 43.2999405, "lon": -2.9951369 },
+    { "lat": 43.2999494, "lon": -2.9951328 },
+    { "lat": 43.2999590, "lon": -2.9950688 },
+    { "lat": 43.2999719, "lon": -2.9950459 },
+    { "lat": 43.3000158, "lon": -2.9950725 },
+    { "lat": 43.3000669, "lon": -2.9951034 },
+    { "lat": 43.2999722, "lon": -2.9953244 },
+    { "lat": 43.2999497, "lon": -2.9954032 },
+    { "lat": 43.2999439, "lon": -2.9954651 },
+    { "lat": 43.2999128, "lon": -2.9955636 },
+    { "lat": 43.2998267, "lon": -2.9954745 },
+    { "lat": 43.2997564, "lon": -2.9954017 }
+  ],
+  "tags": {
+    "area": "yes",
+    "highway": "pedestrian",
+    "name": "Bulevar de Beurko",
+    "surface": "paving_stones"
+  }
+},
+{
+  "type": "way",
+  "id": 558005524,
+  "bounds": {
+    "minlat": 43.3000682,
+    "minlon": -2.9958483,
+    "maxlat": 43.3003871,
+    "maxlon": -2.9952483
+  },
+  "geometry": [
+    { "lat": 43.3000682, "lon": -2.9957245 },
+    { "lat": 43.3000821, "lon": -2.9956950 },
+    { "lat": 43.3001040, "lon": -2.9956633 },
+    { "lat": 43.3001558, "lon": -2.9955709 },
+    { "lat": 43.3001758, "lon": -2.9955447 },
+    { "lat": 43.3001949, "lon": -2.9955077 },
+    { "lat": 43.3002076, "lon": -2.9954806 },
+    { "lat": 43.3002244, "lon": -2.9954406 },
+    { "lat": 43.3002373, "lon": -2.9954147 },
+    { "lat": 43.3002566, "lon": -2.9954070 },
+    { "lat": 43.3003065, "lon": -2.9952483 },
+    { "lat": 43.3003443, "lon": -2.9952711 },
+    { "lat": 43.3003871, "lon": -2.9952970 },
+    { "lat": 43.3003331, "lon": -2.9954554 },
+    { "lat": 43.3003237, "lon": -2.9954682 },
+    { "lat": 43.3002741, "lon": -2.9956339 },
+    { "lat": 43.3002687, "lon": -2.9956488 },
+    { "lat": 43.3002623, "lon": -2.9956664 },
+    { "lat": 43.3002201, "lon": -2.9957863 },
+    { "lat": 43.3002000, "lon": -2.9958248 },
+    { "lat": 43.3001878, "lon": -2.9958483 },
+    { "lat": 43.3001287, "lon": -2.9957872 },
+    { "lat": 43.3000682, "lon": -2.9957245 }
+  ],
+  "tags": {
+    "area": "yes",
+    "highway": "pedestrian",
+    "name": "Bulevar de Beurko",
+    "surface": "concrete"
+  }
+},
+{
+  "type": "way",
+  "id": 558005525,
+  "bounds": {
+    "minlat": 43.3001287,
+    "minlon": -2.9957872,
+    "maxlat": 43.3003443,
+    "maxlon": -2.9952711
+  },
+  "geometry": [
+    { "lat": 43.3001287, "lon": -2.9957872 },
+    { "lat": 43.3002354, "lon": -2.9955796 },
+    { "lat": 43.3002851, "lon": -2.9954475 },
+    { "lat": 43.3002949, "lon": -2.9954214 },
+    { "lat": 43.3003443, "lon": -2.9952711 }
+  ],
+  "tags": {
+    "highway": "pedestrian",
+    "name": "Bulevar de Beurko"
+  }
+},
+{
+  "type": "way",
+  "id": 558005526,
+  "bounds": {
+    "minlat": 43.3000427,
+    "minlon": -2.9959497,
+    "maxlat": 43.3001287,
+    "maxlon": -2.9957872
+  },
+  "geometry": [
+    { "lat": 43.3001287, "lon": -2.9957872 },
+    { "lat": 43.3000427, "lon": -2.9959497 }
+  ],
+  "tags": {
+    "highway": "pedestrian",
+    "layer": "-1",
+    "name": "Bulevar de Beurko",
+    "tunnel": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 558005530,
+  "bounds": {
+    "minlat": 43.3003443,
+    "minlon": -2.9952711,
+    "maxlat": 43.3004012,
+    "maxlon": -2.9950926
+  },
+  "geometry": [
+    { "lat": 43.3003443, "lon": -2.9952711 },
+    { "lat": 43.3004012, "lon": -2.9950926 }
+  ],
+  "tags": {
+    "highway": "pedestrian",
+    "layer": "-1",
+    "name": "Bulevar de Beurko",
+    "tunnel": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 558006208,
+  "bounds": {
+    "minlat": 43.2985059,
+    "minlon": -2.9945224,
+    "maxlat": 43.2989402,
+    "maxlon": -2.9938999
+  },
+  "geometry": [
+    { "lat": 43.2987362, "lon": -2.9945224 },
+    { "lat": 43.2988266, "lon": -2.9943579 },
+    { "lat": 43.2989402, "lon": -2.9941512 },
+    { "lat": 43.2988018, "lon": -2.9941066 },
+    { "lat": 43.2988080, "lon": -2.9940709 },
+    { "lat": 43.2989366, "lon": -2.9940330 },
+    { "lat": 43.2989180, "lon": -2.9938999 },
+    { "lat": 43.2985527, "lon": -2.9940105 },
+    { "lat": 43.2985527, "lon": -2.9940695 },
+    { "lat": 43.2985430, "lon": -2.9941339 },
+    { "lat": 43.2985332, "lon": -2.9942063 },
+    { "lat": 43.2985059, "lon": -2.9942841 },
+    { "lat": 43.2987362, "lon": -2.9945224 }
+  ],
+  "tags": {
+    "area": "yes",
+    "highway": "pedestrian",
+    "name": "Bulevar de Beurko"
+  }
+},
+{
+  "type": "way",
+  "id": 558006213,
+  "bounds": {
+    "minlat": 43.2987362,
+    "minlon": -2.9947961,
+    "maxlat": 43.2992984,
+    "maxlon": -2.9938106
+  },
+  "geometry": [
+    { "lat": 43.2987362, "lon": -2.9945224 },
+    { "lat": 43.2990006, "lon": -2.9947961 },
+    { "lat": 43.2990632, "lon": -2.9946964 },
+    { "lat": 43.2991402, "lon": -2.9947787 },
+    { "lat": 43.2991481, "lon": -2.9947642 },
+    { "lat": 43.2991578, "lon": -2.9947478 },
+    { "lat": 43.2991696, "lon": -2.9947280 },
+    { "lat": 43.2992483, "lon": -2.9945811 },
+    { "lat": 43.2992594, "lon": -2.9945603 },
+    { "lat": 43.2991969, "lon": -2.9944960 },
+    { "lat": 43.2992984, "lon": -2.9943163 },
+    { "lat": 43.2992129, "lon": -2.9938106 },
+    { "lat": 43.2989180, "lon": -2.9938999 },
+    { "lat": 43.2989366, "lon": -2.9940330 },
+    { "lat": 43.2989519, "lon": -2.9941550 },
+    { "lat": 43.2989402, "lon": -2.9941512 },
+    { "lat": 43.2988266, "lon": -2.9943579 },
+    { "lat": 43.2987362, "lon": -2.9945224 }
+  ],
+  "tags": {
+    "area": "yes",
+    "highway": "pedestrian",
+    "name": "Bulevar de Beurko"
+  }
+},
+{
+  "type": "way",
+  "id": 626366308,
+  "bounds": {
+    "minlat": 43.3000083,
+    "minlon": -2.9960176,
+    "maxlat": 43.3000427,
+    "maxlon": -2.9959497
+  },
+  "geometry": [
+    { "lat": 43.3000427, "lon": -2.9959497 },
+    { "lat": 43.3000083, "lon": -2.9960176 }
+  ],
+  "tags": {
+    "highway": "pedestrian",
+    "name": "Bulevar de Beurko"
+  }
+},
+{
+  "type": "way",
+  "id": 630659478,
+  "bounds": {
+    "minlat": 43.2847560,
+    "minlon": -2.9946810,
+    "maxlat": 43.2851566,
+    "maxlon": -2.9944986
+  },
+  "geometry": [
+    { "lat": 43.2851566, "lon": -2.9944986 },
+    { "lat": 43.2851237, "lon": -2.9945066 },
+    { "lat": 43.2847560, "lon": -2.9946810 }
+  ],
+  "tags": {
+    "cycleway:right": "no",
+    "highway": "tertiary",
+    "lanes": "2",
+    "lit": "yes",
+    "name": "Euskadi etorbidea",
+    "name:es": "Avenida Euskadi",
+    "name:eu": "Euskadi etorbidea",
+    "official_name": "Avenida Euskadi / Euskadi Etorbidea",
+    "oneway": "yes",
+    "postal_code": "48903",
+    "sidewalk": "right",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 673661563,
+  "bounds": {
+    "minlat": 43.2893816,
+    "minlon": -2.9870353,
+    "maxlat": 43.2904513,
+    "maxlon": -2.9861402
+  },
+  "geometry": [
+    { "lat": 43.2893816, "lon": -2.9861424 },
+    { "lat": 43.2894712, "lon": -2.9861402 },
+    { "lat": 43.2895846, "lon": -2.9861411 },
+    { "lat": 43.2897043, "lon": -2.9861573 },
+    { "lat": 43.2898189, "lon": -2.9861915 },
+    { "lat": 43.2899054, "lon": -2.9862349 },
+    { "lat": 43.2900132, "lon": -2.9863082 },
+    { "lat": 43.2901102, "lon": -2.9863959 },
+    { "lat": 43.2902085, "lon": -2.9865239 },
+    { "lat": 43.2902982, "lon": -2.9866727 },
+    { "lat": 43.2904513, "lon": -2.9870353 }
+  ],
+  "tags": {
+    "highway": "secondary",
+    "lanes": "2",
+    "name": "Ismael Gorostiza etorbidea",
+    "name:es": "Ronda Ismael Gorostiza",
+    "name:eu": "Ismael Gorostiza etorbidea",
+    "official_name": "Ismael Gorostiza etorbidea / Avenida Ismael Gorostiza",
+    "oneway": "yes",
+    "surface": "asphalt",
+    "turn:lanes": "through|through;right"
+  }
+},
+{
+  "type": "way",
+  "id": 673661564,
+  "bounds": {
+    "minlat": 43.2904513,
+    "minlon": -2.9877985,
+    "maxlat": 43.2910162,
+    "maxlon": -2.9870353
+  },
+  "geometry": [
+    { "lat": 43.2904513, "lon": -2.9870353 },
+    { "lat": 43.2904972, "lon": -2.9871736 },
+    { "lat": 43.2906090, "lon": -2.9874531 },
+    { "lat": 43.2906774, "lon": -2.9875732 },
+    { "lat": 43.2907134, "lon": -2.9876378 },
+    { "lat": 43.2907404, "lon": -2.9876768 },
+    { "lat": 43.2907946, "lon": -2.9877300 },
+    { "lat": 43.2908541, "lon": -2.9877685 },
+    { "lat": 43.2909306, "lon": -2.9877827 },
+    { "lat": 43.2910162, "lon": -2.9877985 }
+  ],
+  "tags": {
+    "highway": "secondary",
+    "lanes": "2",
+    "name": "Ismael Gorostiza etorbidea",
+    "name:es": "Ronda Ismael Gorostiza",
+    "name:eu": "Ismael Gorostiza etorbidea",
+    "official_name": "Ismael Gorostiza etorbidea / Avenida Ismael Gorostiza",
+    "oneway": "yes",
+    "surface": "asphalt",
+    "turn:lanes": "through;right|right"
+  }
+},
+{
+  "type": "way",
+  "id": 852688737,
+  "bounds": {
+    "minlat": 43.3021809,
+    "minlon": -2.9925877,
+    "maxlat": 43.3024747,
+    "maxlon": -2.9924988
+  },
+  "geometry": [
+    { "lat": 43.3021809, "lon": -2.9924988 },
+    { "lat": 43.3022087, "lon": -2.9925686 },
+    { "lat": 43.3022476, "lon": -2.9925775 },
+    { "lat": 43.3023068, "lon": -2.9925769 },
+    { "lat": 43.3023971, "lon": -2.9925877 },
+    { "lat": 43.3024359, "lon": -2.9925847 },
+    { "lat": 43.3024747, "lon": -2.9925817 }
+  ],
+  "tags": {
+    "highway": "tertiary",
+    "name": "Askatasun etorbidea",
+    "name:es": "Avenida de la Libertad",
+    "name:eu": "Askatasun etorbidea",
+    "official_name": "Avenida de la Libertad / Askatasun etorbidea",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 853239918,
+  "bounds": {
+    "minlat": 43.2942211,
+    "minlon": -2.9893363,
+    "maxlat": 43.2942517,
+    "maxlon": -2.9892469
+  },
+  "geometry": [
+    { "lat": 43.2942517, "lon": -2.9893363 },
+    { "lat": 43.2942211, "lon": -2.9892469 }
+  ],
+  "tags": {
+    "cycleway:right": "no",
+    "highway": "tertiary",
+    "name": "Gernikako Arbola etorbidea",
+    "name:es": "Avenida Gernikako Arbola",
+    "name:eu": "Gernikako Arbola etorbidea",
+    "official_name": "Avenida Gernikako Arbola / Gernikako Arbola etorbidea",
+    "oneway": "yes",
+    "sidewalk": "both",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1058143378,
+  "bounds": {
+    "minlat": 43.2842427,
+    "minlon": -2.9949352,
+    "maxlat": 43.2843898,
+    "maxlon": -2.9948633
+  },
+  "geometry": [
+    { "lat": 43.2843898, "lon": -2.9948633 },
+    { "lat": 43.2842427, "lon": -2.9949352 }
+  ],
+  "tags": {
+    "cycleway:right": "no",
+    "highway": "tertiary",
+    "lanes": "2",
+    "name": "Euskadi etorbidea",
+    "name:es": "Avenida Euskadi",
+    "name:eu": "Euskadi etorbidea",
+    "official_name": "Avenida Euskadi / Euskadi etorbidea",
+    "oneway": "yes",
+    "postal_code": "48903",
+    "sidewalk": "right",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1058143379,
+  "bounds": {
+    "minlat": 43.2843898,
+    "minlon": -2.9948633,
+    "maxlat": 43.2846635,
+    "maxlon": -2.9947279
+  },
+  "geometry": [
+    { "lat": 43.2846635, "lon": -2.9947279 },
+    { "lat": 43.2843898, "lon": -2.9948633 }
+  ],
+  "tags": {
+    "covered": "yes",
+    "cycleway:right": "shared_lane",
+    "highway": "tertiary",
+    "name": "Euskadi etorbidea",
+    "name:es": "Avenida Euskadi",
+    "name:eu": "Euskadi etorbidea",
+    "official_name": "Avenida Euskadi / Euskadi etorbidea",
+    "oneway": "yes",
+    "postal_code": "48903",
+    "sidewalk": "right",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1058143381,
+  "bounds": {
+    "minlat": 43.2843793,
+    "minlon": -2.9947722,
+    "maxlat": 43.2846489,
+    "maxlon": -2.9946446
+  },
+  "geometry": [
+    { "lat": 43.2843793, "lon": -2.9947722 },
+    { "lat": 43.2846489, "lon": -2.9946446 }
+  ],
+  "tags": {
+    "covered": "yes",
+    "highway": "tertiary",
+    "name": "Euskadi etorbidea",
+    "name:es": "Avenida Euskadi",
+    "name:eu": "Euskadi etorbidea",
+    "official_name": "Avenida Euskadi / Euskadi etorbidea",
+    "oneway": "yes",
+    "postal_code": "48903",
+    "sidewalk": "right",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1058143390,
+  "bounds": {
+    "minlat": 43.2846489,
+    "minlon": -2.9946446,
+    "maxlat": 43.2852420,
+    "maxlon": -2.9942774
+  },
+  "geometry": [
+    { "lat": 43.2846489, "lon": -2.9946446 },
+    { "lat": 43.2850925, "lon": -2.9944328 },
+    { "lat": 43.2851337, "lon": -2.9943934 },
+    { "lat": 43.2851598, "lon": -2.9943685 },
+    { "lat": 43.2851814, "lon": -2.9943445 },
+    { "lat": 43.2852420, "lon": -2.9942774 }
+  ],
+  "tags": {
+    "cycleway:right": "no",
+    "highway": "tertiary",
+    "lanes": "2",
+    "name": "Euskadi etorbidea",
+    "name:es": "Avenida Euskadi",
+    "name:eu": "Euskadi etorbidea",
+    "official_name": "Avenida Euskadi / Euskadi etorbidea",
+    "oneway": "yes",
+    "postal_code": "48903",
+    "sidewalk": "right",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1109822752,
+  "bounds": {
+    "minlat": 43.2851547,
+    "minlon": -2.9941956,
+    "maxlat": 43.2852552,
+    "maxlon": -2.9938496
+  },
+  "geometry": [
+    { "lat": 43.2852552, "lon": -2.9941956 },
+    { "lat": 43.2851547, "lon": -2.9938496 }
+  ],
+  "tags": {
+    "highway": "secondary",
+    "lanes": "2",
+    "name": "Ismael Gorostiza etorbidea",
+    "name:es": "Ronda Ismael Gorostiza",
+    "name:eu": "Ismael Gorostiza etorbidea",
+    "official_name": "Ismael Gorostiza etorbidea / Avenida Ismael Gorostiza",
+    "oneway": "yes",
+    "parking:both": "no",
+    "sidewalk": "right",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1314696603,
+  "bounds": {
+    "minlat": 43.2901831,
+    "minlon": -2.9881863,
+    "maxlat": 43.2909561,
+    "maxlon": -2.9866587
+  },
+  "geometry": [
+    { "lat": 43.2909561, "lon": -2.9881863 },
+    { "lat": 43.2907760, "lon": -2.9879178 },
+    { "lat": 43.2906788, "lon": -2.9877468 },
+    { "lat": 43.2906545, "lon": -2.9877159 },
+    { "lat": 43.2905880, "lon": -2.9876094 },
+    { "lat": 43.2905140, "lon": -2.9874475 },
+    { "lat": 43.2903555, "lon": -2.9870427 },
+    { "lat": 43.2903184, "lon": -2.9869509 },
+    { "lat": 43.2902776, "lon": -2.9868498 },
+    { "lat": 43.2901831, "lon": -2.9866587 }
+  ],
+  "tags": {
+    "highway": "secondary",
+    "lanes": "2",
+    "name": "Ismael Gorostiza etorbidea",
+    "name:es": "Ronda Ismael Gorostiza",
+    "name:eu": "Ismael Gorostiza etorbidea",
+    "official_name": "Ismael Gorostiza etorbidea / Avenida Ismael Gorostiza",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1314696606,
+  "bounds": {
+    "minlat": 43.2875356,
+    "minlon": -2.9871480,
+    "maxlat": 43.2881672,
+    "maxlon": -2.9869642
+  },
+  "geometry": [
+    { "lat": 43.2881672, "lon": -2.9869642 },
+    { "lat": 43.2880641, "lon": -2.9870295 },
+    { "lat": 43.2879288, "lon": -2.9870880 },
+    { "lat": 43.2878495, "lon": -2.9871053 },
+    { "lat": 43.2877778, "lon": -2.9871130 },
+    { "lat": 43.2876189, "lon": -2.9871274 },
+    { "lat": 43.2875356, "lon": -2.9871480 }
+  ],
+  "tags": {
+    "highway": "secondary",
+    "lanes": "2",
+    "name": "Ismael Gorostiza etorbidea",
+    "name:es": "Ronda Ismael Gorostiza",
+    "name:eu": "Ismael Gorostiza etorbidea",
+    "official_name": "Ismael Gorostiza etorbidea / Avenida Ismael Gorostiza",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+}
+
+  ]
+}

@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plan de aprendizaje: Manuel de Falla</title>
+  <style>
+    :root {
+      --bg: #f4efe7;
+      --bg-2: #efe4d3;
+      --ink: #1f1a17;
+      --muted: #5f5349;
+      --accent: #8a4b2b;
+      --accent-2: #305e63;
+      --card: rgba(255, 252, 247, 0.9);
+      --border: rgba(31, 26, 23, 0.12);
+      --shadow: 0 18px 50px rgba(64, 42, 26, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(138, 75, 43, 0.10), transparent 32%),
+        radial-gradient(circle at top right, rgba(48, 94, 99, 0.10), transparent 28%),
+        linear-gradient(180deg, var(--bg), var(--bg-2));
+      min-height: 100vh;
+      line-height: 1.65;
+    }
+
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 40px 20px 56px;
+    }
+
+    header {
+      background: linear-gradient(135deg, rgba(255,255,255,0.82), rgba(255,255,255,0.62));
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 28px 28px 22px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+
+    .kicker {
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 0.76rem;
+      color: var(--accent-2);
+      margin: 0 0 10px;
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.4rem);
+      line-height: 1.05;
+    }
+
+    .intro {
+      margin: 14px 0 0;
+      max-width: 72ch;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    .note {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-left: 4px solid var(--accent);
+      background: rgba(138, 75, 43, 0.06);
+      color: var(--muted);
+      border-radius: 12px;
+    }
+
+    main {
+      margin-top: 22px;
+      display: grid;
+      gap: 18px;
+    }
+
+    section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 24px 24px 20px;
+      box-shadow: var(--shadow);
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 1.55rem;
+      color: var(--accent);
+    }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 1.05rem;
+      color: var(--accent-2);
+    }
+
+    p { margin: 10px 0; }
+
+    ul {
+      margin: 10px 0 0 1.2rem;
+      padding: 0;
+    }
+
+    li { margin: 8px 0; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin-top: 14px;
+    }
+
+    .box {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      background: rgba(255,255,255,0.55);
+    }
+
+    .timeline {
+      display: grid;
+      gap: 14px;
+      margin-top: 14px;
+      padding-left: 0;
+      list-style: none;
+      counter-reset: step;
+    }
+
+    .timeline li {
+      counter-increment: step;
+      border-left: 3px solid rgba(138, 75, 43, 0.35);
+      padding: 0 0 0 16px;
+      position: relative;
+    }
+
+    .timeline li::before {
+      content: counter(step);
+      position: absolute;
+      left: -13px;
+      top: 0;
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: var(--accent);
+      color: white;
+      font-size: 0.85rem;
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+    }
+
+    .small {
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .tag {
+      display: inline-block;
+      margin: 2px 8px 0 0;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(48, 94, 99, 0.10);
+      color: var(--accent-2);
+      font-size: 0.82rem;
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+    }
+
+    .footer {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 0.96rem;
+      text-align: center;
+    }
+
+    @media (max-width: 640px) {
+      .wrap { padding: 18px 12px 28px; }
+      header, section { border-radius: 18px; padding: 20px 16px; }
+      h2 { font-size: 1.35rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <p class="kicker">Plan de aprendizaje musical</p>
+      <h1>Cómo entrar en Manuel de Falla sin perderte por el camino</h1>
+      <p class="intro">
+        Este plan está pensado para aprender a escuchar a Falla de forma realista:
+        primero oír, luego reflexionar, después añadir contexto, y volver a escuchar.
+        Así la música deja de ser solo bonita y empieza a volverse comprensible.
+      </p>
+      <div class="note">
+        Sí: aprender primero fundamentos de música clásica puede venir muy bien.
+        No hace falta hacer un curso eterno antes de empezar con Falla, pero sí conviene
+        tener un paso inicial con Mozart, Bach y Beethoven para entender formas, contrastes,
+        armonía básica y evolución histórica.
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>Idea general</h2>
+        <p>
+          El objetivo no es memorizar datos, sino construir una escucha con capas. Falla se entiende
+          mejor cuando sabes distinguir entre:
+        </p>
+        <div class="grid">
+          <div class="box">
+            <strong>Raíz española</strong>
+            <p class="small">Música popular, cante jondo, danzas, teatro y tradición antigua.</p>
+          </div>
+          <div class="box">
+            <strong>Influencia europea</strong>
+            <p class="small">Debussy, Ravel, el refinamiento tímbrico y la modernidad del siglo XX.</p>
+          </div>
+          <div class="box">
+            <strong>Lenguaje personal</strong>
+            <p class="small">Sobriedad, intensidad, depuración y un uso muy preciso del color.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Paso 0. Fundamentos de música clásica</h2>
+        <p>
+          Este paso es muy recomendable si quieres llegar a Falla con más herramientas. No hace falta
+          que lo conviertas en un bloque enorme: con una base breve ya ganas mucho.
+        </p>
+        <h3>Qué aprender aquí</h3>
+        <ul>
+          <li>Qué es una sinfonía, un concierto, una sonata, una ópera y una obra breve para piano o voz.</li>
+          <li>Cómo se organiza una pieza en contraste, repetición, desarrollo y cierre.</li>
+          <li>Qué diferencia hay entre barroco, clasicismo, romanticismo e impresionismo.</li>
+          <li>Cómo reconocer melodía, acompañamiento, ritmo, timbre y tensión armónica.</li>
+        </ul>
+        <h3>Compositores útiles para esta base</h3>
+        <ul>
+          <li><strong>Bach</strong>: para entender el contrapunto, la estructura y la disciplina del sonido.</li>
+          <li><strong>Mozart</strong>: para claridad, equilibrio, forma y teatro musical.</li>
+          <li><strong>Beethoven</strong>: para el desarrollo dramático, el contraste y la expansión expresiva.</li>
+        </ul>
+        <p class="small">
+          Si ya tienes un curso pensado para esta parte, perfecto: úsalo como columna vertebral del paso 0.
+          No hace falta duplicarlo aquí.
+        </p>
+      </section>
+
+      <section>
+        <h2>Ruta principal de Falla</h2>
+        <p>
+          El orden está pensado para que las obras más accesibles te den referencias, y luego las más
+          densas te parezcan menos opacas.
+        </p>
+        <ol class="timeline">
+          <li>
+            <strong>Siete canciones populares españolas</strong><br>
+            Primero escucha sin analizar. Después pregúntate qué te suena popular, qué te suena refinado y cómo
+            transforma Falla una melodía sencilla en algo artístico.
+          </li>
+          <li>
+            <strong>El amor brujo</strong><br>
+            Fíjate en el drama, el carácter ritual, el peso del ritmo y la mezcla de raíz andaluza con lenguaje de concierto.
+          </li>
+          <li>
+            <strong>El sombrero de tres picos</strong><br>
+            Escucha la energía, el humor, la danza y la brillantez orquestal. Aquí se ve muy bien el Falla teatral.
+          </li>
+          <li>
+            <strong>Noches en los jardines de España</strong><br>
+            Atención al color orquestal y a la España sugerida, no literalmente pintada. Esta obra ayuda mucho a oír el lado impresionista.
+          </li>
+          <li>
+            <strong>La vida breve</strong><br>
+            Aquí aparece el Falla más trágico y dramático. Es una obra clave para entender su intensidad inicial.
+          </li>
+          <li>
+            <strong>Retablo de maese Pedro</strong><br>
+            Más concentración, más precisión, menos adorno. Sirve para entender su madurez y su tendencia a la depuración.
+          </li>
+          <li>
+            <strong>Concierto para clavecín y cinco instrumentos</strong><br>
+            Muy útil para ver su fase más austera y su lenguaje final, más seco y esencial.
+          </li>
+          <li>
+            <strong>Atlántida</strong><br>
+            Déjala para el final. No es la puerta de entrada, sino una cima tardía y compleja.
+          </li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>Cómo escuchar cada obra</h2>
+        <div class="grid">
+          <div class="box">
+            <strong>Primera escucha</strong>
+            <p class="small">Sin apuntes. Solo una impresión general: energía, carácter, atmósfera y emoción.</p>
+          </div>
+          <div class="box">
+            <strong>Segunda escucha</strong>
+            <p class="small">Con una pequeña nota sobre la obra. Sigue secciones, ritmos, colores y contrastes.</p>
+          </div>
+          <div class="box">
+            <strong>Tercera escucha</strong>
+            <p class="small">Después de leer contexto. Aquí empiezas a notar influencias y decisiones compositivas.</p>
+          </div>
+        </div>
+        <p>
+          La idea es simple: oyes, piensas, aprendes un poco más, y vuelves a oír. Esa vuelta es donde realmente se consolida el aprendizaje.
+        </p>
+      </section>
+
+      <section>
+        <h2>Temas tangenciales que lo sostienen</h2>
+        <div class="grid">
+          <div class="box">
+            <span class="tag">España anterior</span>
+            <p>Tomás Luis de Victoria, el mundo coral y la tradición antigua española.</p>
+          </div>
+          <div class="box">
+            <span class="tag">Puente español</span>
+            <p>Albéniz, Granados y la construcción de una música española moderna.</p>
+          </div>
+          <div class="box">
+            <span class="tag">Francia</span>
+            <p>Debussy y Ravel para el color, la armonía y el refinamiento tímbrico.</p>
+          </div>
+          <div class="box">
+            <span class="tag">Raíz popular</span>
+            <p>Flamenco, cante jondo, seguidillas, fandangos y la dimensión teatral de lo popular.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Plan realista en 4 semanas</h2>
+        <ul class="timeline">
+          <li>
+            <strong>Semana 1</strong><br>
+            Paso 0 de fundamentos, más <em>Siete canciones populares españolas</em> y una primera escucha de <em>El amor brujo</em>.
+          </li>
+          <li>
+            <strong>Semana 2</strong><br>
+            <em>El sombrero de tres picos</em> y <em>Noches en los jardines de España</em>, con una primera aproximación a Debussy y Ravel.
+          </li>
+          <li>
+            <strong>Semana 3</strong><br>
+            <em>La vida breve</em>, más una reescucha de la obra que más te haya gustado.
+          </li>
+          <li>
+            <strong>Semana 4</strong><br>
+            <em>Retablo de maese Pedro</em> y <em>Concierto para clavecín y cinco instrumentos</em>, y luego reescucha general.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Qué deberías poder responder al final</h2>
+        <ul>
+          <li>Qué parte de Falla viene de lo popular y qué parte viene de la música culta europea.</li>
+          <li>Qué cambia entre su etapa temprana y su etapa madura.</li>
+          <li>Cómo se relaciona con el impresionismo francés sin ser un compositor francés.</li>
+          <li>Por qué su música suena española sin caer en el cliché.</li>
+          <li>Qué obras usarías para presentar a otra persona a Falla en el orden correcto.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Resumen práctico</h2>
+        <p>
+          Si quieres ir a lo esencial, el orden más útil es:
+        </p>
+        <p class="small">
+          Paso 0 de fundamentos - <em>Siete canciones populares españolas</em> - <em>El amor brujo</em> -
+          <em>El sombrero de tres picos</em> - <em>Noches en los jardines de España</em> - <em>La vida breve</em> -
+          <em>Retablo de maese Pedro</em> - <em>Concierto para clavecín y cinco instrumentos</em>.
+        </p>
+      </section>
+    </main>
+
+    <div class="footer">
+      Hecho como guía de estudio viva: escucha, reflexiona, añade contexto y vuelve a escuchar.
+    </div>
+  </div>
+</body>
+</html>

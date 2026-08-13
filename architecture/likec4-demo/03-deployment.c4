@@ -1,0 +1,92 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// 03 · DEPLOYMENT — el modelo FÍSICO, una capa aparte.
+//
+// Por qué existe: si metes AKS, namespaces, node pools y discos dentro del
+// modelo lógico, lo contaminas — un servicio no "es" un pod, se *despliega* en
+// uno. Aquí describes dónde vive cada cosa y `instanceOf` conecta ambos mundos.
+// Un mismo elemento lógico puede tener N instancias (réplicas, regiones, envs).
+// ─────────────────────────────────────────────────────────────────────────────
+deployment {
+
+  azureSubscription prod 'Suscripción PROD' {
+
+    region we 'West Europe' {
+
+      // ── Cluster de Kubernetes ─────────────────────────────────────────────
+      aks cluster 'aks-platform-we' {
+        technology 'AKS · Kubernetes 1.29'
+
+        namespace ns 'platform' {
+
+          nodePool general 'nodepool: general (D4s v5)' {
+            api = pod 'deploy/ingest-api · 3 réplicas' {
+              instanceOf platform.ingestApi
+            }
+            report = pod 'deploy/report-service · 2 réplicas' {
+              instanceOf platform.reportService
+            }
+          }
+
+          nodePool compute 'nodepool: compute (F16s v2)' {
+            technology 'CPU-optimizado, taints dedicados'
+
+            renderer = pod 'sts/tile-renderer · 6 réplicas' {
+              description '''
+                StatefulSet porque cada réplica monta su propio PVC de scratch.
+                El contenedor lleva el runtime .NET y la .so nativa juntos.
+              '''
+              svc = instanceOf platform.tileRenderer
+            }
+          }
+        }
+      }
+
+      // ── Servicios gestionados ─────────────────────────────────────────────
+      paas ehk 'Event Hubs (Kafka endpoint)' {
+        #as-is
+        technology 'Kafka protocol'
+        instanceOf kafkaCluster
+      }
+
+      paas sbns 'Service Bus namespace' {
+        #to-be
+        technology 'ASB Premium'
+        instanceOf serviceBus
+      }
+
+      paas sa 'Storage Account stplatformwe' {
+        instanceOf blobStorage
+      }
+
+      // ── Disco gestionado, montado sólo por el renderer ────────────────────
+      paas scratchDisk 'Managed Disk · Premium SSD 512 GiB' {
+        description 'PVC azuredisk-csi, ReadWriteOnce, uno por réplica.'
+        technology 'azuredisk.csi.azure.com'
+      }
+
+      // ── Volumen COMPARTIDO: lo montan varios pods de servicios distintos ──
+      // Azure Disk no sirve aquí: es ReadWriteOnce (un solo nodo). Para RWX se
+      // usa Azure Files (SMB/NFS) o NFS sobre Blob. La diferencia no es un
+      // detalle: condiciona el rendimiento y la semántica de bloqueo.
+      paas sharedFiles 'Azure Files Premium · 2 TiB' {
+        #shared-state
+        description 'PVC azurefile-csi, ReadWriteMany. Montado por renderer y report.'
+        technology 'file.csi.azure.com · SMB 3.1.1'
+        instanceOf platform.sharedArea
+      }
+
+      // Relaciones que SOLO existen en el mundo físico: los montajes.
+      // El disco privado: uno por réplica, RWO.
+      cluster.ns.compute.renderer.svc.scratch -[disk]-> scratchDisk {
+        title 'monta /var/scratch (RWO, uno por réplica)'
+      }
+      // El share: el mismo volumen en dos pods distintos, con permisos distintos.
+      cluster.ns.compute.renderer -[disk]-> sharedFiles {
+        title 'monta /mnt/shared (RWX, rw)'
+      }
+      cluster.ns.general.report -[disk]-> sharedFiles {
+        title 'monta /mnt/shared (RWX, ro)'
+      }
+    }
+  }
+}

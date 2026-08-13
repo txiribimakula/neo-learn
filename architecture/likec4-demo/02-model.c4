@@ -1,0 +1,198 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// 02 · MODEL — el modelo LÓGICO. Un solo árbol, sin duplicar nada.
+//
+// Regla de oro: los NIVELES de C4 (Context / Container / Component / Code) NO
+// se declaran. Emergen de la ANIDACIÓN de este árbol + de qué enseña cada vista.
+//
+//   platform                      ← nivel 1 (una caja en el Context)
+//   platform.tileRenderer         ← nivel 2 (container)
+//   platform.tileRenderer.core    ← nivel 3 (component)
+//   platform.tileRenderer.core.*  ← nivel 4 (code, sólo si compensa)
+// ─────────────────────────────────────────────────────────────────────────────
+model {
+
+  // ── Nivel 1: personas y sistemas externos ─────────────────────────────────
+  operador = actor 'Operador' {
+    description 'Lanza y supervisa trabajos de procesado desde el portal interno'
+  }
+  clienteApi = actor 'Sistema cliente' {
+    description 'Integración de terceros que llama a nuestra API pública'
+  }
+
+  kafkaCluster = externalSystem 'Kafka' {
+    #kafka
+    technology 'Confluent Platform'
+    description 'Bus de eventos actual. Log particionado y retenido.'
+  }
+
+  serviceBus = externalSystem 'Azure Service Bus' {
+    #servicebus
+    technology 'ASB Premium'
+    description 'Broker destino de la migración. Colas con peek-lock y DLQ nativa.'
+  }
+
+  blobStorage = externalSystem 'Azure Blob Storage' {
+    technology 'Storage Account (Hot/Cool)'
+    description 'Resultados, artefactos y ficheros de entrada.'
+    style {
+      shape storage
+    }
+  }
+
+  // ── Nivel 2: el sistema y sus containers ──────────────────────────────────
+  platform = system 'Plataforma de Procesado' {
+    description '''
+      Conjunto de servicios que ingieren trabajos, los procesan con el motor
+      nativo C++ y publican los resultados en Blob Storage.
+    '''
+
+    // ---- Servicio 1: puerta de entrada síncrona -----------------------------
+    ingestApi = service 'Ingest API' {
+      technology 'ASP.NET Core 8'
+      description 'Valida el trabajo, lo persiste y publica el evento de inicio.'
+    }
+
+    // ---- Servicio 2: el que ya migra a Service Bus --------------------------
+    tileRenderer = service 'Tile Renderer' {
+      #cpp #csharp
+      technology 'Worker .NET 8 · núcleo C++20'
+      // Requisitos que condicionan la migración a Service Bus. Están aquí, en
+      // el elemento, para que una vista pueda filtrarlos (ver 05-environments).
+      metadata {
+        ordering 'by-key'    // el orden por clave de trabajo importa
+        replay   'required'  // se recupera rebobinando offsets
+      }
+      description '''
+        Wrapper C# alrededor del motor de render nativo.
+        Consume trabajos, rasteriza y sube los tiles a Blob.
+      '''
+
+      // Nivel 3 — los componentes del sándwich C# ↔ C++
+      host = managedComponent 'Worker Host' {
+        description 'BackgroundService: ciclo receive → procesar → ack.'
+      }
+      messaging = managedComponent 'Messaging Adapter' {
+        description '''
+          Abstracción `IJobSource` con dos implementaciones: KafkaJobSource y
+          ServiceBusJobSource. Es el ÚNICO punto que toca la migración.
+
+          Durante la transición consume de AMBOS brokers detrás de la misma
+          interfaz. Requisito duro: el handler debe ser **idempotente por jobId**
+          — durante el corte un trabajo puede llegar por Kafka y por ASB.
+        '''
+      }
+      uploader = managedComponent 'Blob Uploader' {
+        description 'Sube los tiles resultantes con Azure.Storage.Blobs.'
+      }
+      scratch = managedComponent 'Scratch Store' {
+        description 'Escribe temporales grandes en el disco montado.'
+      }
+      interop = interopComponent 'RenderEngine.Interop' {
+        description '''
+          SafeHandle + DllImport sobre una C ABI plana (`render_create`,
+          `render_submit`, `render_destroy`). Marshalling y traducción de errores.
+        '''
+      }
+
+      // Nivel 3 (nativo) — el motor C++ visto como componente
+      core = nativeComponent 'Render Core' {
+        technology 'C++20 · shared library'
+        description 'Motor de rasterizado. Sin dependencias de .NET.'
+
+        // Nivel 4 (code) — sólo las piezas que un lector necesita conocer
+        api = nativeComponent 'C API façade' {
+          description 'render_*.h — frontera estable en C, sin nombres mangled.'
+        }
+        scheduler = nativeComponent 'Tile Scheduler' {
+          description 'Reparte tiles entre el thread pool.'
+        }
+        raster = nativeComponent 'Rasterizer' {
+          description 'SIMD. El bucle caliente de verdad.'
+        }
+        io = nativeComponent 'Local IO' {
+          description 'Lee/escribe buffers intermedios en el disco montado.'
+        }
+
+        api -> scheduler 'encola el trabajo'
+        scheduler -> raster 'despacha tiles'
+        raster -> io 'vuelca buffers'
+      }
+
+      // Relaciones internas del servicio
+      messaging -> host 'entrega el trabajo'
+      host -> interop 'invoca el render'
+      host -> uploader 'publica resultados'
+      interop -[interop]-> core.api 'DllImport sobre la C ABI'
+      core.io -> scratch 'usa el directorio de trabajo'
+    }
+
+    // ---- Almacenamiento COMPARTIDO entre servicios --------------------------
+    // Ojo: esto NO es el disco de scratch privado de cada réplica. Es un volumen
+    // que montan VARIOS servicios, y eso lo convierte en una dependencia
+    // funcional: un canal de integración por ficheros. Si no aparece aquí, el
+    // acoplamiento entre renderer y report queda invisible en todos los diagramas.
+    sharedArea = datastore 'Área de trabajo compartida' {
+      #shared-state
+      technology 'Azure Files Premium · SMB · ReadWriteMany'
+      description '''
+        Intermedios grandes que el renderer deja y el report consume sin pasar
+        por Blob (latencia). Contrato implícito: layout de directorios por jobId
+        y un fichero `.done` como marca de commit.
+
+        **Riesgo:** no hay esquema ni versión. Cambiar el layout rompe al lector
+        sin que ningún compilador avise.
+      '''
+    }
+
+    // ---- Servicio 3: consumidor de resultados -------------------------------
+    reportService = service 'Report Service' {
+      technology 'Worker .NET 8'
+      description 'Compone informes cuando un trabajo termina.'
+    }
+  }
+
+  // ── Relaciones entre containers y con el exterior ─────────────────────────
+  operador -[rest]-> platform.ingestApi 'lanza y consulta trabajos'
+  clienteApi -[rest]-> platform.ingestApi 'POST /jobs'
+
+  // Camino ACTUAL (Kafka) — marcado #as-is
+  platform.ingestApi -[kafka]-> kafkaCluster {
+    #as-is
+    title 'publica job.requested'
+  }
+  kafkaCluster -[kafka]-> platform.tileRenderer.messaging {
+    #as-is
+    title 'consume job.requested'
+    description 'Consumer group con offsets commiteados por partición.'
+  }
+
+  // Camino OBJETIVO (Service Bus) — marcado #to-be
+  platform.ingestApi -[asb]-> serviceBus {
+    #to-be
+    title 'envía job.requested'
+  }
+  serviceBus -[asb]-> platform.tileRenderer.messaging {
+    #to-be
+    title 'recibe job.requested'
+    description 'Peek-lock + competing consumers. DLQ gestionada por el broker.'
+  }
+
+  // Este camino no migra: se queda en Service Bus desde el principio
+  platform.tileRenderer.host -[asb]-> serviceBus 'publica job.completed'
+  serviceBus -[asb]-> platform.reportService 'recibe job.completed'
+
+  // Integración por ficheros: quién escribe y quién lee el área compartida
+  platform.tileRenderer.scratch -[share]-> platform.sharedArea {
+    title 'escribe intermedios por jobId'
+    description 'Escribe en un temporal y renombra a `.done`: el rename es la barrera.'
+  }
+  platform.reportService -[share]-> platform.sharedArea {
+    title 'lee intermedios'
+    description 'Sólo lectura. Espera a que exista `.done` — no hay notificación.'
+  }
+
+  // Almacenamiento
+  platform.tileRenderer.uploader -[blob]-> blobStorage 'sube tiles y manifiesto'
+  platform.reportService -[blob]-> blobStorage 'lee resultados'
+  platform.ingestApi -[blob]-> blobStorage 'guarda el fichero de entrada'
+}

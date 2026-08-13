@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>¿Quién rompió el nightly? · DLLs y ejecutables</title>
+  <style>
+    :root {
+      --bg: #f5f3ed;
+      --surface: #fffef9;
+      --surface-2: #ece9df;
+      --ink: #20231f;
+      --muted: #666b63;
+      --line: #d8d5ca;
+      --a: #176b87;
+      --a-soft: #dbeef3;
+      --b: #8b4a32;
+      --b-soft: #f3e3dc;
+      --ok: #267348;
+      --ok-soft: #dff0e5;
+      --fail: #b23b32;
+      --fail-soft: #f6dedb;
+      --warn: #9a6815;
+      --warn-soft: #f7ebcd;
+      --joint: #704aa1;
+      --joint-soft: #ebe1f5;
+      --shadow: 0 18px 50px rgba(40, 40, 30, .08);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 8% -5%, rgba(23,107,135,.12), transparent 32rem),
+        radial-gradient(circle at 96% 18%, rgba(139,74,50,.10), transparent 28rem),
+        var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+    button { font: inherit; }
+    .page { width: min(1120px, calc(100% - 36px)); margin: 0 auto; padding: 32px 0 72px; }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.45fr .75fr;
+      gap: 28px;
+      padding: 46px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: color-mix(in srgb, var(--surface) 91%, transparent);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      position: relative;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 230px;
+      height: 230px;
+      right: -85px;
+      bottom: -120px;
+      border: 34px solid color-mix(in srgb, var(--a) 12%, transparent);
+      border-radius: 50%;
+    }
+    .eyebrow, .kicker {
+      margin: 0 0 10px;
+      color: var(--a);
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 0; font-size: clamp(34px, 5.4vw, 66px); line-height: .98; letter-spacing: -.055em; max-width: 760px; }
+    .lead { margin: 24px 0 0; max-width: 720px; color: var(--muted); font-size: clamp(16px, 2vw, 20px); }
+    .lead strong { color: var(--ink); }
+
+    .hero-side { align-self: end; position: relative; z-index: 1; }
+    .team { padding: 15px 17px; border-radius: 13px; border: 1px solid var(--line); background: var(--surface); margin-top: 10px; }
+    .team b { display: block; font-size: 14px; }
+    .team span { color: var(--muted); font-size: 13px; }
+    .team.a { border-left: 5px solid var(--a); }
+    .team.b { border-left: 5px solid var(--b); }
+    .vs { text-align: center; color: var(--muted); font: 800 11px/1 ui-monospace, monospace; margin: -2px 0 -8px; }
+
+    .short-answer {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 18px;
+      align-items: start;
+      margin: 22px 0 54px;
+      padding: 22px 26px;
+      border: 1px solid color-mix(in srgb, var(--a) 30%, var(--line));
+      border-radius: 18px;
+      background: var(--a-soft);
+    }
+    .short-answer .mark { font-size: 28px; line-height: 1; }
+    .short-answer p { margin: 0; font-size: 16px; }
+    .short-answer small { display: block; color: var(--muted); margin-top: 5px; }
+
+    .section-head { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin: 0 0 18px; }
+    .section-head h2 { margin: 0; font-size: clamp(25px, 3vw, 36px); letter-spacing: -.035em; line-height: 1.08; }
+    .section-head p { max-width: 470px; margin: 0; color: var(--muted); font-size: 14px; }
+
+    .options { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; margin-bottom: 62px; }
+    .option {
+      grid-column: span 4;
+      min-height: 218px;
+      display: flex;
+      flex-direction: column;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 17px;
+      background: var(--surface);
+      box-shadow: 0 9px 24px rgba(40,40,30,.045);
+    }
+    .option.recommended { grid-column: span 8; border-color: color-mix(in srgb, var(--a) 45%, var(--line)); background: linear-gradient(135deg, var(--surface), var(--a-soft)); }
+    .opt-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .level { color: var(--muted); font: 800 11px/1 ui-monospace, monospace; letter-spacing: .08em; }
+    .badge { padding: 4px 8px; border-radius: 999px; background: var(--a); color: white; font-size: 10px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+    .option h3 { margin: 24px 0 8px; font-size: 20px; letter-spacing: -.02em; }
+    .option p { margin: 0; color: var(--muted); font-size: 14px; }
+    .meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; padding-top: 20px; }
+    .meta span { padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; color: var(--muted); background: color-mix(in srgb, var(--surface) 75%, transparent); font-size: 11px; font-weight: 750; }
+
+    .diagnostic {
+      display: grid;
+      grid-template-columns: .86fr 1.14fr;
+      gap: 28px;
+      margin-bottom: 62px;
+      padding: 30px;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .diagnostic h2 { margin: 5px 0 10px; font-size: 31px; letter-spacing: -.035em; }
+    .diagnostic .intro { color: var(--muted); font-size: 14px; }
+
+    .matrix { display: grid; grid-template-columns: 90px 1fr 1fr; grid-template-rows: 54px 1fr 1fr; gap: 8px; }
+    .axis { display: flex; justify-content: center; align-items: center; padding: 8px; color: var(--muted); font-size: 11px; font-weight: 850; text-transform: uppercase; letter-spacing: .07em; text-align: center; }
+    .axis.a { color: var(--a); }
+    .axis.b { color: var(--b); }
+    .cell {
+      min-height: 118px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--surface-2);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .cell strong { font-size: 13px; }
+    .cell code { color: var(--muted); font-size: 11px; }
+    .status { align-self: flex-start; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 850; }
+    .status.ok { color: var(--ok); background: var(--ok-soft); }
+    .status.fail { color: var(--fail); background: var(--fail-soft); }
+
+    .assumption { padding: 10px 12px; border-radius: 10px; color: var(--muted); background: var(--surface-2); font-size: 12px; margin: 18px 0; }
+    .cross-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .cross-control { padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
+    .cross-control label { display: block; margin-bottom: 9px; font-size: 12px; font-weight: 800; }
+    .toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+    .toggle button { border: 1px solid var(--line); background: var(--surface); color: var(--muted); border-radius: 8px; padding: 7px; cursor: pointer; font-size: 12px; font-weight: 800; }
+    .toggle button[aria-pressed="true"].pass { color: var(--ok); background: var(--ok-soft); border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); }
+    .toggle button[aria-pressed="true"].failure { color: var(--fail); background: var(--fail-soft); border-color: color-mix(in srgb, var(--fail) 35%, var(--line)); }
+    .verdict { margin-top: 14px; padding: 16px; border-radius: 12px; background: var(--joint-soft); border-left: 5px solid var(--joint); }
+    .verdict b { display: block; color: var(--joint); margin-bottom: 3px; }
+    .verdict span { font-size: 13px; color: var(--muted); }
+
+    .rules { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 16px; }
+    .rule { border-top: 4px solid var(--joint); padding: 13px 12px; background: var(--surface-2); border-radius: 9px; }
+    .rule.a { border-color: var(--a); }
+    .rule.b { border-color: var(--b); }
+    .rule.both { border-color: var(--warn); }
+    .rule strong { display: block; font-size: 12px; margin-bottom: 3px; }
+    .rule span { color: var(--muted); font-size: 11px; }
+
+    .foundation { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 56px; }
+    .panel { padding: 25px; border-radius: 17px; border: 1px solid var(--line); background: var(--surface); }
+    .panel h3 { margin: 0 0 10px; font-size: 20px; }
+    .panel p, .panel li { color: var(--muted); font-size: 13px; }
+    .panel ul { margin: 12px 0 0; padding-left: 19px; }
+    .panel li + li { margin-top: 6px; }
+    .manifest { display: grid; grid-template-columns: auto 1fr; gap: 7px 13px; margin-top: 15px; font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .manifest dt { color: var(--muted); }
+    .manifest dd { margin: 0; overflow-wrap: anywhere; }
+
+    .recommendation { padding: 30px; border-radius: 20px; background: #20231f; color: #f7f5ee; }
+    .recommendation h2 { margin: 3px 0 18px; font-size: 29px; letter-spacing: -.035em; }
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; counter-reset: step; }
+    .step { counter-increment: step; border-top: 1px solid #5a5e57; padding-top: 13px; color: #c9cdc5; font-size: 13px; }
+    .step::before { content: "0" counter(step); display: block; margin-bottom: 8px; color: #78c1d7; font: 800 12px/1 ui-monospace, monospace; }
+    .step b { color: white; }
+    .footnote { margin: 20px 0 0; color: #9da29a; font-size: 12px; }
+
+    footer { padding-top: 24px; text-align: center; color: var(--muted); font-size: 12px; }
+
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; padding: 34px; }
+      .hero-side { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
+      .vs { margin: 0; padding: 0 8px; }
+      .diagnostic { grid-template-columns: 1fr; }
+      .option, .option.recommended { grid-column: span 6; }
+      .rules, .steps { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 650px) {
+      .page { width: min(100% - 22px, 1120px); padding-top: 11px; }
+      .hero { padding: 27px 21px; border-radius: 17px; }
+      .hero-side { display: block; }
+      .vs { margin: 7px 0 -2px; }
+      .short-answer { grid-template-columns: 1fr; }
+      .section-head { display: block; }
+      .section-head p { margin-top: 8px; }
+      .option, .option.recommended { grid-column: span 12; min-height: 0; }
+      .diagnostic { padding: 20px 14px; }
+      .matrix { grid-template-columns: 68px 1fr 1fr; gap: 5px; }
+      .cell { min-height: 110px; padding: 10px; }
+      .cross-controls, .foundation, .rules, .steps { grid-template-columns: 1fr; }
+      .recommendation { padding: 24px 20px; }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #171916;
+        --surface: #21241f;
+        --surface-2: #2a2e28;
+        --ink: #f0f1eb;
+        --muted: #a7aca2;
+        --line: #3b4039;
+        --a: #67bdd8;
+        --a-soft: #1d3841;
+        --b: #e09477;
+        --b-soft: #422c25;
+        --ok: #75c695;
+        --ok-soft: #243d2d;
+        --fail: #ee8278;
+        --fail-soft: #482825;
+        --warn: #e5b45e;
+        --warn-soft: #493a20;
+        --joint: #bd90ed;
+        --joint-soft: #3d2c4f;
+        --shadow: none;
+      }
+      .recommendation { background: #0f110f; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Diagnóstico de integración nocturna</p>
+        <h1>¿Quién rompió el nightly?</h1>
+        <p class="lead">Las DLLs nuevas y los ejecutables nuevos fallan cuando se prueban juntos. El objetivo no es adivinar por la hora del commit, sino <strong>aislar el cambio y reconocer cuándo el fallo está en la interacción</strong>.</p>
+      </div>
+      <div class="hero-side" aria-label="Equipos implicados">
+        <div class="team a"><b>Equipo A</b><span>Produce el bundle de DLLs</span></div>
+        <div class="vs">×</div>
+        <div class="team b"><b>Equipo B</b><span>Produce los ejecutables</span></div>
+      </div>
+    </header>
+
+    <aside class="short-answer">
+      <div class="mark" aria-hidden="true">↳</div>
+      <p><strong>Respuesta corta:</strong> vuestra idea es buena, pero hay que ejecutar <strong>los dos cruces y el baseline anterior</strong>. Al fallar la combinación nueva/nueva, probad las cuatro celdas de una matriz 2×2.
+        <small>Eso distingue un cambio aislado de A, uno de B, una incompatibilidad entre ambos y un problema del propio entorno o test.</small>
+      </p>
+    </aside>
+
+    <section aria-labelledby="alternativas">
+      <div class="section-head">
+        <div><p class="kicker">De menos a más inversión</p><h2 id="alternativas">Cinco formas de aproximarlo</h2></div>
+        <p>No son excluyentes. La primera resuelve la atribución diaria; las siguientes añaden trazabilidad, prevención o precisión.</p>
+      </div>
+
+      <div class="options">
+        <article class="option recommended">
+          <div class="opt-top"><span class="level">PELDAÑO 01</span><span class="badge">Empezaría aquí</span></div>
+          <h3>Matriz 2×2 bajo demanda</h3>
+          <p>Cuando falle nuevo/nuevo, lanzar los dos cruces. El anterior/anterior ya es el último baseline que pasó; solo se repite si se duda del entorno o de la estabilidad del test. Detecta también incompatibilidades que no pertenecen claramente a un único componente.</p>
+          <div class="meta"><span>Coste bajo</span><span>Diagnóstico alto</span><span>2 ejecuciones al fallar</span></div>
+        </article>
+
+        <article class="option">
+          <div class="opt-top"><span class="level">PELDAÑO 02</span></div>
+          <h3>Último bueno + manifiesto</h3>
+          <p>Guardar cada pareja que pasó, con hashes, commits, configuración y dependencias transitivas. Hace que cualquier repetición sea exacta y evita diagnosticar mezclas accidentales.</p>
+          <div class="meta"><span>Fundación necesaria</span><span>Muy poco coste</span></div>
+        </article>
+
+        <article class="option">
+          <div class="opt-top"><span class="level">PELDAÑO 03</span></div>
+          <h3>Gate de compatibilidad</h3>
+          <p>Antes de publicar, A prueba su candidato contra el ejecutable estable y B prueba el suyo contra las DLLs estables. El error aparece cerca del cambio, no al día siguiente.</p>
+          <div class="meta"><span>Preventivo</span><span>Feedback temprano</span></div>
+        </article>
+
+        <article class="option">
+          <div class="opt-top"><span class="level">PELDAÑO 04</span></div>
+          <h3>Contratos y chequeo ABI/API</h3>
+          <p>Separar una suite pequeña del contrato entre equipos: carga, símbolos exportados, formatos y flujos críticos. Permite decidir si A rompió una garantía o B dependía de algo no garantizado.</p>
+          <div class="meta"><span>Preventivo</span><span>Requiere acuerdo</span></div>
+        </article>
+
+        <article class="option">
+          <div class="opt-top"><span class="level">PELDAÑO 05</span></div>
+          <h3>Bisectado de artefactos</h3>
+          <p>Si hubo muchas builds entre el último éxito y el fallo, probar versiones intermedias mediante búsqueda binaria hasta localizar la primera DLL o el primer ejecutable incompatible.</p>
+          <div class="meta"><span>Precisión máxima</span><span>Para mucho volumen</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="diagnostic" aria-labelledby="matriz-title">
+      <div>
+        <p class="kicker">El mínimo recomendado</p>
+        <h2 id="matriz-title">Cómo lee la matriz 2×2</h2>
+        <p class="intro">Se parte de que <strong>anterior/anterior pasa</strong> y <strong>nuevo/nuevo falla</strong>. Cambia abajo los resultados de las dos pruebas cruzadas para ver el diagnóstico.</p>
+
+        <div class="assumption"><strong>Baseline:</strong> E₀ + L₀ = pasa &nbsp;·&nbsp; <strong>Incidente:</strong> E₁ + L₁ = falla</div>
+
+        <div class="cross-controls">
+          <div class="cross-control">
+            <label>Ejecutable anterior + DLLs nuevas</label>
+            <div class="toggle" data-cross="a">
+              <button type="button" class="pass" aria-pressed="true" data-value="pass">Pasa</button>
+              <button type="button" class="failure" aria-pressed="false" data-value="fail">Falla</button>
+            </div>
+          </div>
+          <div class="cross-control">
+            <label>Ejecutable nuevo + DLLs anteriores</label>
+            <div class="toggle" data-cross="b">
+              <button type="button" class="pass" aria-pressed="true" data-value="pass">Pasa</button>
+              <button type="button" class="failure" aria-pressed="false" data-value="fail">Falla</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="verdict" id="verdict" aria-live="polite">
+          <b>Incompatibilidad de integración</b>
+          <span>Cada candidato funciona con la versión anterior del otro, pero la pareja nueva falla. La matriz no permite cargarlo a un solo equipo.</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="matrix" aria-label="Matriz de versiones y resultados">
+          <div></div>
+          <div class="axis a">DLLs L₀<br>anteriores</div>
+          <div class="axis a">DLLs L₁<br>nuevas</div>
+          <div class="axis b">Ejecutable E₀<br>anterior</div>
+          <div class="cell"><strong>Baseline conocido</strong><code>E₀ + L₀</code><span class="status ok">PASA</span></div>
+          <div class="cell" id="cell-a"><strong>A cambia; B no</strong><code>E₀ + L₁</code><span class="status ok">PASA</span></div>
+          <div class="axis b">Ejecutable E₁<br>nuevo</div>
+          <div class="cell" id="cell-b"><strong>B cambia; A no</strong><code>E₁ + L₀</code><span class="status ok">PASA</span></div>
+          <div class="cell"><strong>Incidente observado</strong><code>E₁ + L₁</code><span class="status fail">FALLA</span></div>
+        </div>
+
+        <div class="rules" aria-label="Reglas de interpretación">
+          <div class="rule a"><strong>Solo falla E₀ + L₁</strong><span>El cambio está en A.</span></div>
+          <div class="rule b"><strong>Solo falla E₁ + L₀</strong><span>El cambio está en B.</span></div>
+          <div class="rule"><strong>Ambos cruces pasan</strong><span>Falla la interacción nueva.</span></div>
+          <div class="rule both"><strong>Ambos cruces fallan</strong><span>No hay un único responsable.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="condiciones">
+      <div class="section-head">
+        <div><p class="kicker">Condiciones de validez</p><h2 id="condiciones">La matriz diagnostica; el contrato asigna responsabilidad</h2></div>
+        <p>“Qué cambio dispara el fallo” y “qué equipo incumplió su compromiso” son preguntas distintas.</p>
+      </div>
+
+      <div class="foundation">
+        <article class="panel">
+          <h3>Para poder repetir de verdad</h3>
+          <p>Las DLLs deben guardarse como un <strong>bundle inmutable completo</strong>, no como “las últimas” encontradas en una carpeta.</p>
+          <dl class="manifest">
+            <dt>exe</dt><dd>build · commit · SHA-256</dd>
+            <dt>dll_bundle</dt><dd>build · commit · SHA-256 · transitivas</dd>
+            <dt>test</dt><dd>versión · datos · semilla</dd>
+            <dt>entorno</dt><dd>SO/imagen · configuración</dd>
+          </dl>
+        </article>
+        <article class="panel">
+          <h3>Para poder decir “responsable”</h3>
+          <ul>
+            <li>Si A promete compatibilidad con E₀ y <strong>E₀ + L₁ falla</strong>, A ha roto el contrato.</li>
+            <li>Si B debe soportar L₀ y <strong>E₁ + L₀ falla</strong>, B ha roto el contrato.</li>
+            <li>Si ambos cruces pasan, revisad el contrato de la versión conjunta: puede ser responsabilidad compartida o del equipo dueño de integración.</li>
+            <li>Si E₀ + L₀ también falla, parad la atribución: investigad entorno, datos, test inestable o baseline mal conservado.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="recommendation" aria-labelledby="recomendacion">
+      <p class="kicker">Propuesta pragmática</p>
+      <h2 id="recomendacion">Un MVP sencillo para implantar ya</h2>
+      <div class="steps">
+        <div class="step"><b>Promocionar el último bueno.</b> Solo actualizar E₀/L₀ cuando el nightly completo pasa.</div>
+        <div class="step"><b>Guardar manifiesto y artefactos.</b> Retener, como mínimo, el último bueno y todos los candidatos del incidente.</div>
+        <div class="step"><b>Al fallar E₁/L₁, lanzar 2 pruebas.</b> Los cruces E₀/L₁ y E₁/L₀; E₀/L₀ ya es el último baseline registrado.</div>
+        <div class="step"><b>Publicar un veredicto automático.</b> A, B, interacción, ambos/indeterminado o infraestructura.</div>
+      </div>
+      <p class="footnote">Más adelante, añadid gate de compatibilidad y bisectado únicamente si el coste de los incidentes lo justifica.</p>
+    </section>
+
+    <footer>Documento de decisión · DLLs + ejecutables · sin dependencias externas</footer>
+  </main>
+
+  <script>
+    (() => {
+      const state = { a: "pass", b: "pass" };
+      const verdict = document.getElementById("verdict");
+
+      const outcomes = {
+        "fail-pass": ["Cambio localizado en A", "Las DLLs nuevas rompen el ejecutable anterior, mientras el ejecutable nuevo funciona con las DLLs anteriores. Confirmad que E₀ está dentro del contrato de compatibilidad de A.", "var(--a-soft)", "var(--a)"],
+        "pass-fail": ["Cambio localizado en B", "El ejecutable nuevo falla también con las DLLs anteriores, mientras las DLLs nuevas funcionan con el ejecutable anterior. Confirmad que L₀ está dentro del contrato de soporte de B.", "var(--b-soft)", "var(--b)"],
+        "pass-pass": ["Incompatibilidad de integración", "Cada candidato funciona con la versión anterior del otro, pero la pareja nueva falla. La matriz no permite cargarlo a un solo equipo.", "var(--joint-soft)", "var(--joint)"],
+        "fail-fail": ["Ambos o indeterminado", "Cada candidato rompe por separado contra el componente anterior. Puede haber dos regresiones o un supuesto compartido incorrecto; hace falta acotar con logs, contratos o bisectado.", "var(--warn-soft)", "var(--warn)"]
+      };
+
+      function paintCell(id, value) {
+        const cell = document.getElementById(id);
+        const status = cell.querySelector(".status");
+        status.textContent = value === "pass" ? "PASA" : "FALLA";
+        status.className = `status ${value === "pass" ? "ok" : "fail"}`;
+      }
+
+      function render() {
+        paintCell("cell-a", state.a);
+        paintCell("cell-b", state.b);
+        const [title, detail, bg, color] = outcomes[`${state.a}-${state.b}`];
+        verdict.style.background = bg;
+        verdict.style.borderLeftColor = color;
+        verdict.querySelector("b").textContent = title;
+        verdict.querySelector("b").style.color = color;
+        verdict.querySelector("span").textContent = detail;
+      }
+
+      document.querySelectorAll(".toggle").forEach(group => {
+        group.addEventListener("click", event => {
+          const button = event.target.closest("button[data-value]");
+          if (!button) return;
+          const key = group.dataset.cross;
+          state[key] = button.dataset.value;
+          group.querySelectorAll("button").forEach(candidate => {
+            candidate.setAttribute("aria-pressed", String(candidate === button));
+          });
+          render();
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

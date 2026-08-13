@@ -24,6 +24,18 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "8127", "--directory", "architecture"],
       "port": 8127
+    },
+    {
+      "name": "orientacion",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8129", "--directory", "orientacion"],
+      "port": 8129
+    },
+    {
+      "name": "history",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8128", "--directory", "history"],
+      "port": 8128
     }
   ]
 }

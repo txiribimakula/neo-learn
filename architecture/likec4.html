@@ -1,0 +1,1736 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C4 + LikeC4 · modelar toda tu arquitectura (K8s, Kafka→Service Bus, Blob, C# sobre C++)</title>
+<style>
+  :root{
+    --bg:#f3efe6; --card:#ffffff; --card-border:#e4dfd2;
+    --ink:#23272f; --muted:#6b7280; --muted2:#9aa1ad; --accent:#3956d3;
+    --code-bg:#1d2230; --code-ink:#e6e9f2; --code-mut:#8e9bb3;
+    /* color por concepto — consistente en TODA la página */
+    --c-l1:#7c3aed;      /* Nivel 1 · Context */
+    --c-l2:#2563eb;      /* Nivel 2 · Container */
+    --c-l3:#0d9488;      /* Nivel 3 · Component */
+    --c-l4:#2e7d4f;      /* Nivel 4 · Code */
+    --c-kafka:#d97706;   /* Kafka · as-is */
+    --c-asb:#0284c7;     /* Service Bus · to-be */
+    --c-rest:#475569;    /* REST síncrono */
+    --c-infra:#db2777;   /* deployment / infra */
+    --c-cpp:#2e7d4f;     /* C++ nativo */
+    --c-cs:#4f46e5;      /* C# gestionado */
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);line-height:1.65;
+       font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:960px;margin:0 auto;padding:0 22px}
+
+  nav.toc{position:sticky;top:0;z-index:30;background:rgba(243,239,230,.93);
+          backdrop-filter:blur(7px);border-bottom:1px solid var(--card-border)}
+  .toc-inner{max-width:960px;margin:0 auto;display:flex;gap:5px;overflow-x:auto;padding:9px 22px}
+  .toc a{font-size:12.5px;font-weight:700;color:var(--muted);text-decoration:none;
+         padding:5px 11px;border-radius:7px;white-space:nowrap;transition:.15s}
+  .toc a:hover{color:var(--ink);background:#fff}
+  .toc a.active{background:var(--accent);color:#fff}
+
+  header.hero{padding:56px 0 8px}
+  .hero h1{font-size:29px;font-weight:800;letter-spacing:-.5px;line-height:1.15;margin:0 0 14px}
+  .hero .lead{font-size:15.5px;color:var(--muted);max-width:730px;margin:0}
+  .hero .lead b{color:var(--ink)}
+
+  .cast{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:9px;margin:26px 0 6px}
+  .cast .chip{display:flex;gap:10px;align-items:flex-start;background:#fff;
+              border:1px solid var(--card-border);border-radius:9px;padding:9px 11px}
+  .cast .sw{width:11px;height:11px;border-radius:3px;flex:0 0 auto;margin-top:4px}
+  .cast .chip .nm{font-size:13px;font-weight:800;line-height:1.3}
+  .cast .chip .st{font-size:11px;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+
+  section.sec{padding:40px 0;border-top:1px solid var(--card-border)}
+  .sec .num{font-size:11px;font-weight:800;letter-spacing:1.6px;color:var(--accent);text-transform:uppercase}
+  .sec h2{font-size:23px;font-weight:800;letter-spacing:-.3px;margin:7px 0 6px}
+  .sec .sub{font-size:13px;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:0 0 16px}
+  .sec h3{font-size:17px;font-weight:800;margin:30px 0 6px}
+  .sec p{font-size:14.5px;color:#3b4250;margin:0 0 13px}
+  .sec p b{color:var(--ink)}
+  .sec ul,.sec ol{font-size:14.5px;color:#3b4250;margin:0 0 13px;padding-left:20px}
+  .sec li{margin:0 0 6px}
+
+  .el{font-weight:800;white-space:nowrap}
+  .el.l1{color:var(--c-l1)} .el.l2{color:var(--c-l2)} .el.l3{color:var(--c-l3)} .el.l4{color:var(--c-l4)}
+  .el.kafka{color:var(--c-kafka)} .el.asb{color:var(--c-asb)} .el.rest{color:var(--c-rest)}
+  .el.infra{color:var(--c-infra)} .el.cpp{color:var(--c-cpp)} .el.cs{color:var(--c-cs)}
+
+  code.k{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;
+         background:#efeadf;border:1px solid var(--card-border);border-radius:5px;padding:1px 5px;color:#3b4250}
+
+  .grid{display:grid;gap:13px}
+  .cols-2{grid-template-columns:1fr 1fr}
+  .cols-3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:760px){.cols-2,.cols-3{grid-template-columns:1fr}}
+
+  .actor{background:#fff;border:1px solid var(--card-border);border-left:5px solid var(--ac);
+         border-radius:10px;padding:12px 15px}
+  .actor .st{font-size:10.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--muted2)}
+  .actor .nm{font-size:16.5px;font-weight:800;color:var(--ac);margin:1px 0 4px}
+  .actor .ds{font-size:13px;color:#3b4250;margin:0 0 6px}
+  .actor .dep{font-size:11.5px;color:var(--muted)}
+  .actor .dep b{color:var(--ink)}
+
+  .figure{background:#fff;border:1px solid var(--card-border);border-radius:12px;padding:14px;overflow:auto}
+  .figure svg{display:block;width:100%;height:auto;min-width:560px}
+  .caption{font-size:12px;color:var(--muted);margin:9px 2px 0;text-align:center}
+
+  pre.code{background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:15px 17px;
+           overflow:auto;font-family:ui-monospace,"SF Mono",Consolas,monospace;font-size:12.5px;line-height:1.62;margin:0}
+  pre.code .c{color:var(--code-mut)}
+  pre.code .kw{color:#7dd3fc}
+  pre.code .str{color:#fcd34d}
+  pre.code .tag{color:#86efac}
+  pre.code .bad{color:#fca5a5}
+  .codecap{font-size:12px;color:var(--muted);margin:8px 2px 0}
+
+  .note{font-size:13px;color:var(--muted);border-left:3px solid var(--card-border);padding:2px 0 2px 12px;margin:14px 0}
+  .warn{font-size:13.5px;background:#fff;border:1px solid var(--card-border);border-left:5px solid #d97706;
+        border-radius:10px;padding:11px 14px;margin:14px 0;color:#3b4250}
+  .ok{font-size:13.5px;background:#fff;border:1px solid var(--card-border);border-left:5px solid #2e7d4f;
+      border-radius:10px;padding:11px 14px;margin:14px 0;color:#3b4250}
+
+  table.t{width:100%;border-collapse:collapse;font-size:13.5px;background:#fff;
+          border:1px solid var(--card-border);border-radius:10px;overflow:hidden}
+  table.t th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted2);
+             padding:9px 12px;border-bottom:1px solid var(--card-border);background:#faf8f3}
+  table.t td{padding:9px 12px;border-bottom:1px solid var(--card-border);vertical-align:top}
+  table.t tr:last-child td{border-bottom:none}
+
+  /* explorador de niveles */
+  .zoom{background:#fff;border:1px solid var(--card-border);border-radius:12px;padding:15px}
+  .zoom .tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:13px}
+  .zoom .tabs button{font:inherit;font-size:12.5px;font-weight:800;padding:7px 13px;border-radius:8px;cursor:pointer;
+                     border:1px solid var(--card-border);background:#faf8f3;color:var(--muted)}
+  .zoom .tabs button.on{background:var(--tc);border-color:var(--tc);color:#fff}
+  .zoom .body{display:grid;grid-template-columns:1.15fr .85fr;gap:15px;align-items:start}
+  @media(max-width:760px){.zoom .body{grid-template-columns:1fr}}
+  .zoom .stage{background:linear-gradient(180deg,#faf8f3,#f0ebe0);border:1px solid var(--card-border);
+               border-radius:10px;padding:10px;overflow:auto}
+  .zoom .stage svg{display:block;width:100%;height:auto;min-width:420px}
+  .zoom .info h4{margin:0 0 4px;font-size:16px;font-weight:800;color:var(--tc)}
+  .zoom .info .q{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted2)}
+  .zoom .info p{font-size:13.5px;margin:6px 0 10px;color:#3b4250}
+  .zoom .info .lst{font-size:12.5px;color:var(--muted)}
+  .zoom .info .lst b{color:var(--ink)}
+
+  /* toggle as-is / to-be */
+  .mig{background:#fff;border:1px solid var(--card-border);border-radius:12px;padding:15px}
+  .mig .ctrls{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+  .mig .ctrls button{font:inherit;font-size:12.5px;font-weight:800;padding:6px 13px;border-radius:8px;cursor:pointer;
+                     border:1px solid var(--card-border);background:#faf8f3;color:var(--muted)}
+  .mig .ctrls button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .mig .hint{font-size:12.5px;color:var(--muted);margin-left:auto}
+  .fade{transition:opacity .28s ease}
+  .fade.off{opacity:.1}
+
+  footer{padding:40px 0 70px;color:var(--muted);font-size:13px;border-top:1px solid var(--card-border)}
+  footer a{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<nav class="toc">
+  <div class="toc-inner" id="toc">
+    <a href="#idea">01 · La idea</a>
+    <a href="#niveles">02 · Los 4 niveles</a>
+    <a href="#vocabulario">03 · Vocabulario</a>
+    <a href="#likec4">04 · Por qué LikeC4</a>
+    <a href="#anatomia">05 · Anatomía</a>
+    <a href="#motor">06 · Cómo se calcula una vista</a>
+    <a href="#transportes">07 · REST · Kafka · ASB</a>
+    <a href="#multiplicidad">08 · Multiplicidad</a>
+    <a href="#migracion">09 · Migración</a>
+    <a href="#deployment">10 · K8s · Blob · discos</a>
+    <a href="#nativo">11 · C# sobre C++</a>
+    <a href="#flujo">12 · Vistas dinámicas</a>
+    <a href="#claridad">13 · Claridad</a>
+    <a href="#gobernanza">14 · Gobernanza</a>
+    <a href="#plan">15 · Plan</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <header class="hero" id="top">
+    <h1>C4 con LikeC4<br>modelar toda tu arquitectura sin dibujar dos veces lo mismo</h1>
+    <p class="lead">C4 es un <b>zoom</b>: el mismo sistema visto a cuatro distancias. LikeC4 es ese zoom
+    escrito como código — <b>un único modelo</b> del que salen todos los diagramas. Esta guía va de cero a
+    modelar tu caso real: servicios accesibles por <b>REST</b> y por <b>Kafka</b>, algunos por <b>Service Bus</b>
+    (con la migración de uno a otro representada explícitamente), corriendo en <b>Kubernetes</b>, escribiendo
+    en <b>Blob Storage</b> y en <b>discos de Azure</b>, y con <b>wrappers C# sobre motores C++</b> por debajo.</p>
+
+    <div class="cast">
+      <div class="chip"><div class="sw" style="background:var(--c-l1)"></div><div><div class="nm" style="color:var(--c-l1)">Nivel 1 · Context</div><div class="st">quién nos usa</div></div></div>
+      <div class="chip"><div class="sw" style="background:var(--c-l2)"></div><div><div class="nm" style="color:var(--c-l2)">Nivel 2 · Container</div><div class="st">qué se despliega</div></div></div>
+      <div class="chip"><div class="sw" style="background:var(--c-l3)"></div><div><div class="nm" style="color:var(--c-l3)">Nivel 3 · Component</div><div class="st">piezas internas</div></div></div>
+      <div class="chip"><div class="sw" style="background:var(--c-l4)"></div><div><div class="nm" style="color:var(--c-l4)">Nivel 4 · Code</div><div class="st">sólo si compensa</div></div></div>
+      <div class="chip"><div class="sw" style="background:var(--c-kafka)"></div><div><div class="nm" style="color:var(--c-kafka)">#as-is · Kafka</div><div class="st">lo que hay hoy</div></div></div>
+      <div class="chip"><div class="sw" style="background:var(--c-asb)"></div><div><div class="nm" style="color:var(--c-asb)">#to-be · Service Bus</div><div class="st">lo que llega</div></div></div>
+      <div class="chip"><div class="sw" style="background:var(--c-infra)"></div><div><div class="nm" style="color:var(--c-infra)">Deployment model</div><div class="st">AKS · discos · PaaS</div></div></div>
+      <div class="chip"><div class="sw" style="background:var(--c-cpp)"></div><div><div class="nm" style="color:var(--c-cpp)">Interop C# ↔ C++</div><div class="st">la frontera</div></div></div>
+    </div>
+  </header>
+
+  <!-- 01 ============================================================= -->
+  <section class="sec" id="idea">
+    <div class="num">01</div>
+    <h2>La idea de C4 en un minuto</h2>
+    <p class="sub">Un mapa tiene escalas — un diagrama también</p>
+
+    <p>Nadie usa un mapa de carreteras para buscar el baño de su casa, ni un plano de la casa para ir a otra ciudad.
+    Con la arquitectura pasa igual, pero solemos dibujar <b>un único diagrama gigante</b> que intenta servir para
+    todo: acaba con cuarenta cajas, flechas cruzadas, y con una nota que dice «ver Confluence».</p>
+
+    <p>C4 (de <i>Context, Containers, Components, Code</i>) propone lo obvio en cuanto lo escuchas: <b>cuatro
+    escalas fijas</b>, y en cada diagrama te quedas en una sola. Cada nivel responde a una pregunta distinta y
+    tiene una audiencia distinta. Eso es casi todo el método; el resto son consejos.</p>
+
+    <p>Lo que C4 <b>no</b> es: una notación estricta (no hay que aprenderse símbolos), ni UML, ni una herramienta.
+    Es un modelo mental. Lo que aporta de verdad son dos disciplinas:</p>
+
+    <ul>
+      <li><b>No mezclar escalas</b> en el mismo dibujo — el error número uno.</li>
+      <li><b>Un elemento, un sitio</b>: cada cosa aparece definida una única vez, y los diagramas se derivan de ahí.
+      Esto último es justo lo que una herramienta como LikeC4 te da gratis y un Visio nunca podrá darte.</li>
+    </ul>
+
+    <div class="warn"><b>El síntoma que estás intentando curar:</b> tienes tres diagramas del mismo sistema,
+    hechos por tres personas, y ninguno coincide. Con C4 el problema no desaparece por magia — desaparece
+    porque los tres pasan a ser <i>vistas</i> del mismo modelo escrito en un fichero, y ese fichero vive en el
+    repo junto al código, con su pull request.</div>
+  </section>
+
+  <!-- 02 ============================================================= -->
+  <section class="sec" id="niveles">
+    <div class="num">02</div>
+    <h2>Los cuatro niveles, con tu sistema dentro</h2>
+    <p class="sub">Haz clic en cada nivel — es el mismo sistema, cada vez más cerca</p>
+
+    <div class="zoom" id="zoom" style="--tc:var(--c-l1)">
+      <div class="tabs" id="zoomTabs"></div>
+      <div class="body">
+        <div class="stage" id="zoomStage"></div>
+        <div class="info" id="zoomInfo"></div>
+      </div>
+    </div>
+    <p class="caption">El mismo Tile Renderer aparece en los cuatro niveles. No es que haya cuatro modelos:
+    es un modelo con profundidad, y cada nivel decide dónde cortar.</p>
+
+    <h3>La regla para no perderte: ¿qué cambia al bajar un nivel?</h3>
+    <table class="t">
+      <tr><th>Nivel</th><th>Pregunta que responde</th><th>Para quién</th><th>Una caja es…</th></tr>
+      <tr><td><span class="el l1">1 · Context</span></td><td>¿Qué hace el sistema y con quién habla?</td><td>Cualquiera, incluido negocio</td><td>Un sistema entero o una persona</td></tr>
+      <tr><td><span class="el l2">2 · Container</span></td><td>¿De qué piezas <b>desplegables</b> se compone?</td><td>Todo el equipo técnico</td><td>Algo que arrancas y paras por separado: un servicio, una BD, un broker, una SPA</td></tr>
+      <tr><td><span class="el l3">3 · Component</span></td><td>¿Cómo está organizado por dentro un container?</td><td>Quien toca ese servicio</td><td>Una agrupación con responsabilidad clara dentro del proceso</td></tr>
+      <tr><td><span class="el l4">4 · Code</span></td><td>¿Cómo se implementa un componente concreto?</td><td>Quien va a modificarlo</td><td>Clases, interfaces, funciones</td></tr>
+    </table>
+
+    <div class="note"><b>«Container» aquí no significa contenedor Docker.</b> Es la palabra de C4 para «cosa que se
+    ejecuta y se despliega por separado». Un pod de Kubernetes suele contener un container C4, pero también lo es
+    una base de datos gestionada o un topic de Kafka. Que coincida a veces con Docker es una casualidad histórica
+    desafortunada del nombre.</div>
+
+    <h3>¿Hasta dónde hay que bajar?</h3>
+    <p>Regla práctica, y es la que evita que esto se convierta en burocracia: <b>los niveles 1 y 2 se mantienen
+    siempre</b> (son baratos y son los que más se consultan), el <b>nivel 3 sólo para los servicios con miga</b>,
+    y el <b>nivel 4 casi nunca</b> — sólo para una frontera crítica que la gente se equivoca al usar, un algoritmo
+    caliente, o una zona con historial de bugs. En tu caso, el nivel 4 se gana su sitio exactamente en un punto:
+    la frontera C# ↔ C++.</p>
+
+    <div class="warn"><b>El nivel 4 se pudre.</b> El código cambia cada día; un diagrama de clases mantenido a
+    mano miente en dos semanas. Si lo dibujas, que sea porque la <i>forma</i> es estable aunque el detalle cambie
+    (una C ABI, un pipeline de fases), no porque quieras documentar todas las clases.</div>
+  </section>
+
+  <!-- 03 ============================================================= -->
+  <section class="sec" id="vocabulario">
+    <div class="num">03</div>
+    <h2>El vocabulario mínimo (y las tres decisiones que siempre duelen)</h2>
+    <p class="sub">Antes de escribir una línea de DSL</p>
+
+    <p>C4 sólo tiene cinco tipos de cosa: <b>persona</b>, <b>sistema</b>, <b>container</b>, <b>componente</b> y
+    <b>relación</b>. Todo lo demás que verás (colores, formas, iconos) es cosmética. Lo difícil no es el
+    vocabulario: son estas tres decisiones, que reaparecen en todos los modelos.</p>
+
+    <div class="grid cols-3">
+      <div class="actor" style="--ac:var(--c-l1)">
+        <div class="st">decisión 1</div><div class="nm">¿Dónde está el borde de <i>mi</i> sistema?</div>
+        <div class="ds">Lo que está dentro lo construyes y lo despliegas tú; lo de fuera lo consumes. Kafka, Service Bus
+        y Blob Storage están <b>fuera</b> (son plataformas gestionadas), aunque los configures tú.</div>
+        <div class="dep"><b>criterio:</b> ¿puedo desplegar una versión nueva de esto?</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-l2)">
+        <div class="st">decisión 2</div><div class="nm">¿Esto es un container o un componente?</div>
+        <div class="ds">Si se arranca, se para y se escala por separado → <b>container</b>. Si vive dentro del mismo
+        proceso que otro → <b>componente</b>. Tu motor C++ vive dentro del proceso .NET: es componente, no container.</div>
+        <div class="dep"><b>criterio:</b> ¿tiene su propio ciclo de vida en runtime?</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-kafka)">
+        <div class="st">decisión 3</div><div class="nm">¿El broker es caja o es flecha?</div>
+        <div class="ds">La que más discusión genera. Ambas son legítimas, pero no en el mismo diagrama.
+        Lo desarrollamos en la sección 06 — es central en tu caso.</div>
+        <div class="dep"><b>criterio:</b> ¿el broker tiene comportamiento que quiero explicar?</div>
+      </div>
+    </div>
+
+    <h3>Cómo se escribe una relación que se entienda</h3>
+    <p>Una flecha sin etiqueta es ruido. Una relación útil dice <b>qué hace</b> y <b>por dónde</b>, y va siempre
+    en la dirección de la <i>iniciativa</i> (quién llama a quién), no en la del dato:</p>
+
+    <div class="grid cols-2">
+      <div>
+        <pre class="code"><span class="bad">✗  ingestApi -&gt; kafka</span>
+<span class="bad">✗  tileRenderer -&gt; blob 'usa'</span>
+<span class="bad">✗  renderer &lt;- kafka 'datos'</span></pre>
+        <div class="codecap">Sin verbo, sin transporte, y la flecha girada según el dato en vez de según quién llama.</div>
+      </div>
+      <div>
+        <pre class="code"><span class="tag">✓</span>  ingestApi -[kafka]-&gt; kafka <span class="str">'publica job.requested'</span>
+<span class="tag">✓</span>  uploader  -[blob]-&gt;  blob  <span class="str">'sube tiles y manifiesto'</span>
+<span class="tag">✓</span>  kafka     -[kafka]-&gt; renderer <span class="str">'consume job.requested'</span></pre>
+        <div class="codecap">Verbo en presente, sustantivo concreto y el transporte en el <i>kind</i> de la relación.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 ============================================================= -->
+  <section class="sec" id="likec4">
+    <div class="num">04</div>
+    <h2>Por qué LikeC4 y no un editor de dibujo</h2>
+    <p class="sub">La diferencia entre dibujar y modelar</p>
+
+    <p>En una herramienta de dibujo, si el Tile Renderer aparece en seis diagramas, existen <b>seis rectángulos
+    distintos</b> que casualmente tienen el mismo texto. Renombrarlo son seis ediciones y una la olvidas.</p>
+
+    <p>En LikeC4 escribes el modelo <b>una vez</b> y las vistas son <b>consultas</b> sobre él. Renombrar es una
+    línea. Y como es texto, entra en el repo, se revisa en un PR y se compara en un diff igual que el código.</p>
+
+    <div class="grid cols-2">
+      <div class="actor" style="--ac:var(--c-l2)">
+        <div class="st">lo que ganas</div><div class="nm">Modelo único</div>
+        <div class="ds">Una relación declarada se propaga sola a todas las vistas donde ambos extremos sean visibles.
+        Si borras un servicio, desaparece de todos los diagramas — no queda un fantasma.</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-l3)">
+        <div class="st">lo que ganas</div><div class="nm">Relaciones derivadas</div>
+        <div class="ds">Si <code class="k">renderer.uploader -&gt; blob</code>, LikeC4 dibuja automáticamente
+        <code class="k">renderer -&gt; blob</code> en la vista de containers. Modelas donde <i>ocurre</i> la verdad
+        y los niveles altos se resuelven solos.</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-l1)">
+        <div class="st">lo que ganas</div><div class="nm">Navegación</div>
+        <div class="ds">El visor abre el diagrama en el navegador y bajas de nivel haciendo clic en una caja.
+        Es el zoom de C4 hecho de verdad, no cuatro PNG sueltos.</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-infra)">
+        <div class="st">lo que ganas</div><div class="nm">Modelo de despliegue aparte</div>
+        <div class="ds">Capa física separada (AKS, node pools, discos, PaaS) que <i>referencia</i> a la lógica.
+        Es lo que evita ensuciar «qué hace el sistema» con «dónde corre».</div>
+      </div>
+    </div>
+
+    <div class="note">Alternativas razonables: <b>Structurizr</b> (el original de Simon Brown, más maduro en
+    documentación embebida y ADRs) y <b>Mermaid/PlantUML</b> (más simples, pero sin modelo real: vuelves a dibujar
+    lo mismo N veces). LikeC4 gana en exploración interactiva y en el modelo de despliegue.</div>
+  </section>
+
+  <!-- 05 ============================================================= -->
+  <section class="sec" id="anatomia">
+    <div class="num">05</div>
+    <h2>Anatomía de un proyecto LikeC4</h2>
+    <p class="sub">Cuatro bloques y ningún misterio</p>
+
+    <p>Un proyecto es una carpeta con ficheros <code class="k">.c4</code>. El reparto en ficheros es libre
+    (todo se une en un único modelo); lo que sí es fijo son los cuatro bloques:</p>
+
+    <div class="figure" id="figAnatomia"></div>
+    <p class="caption">specification define el vocabulario · model define la arquitectura lógica ·
+    deployment define dónde corre · views define qué se enseña.</p>
+
+    <pre class="code"><span class="c">// 01-specification.c4 — el vocabulario. Cambiar un estilo aquí repinta TODO.</span>
+<span class="kw">specification</span> {
+  <span class="kw">element</span> service {
+    <span class="kw">style</span> { color indigo }
+  }
+  <span class="kw">element</span> nativeComponent {
+    notation <span class="str">'Componente nativo (C++)'</span>
+    technology <span class="str">'C++20'</span>
+    <span class="kw">style</span> { color green }
+  }
+
+  <span class="c">// El transporte va en el KIND de la relación: se estila y se filtra por él</span>
+  <span class="kw">relationship</span> rest  { technology <span class="str">'HTTPS / REST'</span> }
+  <span class="kw">relationship</span> kafka { <span class="tag">#kafka</span>      technology <span class="str">'Kafka'</span>             line dashed  color amber }
+  <span class="kw">relationship</span> asb   { <span class="tag">#servicebus</span> technology <span class="str">'Azure Service Bus'</span> line dashed  color sky   }
+
+  <span class="c">// Tags: la herramienta con la que representarás la migración</span>
+  <span class="kw">tag</span> as-is { color <span class="str">#9AA1AD</span> }
+  <span class="kw">tag</span> to-be { color <span class="str">#2E9E62</span> }
+
+  <span class="c">// Kinds del modelo físico (sección 08)</span>
+  <span class="kw">deploymentNode</span> aks { notation <span class="str">'Cluster AKS'</span>  technology <span class="str">'Kubernetes 1.29'</span> }
+  <span class="kw">deploymentNode</span> pod { <span class="kw">style</span> { multiple true } }
+}</pre>
+    <div class="codecap">Fíjate en <code class="k">multiple true</code>: dibuja la caja con «sombra» de varias.
+    Así se representan las réplicas sin pintar seis pods.</div>
+
+    <h3>La jerarquía es la que crea los niveles</h3>
+    <p>No existe una palabra clave «nivel 2». El nivel sale de <b>anidar</b> elementos y de <b>dónde apunta la
+    vista</b>. Este trozo de modelo ya contiene los cuatro niveles:</p>
+
+    <pre class="code"><span class="kw">model</span> {
+  operador = actor <span class="str">'Operador'</span>                        <span class="c">// ← nivel 1</span>
+  platform = system <span class="str">'Plataforma de Procesado'</span> {       <span class="c">// ← nivel 1</span>
+
+    tileRenderer = service <span class="str">'Tile Renderer'</span> {          <span class="c">// ← nivel 2 (container)</span>
+      host = managedComponent <span class="str">'Worker Host'</span>          <span class="c">// ← nivel 3 (component)</span>
+
+      core = nativeComponent <span class="str">'Render Core'</span> {         <span class="c">// ← nivel 3</span>
+        raster = nativeComponent <span class="str">'Rasterizer'</span>       <span class="c">// ← nivel 4 (code)</span>
+      }
+    }
+  }
+}
+
+<span class="kw">views</span> {
+  <span class="kw">view</span> index          { include * }                    <span class="c">// nivel 1: sólo lo de arriba</span>
+  <span class="kw">view</span> c2 <span class="kw">of</span> platform { include * }                    <span class="c">// nivel 2: platform y sus hijos</span>
+  <span class="kw">view</span> c3 <span class="kw">of</span> platform.tileRenderer      { include * }   <span class="c">// nivel 3</span>
+  <span class="kw">view</span> c4 <span class="kw">of</span> platform.tileRenderer.core { include * }   <span class="c">// nivel 4</span>
+}</pre>
+    <div class="codecap">Una vista <code class="k">of X</code> pone el foco en X: <code class="k">include *</code>
+    significa «X, sus hijos y los vecinos con los que se relaciona».</div>
+
+    <h3>Ponerlo en marcha</h3>
+    <pre class="code"><span class="c"># visor interactivo con recarga en caliente (lo que usarás el 90% del tiempo)</span>
+npx likec4 start architecture/likec4-demo
+
+<span class="c"># comprobar que el modelo es válido — esto va en CI</span>
+npx likec4 validate architecture/likec4-demo
+
+<span class="c"># sitio estático navegable para publicar (GitHub Pages, wiki interna…)</span>
+npx likec4 build -o dist architecture/likec4-demo
+
+<span class="c"># exportar imágenes para meterlas en un doc o en una presentación</span>
+npx likec4 export png -o out architecture/likec4-demo</pre>
+    <div class="codecap">Añade la extensión <b>LikeC4</b> de VS Code: autocompletado, ir a definición y
+    previsualización en vivo mientras escribes.</div>
+
+    <div class="ok"><b>En este repo tienes el proyecto completo y validado</b> en
+    <code class="k">architecture/likec4-demo/</code> — los cuatro ficheros que se citan aquí abajo modelan
+    exactamente tu caso. Arráncalo con <code class="k">npx likec4 start architecture/likec4-demo</code>.</div>
+  </section>
+  <!-- MOTOR ========================================================== -->
+  <section class="sec" id="motor">
+    <div class="num">06</div>
+    <h2>Cómo calcula LikeC4 una vista (el modelo mental que ahorra horas)</h2>
+    <p class="sub">Si entiendes esto, dejas de pelearte con los diagramas</p>
+
+    <p>Casi toda la frustración inicial con LikeC4 viene de tratar las vistas como dibujos. No lo son: son
+    <b>consultas</b>. El motor hace siempre lo mismo, en este orden:</p>
+
+    <ol>
+      <li>Parte de un conjunto vacío de elementos visibles.</li>
+      <li>Aplica los predicados <b>en el orden en que los escribiste</b>. Cada <code class="k">include</code> añade
+      elementos y arrastra sus relaciones <i>con lo que ya era visible</i>.</li>
+      <li>Los <code class="k">exclude</code> sólo pueden quitar lo que un predicado anterior metió.</li>
+      <li>Colapsa las relaciones en <b>conexiones</b> y las dibuja.</li>
+    </ol>
+
+    <p>El paso 4 es el que sorprende. Lo que ves en el diagrama no es «una relación»: es una
+    <b>conexión</b>, que puede ser la fusión de varias relaciones — incluidas las de elementos hijos que en esa
+    vista no son visibles.</p>
+
+    <h3>Derivación: la propiedad más útil del modelo</h3>
+    <div class="figure" id="figDeriv"></div>
+    <p class="caption">Declaras una sola relación, en el componente que de verdad habla. LikeC4 la sube a todos
+    los niveles donde haga falta.</p>
+
+    <p>De aquí sale una regla de oro práctica:</p>
+    <div class="ok"><b>Declara cada relación en el nivel más profundo donde realmente ocurre</b>, y nunca la
+    repitas «para que se vea» en el nivel de arriba. Si escribes las dos, tendrás dos relaciones distintas
+    fusionadas en una conexión, y el diagrama te lo dirá con un título feo: <code class="k">[...]</code>.</div>
+
+    <p>Ese <code class="k">[...]</code> significa «he fusionado varias relaciones con títulos distintos y no sé
+    cuál poner». Dos arreglos, según lo que quieras contar:</p>
+    <pre class="code"><span class="c">// A: quiero ver cada relación por separado (útil en vistas de mensajería)</span>
+include tileRenderer -&gt; blobStorage <span class="kw">with</span> { multiple true }
+
+<span class="c">// B: quiero una sola flecha con un título que resuma</span>
+include tileRenderer -&gt; blobStorage <span class="kw">with</span> { title <span class="str">'lee y escribe resultados'</span> }</pre>
+
+    <h3>Los selectores, que parecen iguales y no lo son</h3>
+    <table class="t">
+      <tr><th>Predicado</th><th>Qué mete</th><th>Cuándo lo quieres</th></tr>
+      <tr><td><code class="k">include cloud</code></td><td>Sólo el elemento, como caja cerrada</td><td>Cuando es un vecino y su interior no importa</td></tr>
+      <tr><td><code class="k">include cloud.*</code></td><td>Sus <b>hijos directos</b>, tengan o no relaciones</td><td>El caso normal de un diagrama de nivel N+1</td></tr>
+      <tr><td><code class="k">include cloud.**</code></td><td>Todos los <b>descendientes</b>, pero sólo los que tienen relación con algo visible</td><td>Vistas transversales (p. ej. «sólo mensajería»)</td></tr>
+      <tr><td><code class="k">include cloud._</code></td><td>El elemento <b>y</b> los hijos que se conectan con lo visible</td><td>Abrir una caja sin volcar todo su contenido</td></tr>
+      <tr><td><code class="k">include -&gt; api</code></td><td>Lo que <b>llama</b> a api (entrantes)</td><td>«¿Quién depende de esto?» antes de tocarlo</td></tr>
+      <tr><td><code class="k">include api -&gt;</code></td><td>Lo que api llama (salientes)</td><td>«¿Qué se me cae si esto se queda solo?»</td></tr>
+      <tr><td><code class="k">include -&gt; api -&gt;</code></td><td>Entrantes y salientes</td><td>La vista de impacto de un servicio concreto</td></tr>
+    </table>
+
+    <p>Con esos dos últimos tienes gratis una herramienta de análisis que un dibujo nunca te da:</p>
+    <pre class="code"><span class="c">// «¿A quién le afecta que migre el Tile Renderer?» — vista de impacto</span>
+<span class="kw">view</span> impactoRenderer {
+  title <span class="str">'Impacto · todo lo que toca el Tile Renderer'</span>
+  include -&gt; platform.tileRenderer -&gt;
+}</pre>
+
+    <h3>Alcance del comodín: <code class="k">*</code> no siempre significa lo mismo</h3>
+    <p>En una vista sin <code class="k">of</code>, <code class="k">include *</code> son los elementos de
+    <b>primer nivel</b> del modelo (tu sistema, las personas, los externos) — por eso el nivel 1 sale casi solo.
+    En una vista <code class="k">of X</code>, <code class="k">*</code> es <b>X, sus hijos y los vecinos con los
+    que se relacionan</b>. Es la misma línea de código y produce dos diagramas de escala distinta: eso <i>es</i>
+    el zoom de C4 implementado.</p>
+
+    <h3>Grupos: marcos visuales, no jerarquía</h3>
+    <p>Un <code class="k">group</code> dibuja un recuadro alrededor de elementos que <b>no</b> son hermanos en el
+    modelo. Dos reglas que ahorran desconcierto: un elemento se queda en el <b>primer</b> grupo donde lo incluyas,
+    y si su <b>padre también está visible</b>, se dibujará dentro del padre e ignorará el grupo. Por eso en la
+    vista del sándwich agrupamos componentes hermanos y no metemos <code class="k">core.*</code> en el grupo del
+    core: ya está anidado.</p>
+
+    <h3>Cuándo tocar el layout (y cuándo no)</h3>
+    <p>El layout es automático (Graphviz). Antes de pelearte a mano, tienes dos palancas que sí escalan:
+    <code class="k">autoLayout LeftRight|TopBottom</code> — usa horizontal para flujos de datos y vertical para
+    jerarquías —, y <code class="k">rank same { a, b }</code> para alinear elementos que conceptualmente están
+    al mismo nivel. Si aun así el diagrama sale ilegible, el problema casi nunca es el layout: es que la vista
+    está intentando responder dos preguntas.</p>
+  </section>
+
+
+  <!-- 06 ============================================================= -->
+  <section class="sec" id="transportes">
+    <div class="num">07</div>
+    <h2>Un servicio al que se llega por REST <i>y</i> por Kafka <i>y</i> por Service Bus</h2>
+    <p class="sub">El caso que rompe los diagramas de caja y flecha</p>
+
+    <p>Tus servicios tienen varias puertas de entrada a la vez. Modelarlo mal produce diagramas donde no se
+    distingue una llamada síncrona de un evento, y todo el mundo asume lo que le conviene. Hay <b>dos formas
+    correctas</b> de representar un broker, y elegir cuál usar depende de qué quieras explicar.</p>
+
+    <div class="figure" id="figBroker"></div>
+    <p class="caption">A: el broker como <b>nodo</b> — se ve el desacoplamiento y quién publica en qué.
+    B: el broker como <b>arista</b> — se ve el flujo de negocio sin ruido de infraestructura.</p>
+
+    <div class="grid cols-2">
+      <div class="actor" style="--ac:var(--c-kafka)">
+        <div class="st">opción A · broker como nodo</div><div class="nm">Kafka es una caja</div>
+        <div class="ds">Productor y consumidor <b>no se tocan</b>: cada uno tiene una relación con el broker.
+        Es fiel a la realidad (nadie llama a nadie) y es imprescindible si quieres hablar de topics, particiones,
+        consumer groups, retención o DLQ.</div>
+        <div class="dep"><b>úsalo en:</b> vistas de mensajería, migración, capacidad, operación</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-l2)">
+        <div class="st">opción B · broker como arista</div><div class="nm">Kafka es una etiqueta</div>
+        <div class="ds">Una sola flecha <code class="k">ingestApi -&gt; tileRenderer</code> con
+        <code class="k">technology 'Kafka'</code>. Con quince servicios y tres brokers, la opción A produce una
+        estrella ilegible; ésta deja ver el flujo de negocio.</div>
+        <div class="dep"><b>úsalo en:</b> el diagrama de contexto y las vistas para gente no-infra</div>
+      </div>
+    </div>
+
+    <div class="ok"><b>Recomendación para tu caso:</b> modela en el modelo la opción <b>A</b> (broker como nodo,
+    que es la verdad y no pierde información) y genera la lectura tipo B como <b>vista aparte</b> excluyendo los
+    brokers. El modelo no se duplica: cambia sólo el filtro de la vista.</div>
+
+    <h3>El truco: el transporte va en el <i>kind</i> de la relación</h3>
+    <p>Si declaras un kind por transporte (<code class="k">rest</code>, <code class="k">kafka</code>,
+    <code class="k">asb</code>, <code class="k">blob</code>), consigues tres cosas de golpe: estilo consistente
+    (sólida = síncrona, discontinua = asíncrona), etiqueta de tecnología automática, y — lo importante —
+    <b>poder filtrar vistas por transporte</b>.</p>
+
+    <pre class="code"><span class="c">// 02-model.c4 — el mismo servicio, tres puertas</span>
+operador   -[rest]-&gt;  platform.ingestApi <span class="str">'lanza y consulta trabajos'</span>
+clienteApi -[rest]-&gt;  platform.ingestApi <span class="str">'POST /jobs'</span>
+
+platform.ingestApi -[kafka]-&gt; kafkaCluster <span class="str">'publica job.requested'</span>
+kafkaCluster -[kafka]-&gt; platform.tileRenderer.messaging {
+  title <span class="str">'consume job.requested'</span>
+  description <span class="str">'Consumer group con offsets commiteados por partición.'</span>
+}
+
+platform.tileRenderer.host -[asb]-&gt; serviceBus <span class="str">'publica job.completed'</span>
+serviceBus -[asb]-&gt; platform.reportService  <span class="str">'recibe job.completed'</span></pre>
+
+    <pre class="code"><span class="c">// 04-views.c4 — vista transversal: SÓLO lo asíncrono, sin REST ni storage</span>
+<span class="kw">view</span> messagingOnly {
+  title <span class="str">'Transversal · Sólo mensajería'</span>
+  include platform.**, kafkaCluster, serviceBus
+  exclude * -&gt; * <span class="kw">where</span> tag is not <span class="tag">#kafka</span> and tag is not <span class="tag">#servicebus</span>
+}</pre>
+    <div class="codecap">El patrón más rentable de LikeC4: <b>incluye de más y filtra con <code class="k">exclude
+    … where</code></b>. Como los tags <code class="k">#kafka</code>/<code class="k">#servicebus</code> los hereda
+    cada relación de su kind, no hay que etiquetar nada a mano.</div>
+
+    <div class="note"><b>¿Y las réplicas y el balanceo?</b> Eso no es arquitectura lógica: seis réplicas del
+    renderer siguen siendo un solo container. Va al modelo de despliegue (sección 08).</div>
+  </section>
+  <!-- MULTIPLICIDAD ================================================== -->
+  <section class="sec" id="multiplicidad">
+    <div class="num">08</div>
+    <h2>Multiplicidad: réplicas, particiones y el «cuántos» que C4 no dibuja</h2>
+    <p class="sub">Dónde va cada tipo de cardinalidad — y por qué en tu migración esto decide el diseño</p>
+
+    <p>C4 no tiene cardinalidad. Seis réplicas del renderer siguen siendo <b>un</b> container; doce particiones de
+    un topic siguen siendo <b>un</b> topic. Eso es deliberado: si dibujaras las instancias, el diagrama cambiaría
+    cada vez que escala el HPA. Pero la información sí importa, así que cada tipo de «cuántos» tiene su sitio:</p>
+
+    <table class="t">
+      <tr><th>«Cuántos»</th><th>Dónde va</th><th>Cómo</th></tr>
+      <tr><td>Réplicas de un servicio</td><td>Deployment</td><td>Título del pod (<code class="k">×6</code>) + <code class="k">style { multiple true }</code></td></tr>
+      <tr><td>Particiones de un topic</td><td>Metadata del elemento o descripción de la relación</td><td><code class="k">metadata { partitions '12' }</code></td></tr>
+      <tr><td>Consumidores en competencia</td><td>Descripción de la relación</td><td>«competing consumers, sin orden garantizado»</td></tr>
+      <tr><td>Entornos (dev/pre/prod)</td><td>Deployment</td><td>Nodos hermanos + una vista por entorno</td></tr>
+      <tr><td>Multi-región</td><td>Deployment</td><td>Dos <code class="k">region</code> con instancias del mismo elemento lógico</td></tr>
+    </table>
+
+    <h3>Por qué esto no es cosmético en tu caso</h3>
+    <p>Aquí es donde el modelo empieza a pagarte de verdad. Kafka y Service Bus <b>no dan las mismas garantías</b>,
+    y la diferencia se concentra justo en la multiplicidad:</p>
+
+    <table class="t">
+      <tr><th></th><th>Kafka</th><th>Azure Service Bus</th><th>Consecuencia práctica</th></tr>
+      <tr><td><b>Unidad de paralelismo</b></td><td>Partición: como mucho un consumidor por partición y grupo</td><td>Consumidores en competencia sobre la misma cola, sin tope estructural</td><td>En Kafka escalas añadiendo particiones (y eso es una decisión previa); en ASB escalas añadiendo pods</td></tr>
+      <tr><td><b>Orden</b></td><td>Garantizado dentro de la partición → por clave</td><td>Sólo con <b>sessions</b>, y entonces una sesión = un consumidor</td><td>Si dependes del orden por clave, en ASB necesitas sessions y <i>vuelves</i> a tener el mismo tope de paralelismo</td></tr>
+      <tr><td><b>Reproceso</b></td><td>Rebobinar el offset y volver a leer</td><td>No existe: al completar, el mensaje desaparece</td><td>Quien use replay para recuperarse necesita otra estrategia (guardar los eventos en Blob) <b>antes</b> de migrar</td></tr>
+      <tr><td><b>Fallos</b></td><td>Lo gestionas tú (reintentos, topic de errores)</td><td>DLQ nativa, <code class="k">deliveryCount</code>, peek-lock</td><td>Puedes borrar código de reintentos… y empezar a vigilar la DLQ</td></tr>
+      <tr><td><b>Entrega</b></td><td>At-least-once en la práctica</td><td>At-least-once (o at-most-once)</td><td>La idempotencia del consumidor es obligatoria en ambos: no es algo que arregle la migración</td></tr>
+    </table>
+
+    <p>Traducido a decisión de arquitectura: <b>los servicios que dependen del orden o del replay no migran
+    igual que los demás</b>. Eso es exactamente el tipo de cosa que un diagrama debe hacer visible, y se hace con
+    metadata + una vista de riesgo:</p>
+
+    <pre class="code"><span class="c">// En el modelo: marca el requisito donde está la verdad</span>
+tileRenderer = service <span class="str">'Tile Renderer'</span> {
+  metadata {
+    ordering  <span class="str">'by-key'</span>       <span class="c">// necesita orden por clave de trabajo</span>
+    replay    <span class="str">'required'</span>     <span class="c">// se recupera rebobinando offsets</span>
+  }
+}
+
+<span class="c">// En las vistas: «enséñame lo que NO puede migrar tal cual»</span>
+<span class="kw">view</span> riesgoMigracion {
+  title <span class="str">'Migración · servicios con requisitos que ASB no cubre igual'</span>
+  include platform.*
+    <span class="kw">where</span> metadata.ordering is <span class="str">"by-key"</span> or metadata.replay is <span class="str">"required"</span>
+}</pre>
+    <div class="codecap">Esa vista no es decorativa: es la lista de trabajo de la migración, y se recalcula sola
+    cuando alguien añade un servicio o resuelve el requisito.</div>
+
+    <div class="note">El mismo razonamiento vale al revés: si un servicio no necesita orden ni replay, migrarlo es
+    casi mecánico (cambiar la implementación de <code class="k">IJobSource</code>). El modelo separa esos dos
+    grupos en cinco líneas, y esa separación es la que convierte «migrar a Service Bus» en un plan.</div>
+  </section>
+
+
+  <!-- 07 ============================================================= -->
+  <section class="sec" id="migracion">
+    <div class="num">09</div>
+    <h2>Representar la migración de Kafka a Service Bus</h2>
+    <p class="sub">Sí, se puede — y es de lo que mejor hace LikeC4</p>
+
+    <p>La tentación es tener dos carpetas, <code class="k">arquitectura-actual</code> y
+    <code class="k">arquitectura-objetivo</code>. Se desincronizan en una semana. La alternativa: <b>un solo
+    modelo</b> que contiene las dos rutas, cada relación etiquetada con <code class="k">#as-is</code> o
+    <code class="k">#to-be</code>, y <b>tres vistas</b> que filtran. Cuando un servicio termina de migrar, borras
+    una línea del modelo y los tres diagramas se actualizan solos.</p>
+
+    <div class="mig" id="mig">
+      <div class="ctrls" id="migCtrls"></div>
+      <div class="figure" style="border:none;padding:0"><div id="migStage"></div></div>
+      <p class="caption" id="migCap"></p>
+    </div>
+
+    <pre class="code"><span class="c">// 02-model.c4 — las DOS rutas conviven en el modelo</span>
+<span class="c">// Camino ACTUAL</span>
+platform.ingestApi -[kafka]-&gt; kafkaCluster {
+  <span class="tag">#as-is</span>
+  title <span class="str">'publica job.requested'</span>
+}
+kafkaCluster -[kafka]-&gt; platform.tileRenderer.messaging {
+  <span class="tag">#as-is</span>
+  title <span class="str">'consume job.requested'</span>
+}
+
+<span class="c">// Camino OBJETIVO</span>
+platform.ingestApi -[asb]-&gt; serviceBus {
+  <span class="tag">#to-be</span>
+  title <span class="str">'envía job.requested'</span>
+}
+serviceBus -[asb]-&gt; platform.tileRenderer.messaging {
+  <span class="tag">#to-be</span>
+  title <span class="str">'recibe job.requested'</span>
+  description <span class="str">'Peek-lock + competing consumers. DLQ gestionada por el broker.'</span>
+}</pre>
+
+    <pre class="code"><span class="c">// 04-views.c4 — tres lecturas del mismo modelo</span>
+<span class="kw">view</span> containers <span class="kw">of</span> platform {
+  title <span class="str">'C2 · Containers (estado actual)'</span>
+  include *
+  exclude * -&gt; * <span class="kw">where</span> tag is <span class="tag">#to-be</span>          <span class="c">// fuera el futuro</span>
+}
+
+<span class="kw">view</span> containersTarget <span class="kw">of</span> platform {
+  title <span class="str">'C2 · Containers (estado objetivo)'</span>
+  include *
+  exclude * -&gt; * <span class="kw">where</span> tag is <span class="tag">#as-is</span>          <span class="c">// fuera el pasado</span>
+  exclude kafkaCluster                          <span class="c">// y el broker que se retira</span>
+}
+
+<span class="kw">view</span> migration {
+  title <span class="str">'C2 · Migración Kafka → Service Bus (as-is + to-be)'</span>
+  include platform.ingestApi, platform.tileRenderer, kafkaCluster, serviceBus,
+          platform.ingestApi -&gt; kafkaCluster, kafkaCluster -&gt; platform.tileRenderer,
+          platform.ingestApi -&gt; serviceBus,   serviceBus -&gt; platform.tileRenderer
+
+  <span class="kw">style</span> element.tag = <span class="tag">#kafka</span>      { color muted  opacity 30% }   <span class="c">// se apaga</span>
+  <span class="kw">style</span> element.tag = <span class="tag">#servicebus</span> { color green }                <span class="c">// se enciende</span>
+}</pre>
+    <div class="codecap">La vista <code class="k">migration</code> es la que llevas a la reunión de decisión;
+    las otras dos son las que documentan producción y destino sin ambigüedad.</div>
+
+    <h3>Lo que hace que la migración sea barata (en el modelo y en el código)</h3>
+    <p>Fíjate en un detalle del modelo: las dos rutas no acaban en <code class="k">tileRenderer</code> sino en
+    <code class="k">tileRenderer.messaging</code>, un componente llamado <b>Messaging Adapter</b>. Eso está diciendo
+    algo verdadero y útil: <b>el único trozo del servicio que cambia con la migración es ese componente</b>
+    (una interfaz <code class="k">IJobSource</code> con dos implementaciones). Un modelo bien hecho enseña dónde
+    está la costura por la que se corta.</p>
+
+    <div class="warn"><b>Diferencias que conviene anotar en el <code class="k">description</code>,</b> porque
+    afectan al diseño y no se ven en la flecha: Kafka es un log con offsets, reproducible, ordenado por partición
+    y con consumer groups; Service Bus es una cola con peek-lock, competing consumers, DLQ nativa y sin replay.
+    «Reproducir el histórico» se hace gratis en Kafka y no existe en ASB — si alguien depende de eso, la migración
+    de ese servicio tiene un requisito extra. En el simulador <code class="k">kafka/kafka.html</code> de este mismo
+    repo tienes los dos modelos lado a lado.</div>
+  
+    <h3>La fase que nadie dibuja: la convivencia</h3>
+    <p>Entre «todo Kafka» y «todo Service Bus» hay meses en los que <b>ambos están vivos</b>, y ahí es donde se
+    rompen las cosas. Merece la pena modelar esa fase explícitamente, porque tiene riesgos propios que no existen
+    ni antes ni después.</p>
+
+    <p>Las dos maneras de convivir, y lo que cada una te cuesta:</p>
+    <div class="grid cols-2">
+      <div class="actor" style="--ac:var(--c-kafka)">
+        <div class="st">opción 1</div><div class="nm">Doble publicación</div>
+        <div class="ds">El productor escribe en los dos brokers. Simple de entender y <b>peligroso</b>: dos escrituras
+        no son atómicas, así que un fallo entre medias deja los brokers desincronizados. Si vas por aquí, necesitas
+        <b>outbox</b>: persistes el evento en tu BD dentro de la misma transacción y un publicador aparte lo empuja
+        a los brokers con reintentos.</div>
+        <div class="dep"><b>coste real:</b> el patrón outbox, no el «if» de publicar dos veces</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-asb)">
+        <div class="st">opción 2</div><div class="nm">Puente entre brokers</div>
+        <div class="ds">El productor sólo cambia una vez; un pequeño servicio-puente reenvía de un broker al otro
+        mientras dure la transición. Mantiene una sola fuente de verdad y se retira de un tirón. Coste: un
+        componente más y un salto de latencia, y hay que decidir qué hace el puente cuando la DLQ se llena.</div>
+        <div class="dep"><b>coste real:</b> operar un componente temporal — pónle fecha de caducidad</div>
+      </div>
+    </div>
+
+    <p>Sea cual sea, el consumidor tiene que estar preparado para <b>recibir el mismo trabajo dos veces</b> (ambos
+    brokers son at-least-once, y durante el corte se solapan). Si el renderer no era idempotente, la migración no
+    es un cambio de librería: es un cambio de diseño. Anótalo en el modelo donde se lea:</p>
+
+    <pre class="code">messaging = managedComponent <span class="str">'Messaging Adapter'</span> {
+  <span class="tag">#dual</span>
+  description <span class="str">'''</span>
+<span class="str">    Durante la transición consume de AMBOS brokers detrás de la misma interfaz.</span>
+<span class="str">    Requisito duro: `IJobHandler` debe ser idempotente por `jobId` — durante el</span>
+<span class="str">    corte un trabajo puede llegar por Kafka y por ASB.</span>
+<span class="str">  '''</span>
+  <span class="c">// enlaza la decisión con su ADR: sale como link clicable en el visor</span>
+  link ../../docs/adr/0007-migracion-service-bus.md <span class="str">'ADR-0007'</span>
+}</pre>
+    <div class="codecap">Los <code class="k">link</code> son la costura entre el diagrama y las decisiones:
+    el visor los muestra en el panel de detalle del elemento.</div>
+
+    <h3>Orden de migración, leído del propio modelo</h3>
+    <p>Con el modelo delante, el orden deja de ser una opinión:</p>
+    <ol>
+      <li><b>Primero los consumidores hoja</b> — los que no publican nada aguas abajo (en el ejemplo,
+      <code class="k">reportService</code>). Si se rompen, el radio de daño es mínimo. Los encuentras con
+      <code class="k">include serviceBus -&gt;</code> y mirando quién no tiene salidas.</li>
+      <li><b>Después los que sólo consumen y escriben a storage</b>: idempotencia y poco más.</li>
+      <li><b>Al final, los que están en medio de una cadena de eventos</b> y los que necesitan orden o replay
+      (la vista <code class="k">riesgoMigracion</code> de la sección anterior).</li>
+      <li><b>Retirada:</b> borras las relaciones <code class="k">#as-is</code> y el elemento
+      <code class="k">kafkaCluster</code>. Si al hacerlo alguna vista se queda con una caja huérfana, acabas de
+      descubrir un consumidor que nadie recordaba.</li>
+    </ol>
+    <div class="warn"><b>El detalle que se olvida siempre:</b> retirar Kafka no es borrar el namespace. Es
+    comprobar que nadie lee el histórico, que los dashboards y alertas de <i>lag</i> han sido sustituidos por los
+    de <i>DLQ y antigüedad del mensaje</i>, y que el runbook de «reprocesar desde el offset X» tiene sustituto.
+    Nada de eso sale en un diagrama de cajas — por eso va en los <code class="k">description</code>.</div>
+
+  </section>
+
+  <!-- 08 ============================================================= -->
+  <section class="sec" id="deployment">
+    <div class="num">10</div>
+    <h2>Kubernetes, Blob Storage y discos: el modelo de despliegue</h2>
+    <p class="sub">Dos capas que se referencian, no una capa contaminada</p>
+
+    <p>Aquí está el error clásico: meter «pod», «namespace», «node pool» y «PVC» dentro del modelo lógico. En cuanto
+    lo haces, el diagrama de containers deja de responder «¿de qué se compone el sistema?» y pasa a responder
+    «¿cómo está desplegado?», que es <b>otra pregunta</b> y cambia mucho más a menudo.</p>
+
+    <p>LikeC4 tiene un bloque <code class="k">deployment</code> aparte. Defines la topología física con sus propios
+    nodos y usas <code class="k">instanceOf</code> para decir «aquí corre este elemento lógico». Un mismo servicio
+    puede tener varias instancias: réplicas, regiones, entornos.</p>
+
+    <div class="figure" id="figLayers"></div>
+    <p class="caption">Dos capas. Las flechas de puntos son <code>instanceOf</code>: no duplican el servicio,
+    lo <b>instancian</b>. El disco y el node pool sólo existen abajo; el topic y el blob sólo arriba.</p>
+
+    <pre class="code"><span class="c">// 03-deployment.c4 — el modelo FÍSICO</span>
+<span class="kw">deployment</span> {
+  azureSubscription prod <span class="str">'Suscripción PROD'</span> {
+    region we <span class="str">'West Europe'</span> {
+
+      aks cluster <span class="str">'aks-platform-we'</span> {
+        namespace ns <span class="str">'platform'</span> {
+
+          nodePool general <span class="str">'nodepool: general (D4s v5)'</span> {
+            api    = pod <span class="str">'deploy/ingest-api · 3 réplicas'</span>     { instanceOf platform.ingestApi }
+            report = pod <span class="str">'deploy/report-service · 2 réplicas'</span> { instanceOf platform.reportService }
+          }
+
+          nodePool compute <span class="str">'nodepool: compute (F16s v2)'</span> {
+            technology <span class="str">'CPU-optimizado, taints dedicados'</span>
+            renderer = pod <span class="str">'sts/tile-renderer · 6 réplicas'</span> {
+              description <span class="str">'StatefulSet: cada réplica monta su propio PVC de scratch.'</span>
+              svc = instanceOf platform.tileRenderer
+            }
+          }
+        }
+      }
+
+      <span class="c">// PaaS: el mismo elemento lógico, ahora con su recurso concreto</span>
+      ehk  = paas <span class="str">'Event Hubs (Kafka endpoint)'</span> { <span class="tag">#as-is</span>  instanceOf kafkaCluster }
+      sbns = paas <span class="str">'Service Bus namespace'</span>      { <span class="tag">#to-be</span>  instanceOf serviceBus  }
+      sa   = paas <span class="str">'Storage Account stplatformwe'</span> {          instanceOf blobStorage }
+
+      <span class="c">// El disco NO existe en el modelo lógico: es puro despliegue</span>
+      scratchDisk = paas <span class="str">'Managed Disk · Premium SSD 512 GiB'</span> {
+        description <span class="str">'PVC azuredisk-csi, ReadWriteOnce, uno por réplica.'</span>
+        technology  <span class="str">'azuredisk.csi.azure.com'</span>
+      }
+
+      <span class="c">// Relación que SÓLO existe en el mundo físico: el montaje del volumen.</span>
+      <span class="c">// Apunta a un componente anidado DENTRO de la instancia desplegada.</span>
+      cluster.ns.compute.renderer.svc.scratch -[disk]-&gt; scratchDisk {
+        title <span class="str">'monta /var/scratch (RWO)'</span>
+      }
+    }
+  }
+}</pre>
+    <div class="codecap">Esa última relación es la respuesta a «¿cómo represento el disco de Azure?»: como un nodo
+    del modelo físico, montado por el componente que realmente escribe en él.</div>
+
+    <h3>Blob Storage sí es lógico; el disco no</h3>
+    <p>Parecen lo mismo y no lo son, y el criterio es limpio:</p>
+
+    <table class="t">
+      <tr><th>Cosa</th><th>¿Dónde va?</th><th>Por qué</th></tr>
+      <tr><td><b>Blob Storage</b></td><td>Modelo lógico (sistema externo) <i>y</i> despliegue (la storage account)</td>
+      <td>Es una <b>dependencia funcional</b>: el sistema no hace su trabajo sin él, y otros servicios leen lo que deja ahí.</td></tr>
+      <tr><td><b>Azure Disk / PVC privado</b></td><td>Sólo despliegue</td>
+      <td>Es un <b>detalle de ejecución</b>: scratch de una réplica. Nadie más lo lee. Si mañana usas un emptyDir, la arquitectura lógica no cambia.</td></tr>
+      <tr><td><b>Volumen compartido entre servicios</b></td><td>Lógico <i>y</i> despliegue</td>
+      <td>Deja de ser detalle: es un <b>canal de integración</b> con contrato implícito. Lo desarrollamos justo debajo.</td></tr>
+      <tr><td><b>Kafka / Service Bus</b></td><td>Modelo lógico <i>y</i> despliegue</td>
+      <td>Arriba, «hay un bus de eventos»; abajo, «es este namespace ASB Premium en West Europe».</td></tr>
+      <tr><td><b>Réplicas, HPA, node pools</b></td><td>Sólo despliegue</td>
+      <td>Seis réplicas siguen siendo un container. Cambia a diario; no ensucies el nivel 2 con ello.</td></tr>
+    </table>
+
+    <pre class="code"><span class="c">// 04-views.c4 — vistas de despliegue</span>
+<span class="kw">deployment view</span> prodDeployment {
+  title <span class="str">'Deployment · West Europe'</span>
+  include *
+  include prod.we.**
+}
+
+<span class="c">// Las deployment views NO admiten `of`: se acotan con predicados.</span>
+<span class="c">// includeAncestors pinta la jerarquía de contenedores de lo que es visible,</span>
+<span class="c">// para que se vea DÓNDE está desplegado cada trozo.</span>
+<span class="kw">deployment view</span> rendererDeployment {
+  title <span class="str">'Deployment · node pool de compute'</span>
+  includeAncestors: true
+  include prod.we.cluster.ns.compute.**
+  include prod.we.scratchDisk
+  include * -&gt; *
+}</pre>
+
+    <div class="note"><b>¿Un diagrama por entorno?</b> No hace falta duplicar: define
+    <code class="k">environment dev</code> / <code class="k">prod</code> como nodos hermanos, ambos con
+    <code class="k">instanceOf</code> de los mismos elementos lógicos, y una vista por entorno. El modelo lógico
+    se escribe una sola vez.</div>
+  
+    <h3>Varios entornos sin duplicar el modelo</h3>
+    <p>La pregunta llega siempre: «¿y dev y pre?». No se copia el modelo lógico. Se añaden nodos hermanos que
+    instancian los <b>mismos</b> elementos, se marcan con metadata y cada vista filtra:</p>
+
+    <pre class="code"><span class="c">// 05-environments.c4 — extend permite partir el despliegue por ficheros/entornos</span>
+<span class="kw">deployment</span> {
+  azureSubscription dev <span class="str">'Suscripción DEV'</span> {
+    metadata { environment <span class="str">'dev'</span> }
+    region we <span class="str">'West Europe'</span> {
+      aks cluster <span class="str">'aks-platform-dev'</span> {
+        namespace ns <span class="str">'platform'</span> {
+          <span class="c">// mismos elementos lógicos, otra topología: todo en un pool</span>
+          nodePool general <span class="str">'nodepool: general (B2s)'</span> {
+            api      = pod <span class="str">'deploy/ingest-api · 1 réplica'</span>   { instanceOf platform.ingestApi }
+            renderer = pod <span class="str">'deploy/tile-renderer · 1 réplica'</span> { instanceOf platform.tileRenderer }
+          }
+        }
+      }
+      <span class="c">// en dev sólo hay Service Bus: dev ya está migrado</span>
+      sbns = paas <span class="str">'Service Bus namespace (dev)'</span> { <span class="tag">#to-be</span> instanceOf serviceBus }
+      sa   = paas <span class="str">'Storage Account stplatformdev'</span> {        instanceOf blobStorage }
+    }
+  }
+}
+
+<span class="kw">views</span> {
+  <span class="kw">deployment view</span> devDeployment {
+    title <span class="str">'Deployment · DEV'</span>
+    include dev.**
+  }
+}</pre>
+    <div class="codecap">Que dev ya esté migrado y prod no <b>se ve</b> comparando las dos vistas. Un modelo que
+    refleja esa asimetría es el que evita el clásico «en dev funcionaba».</div>
+
+    <p>Tres reglas del modelo de despliegue que no son obvias y que te ahorrarán depuración:</p>
+    <ul>
+      <li><b>La instancia hereda las relaciones lógicas.</b> No repitas «renderer llama a Blob» abajo: ya está.
+      Abajo sólo declaras lo que <i>sólo</i> existe físicamente (el montaje del disco, una replicación entre
+      instancias, un tráfico que cruza regiones).</li>
+      <li><b>Los tags no se heredan de los nodos padre.</b> Marcar <code class="k">#to-be</code> en la región no
+      marca lo que hay dentro. Una instancia combina sus tags con los del elemento lógico; un nodo usa sólo los
+      suyos.</li>
+      <li><b>La metadata de la instancia sustituye a la del elemento lógico</b> — útil para decir «este servicio,
+      en prod, tiene esta criticidad» sin ensuciar el modelo lógico.</li>
+    </ul>
+
+    <h3>Qué NO meter aquí</h3>
+    <p>La tentación es replicar el clúster entero. No lo hagas: ingress controllers, sidecars de service mesh,
+    cert-manager, secretos y operadores son <b>plataforma</b>, no tu arquitectura. Sólo entran si responden a una
+    pregunta que alguien hace de verdad («¿por dónde entra el tráfico externo?» sí justifica dibujar el ingress;
+    «¿qué DaemonSets hay?» no). Un buen filtro: <b>si el elemento no aparece en ninguna conversación de diseño,
+    no aparece en el diagrama</b> — está en el chart de Helm, que es su sitio.</p>
+
+  
+    <h3>Caso aparte: un volumen que montan <i>varios</i> servicios</h3>
+    <p>Todo lo anterior vale para un disco <b>privado</b> de cada réplica. En cuanto dos servicios distintos montan
+    el mismo volumen, la clasificación cambia de sitio: eso <b>ya no es un detalle de ejecución</b>, es un
+    <b>canal de integración</b>. Dos servicios que se hablan por ficheros están tan acoplados como si se llamaran
+    por REST, sólo que sin contrato, sin versión y sin nada que falle al compilar.</p>
+
+    <div class="figure" id="figShare"></div>
+    <p class="caption">El disco privado sólo existe abajo. El volumen compartido existe <b>en las dos capas</b>:
+    arriba como dependencia funcional entre servicios, abajo como el recurso concreto que ambos montan.</p>
+
+    <p>El criterio, ahora completo:</p>
+    <table class="t">
+      <tr><th>Volumen</th><th>¿Modelo lógico?</th><th>Razón</th></tr>
+      <tr><td>Scratch privado por réplica</td><td>No — sólo deployment</td><td>Nadie más lo lee. Cámbialo por un <code class="k">emptyDir</code> y la arquitectura no se entera.</td></tr>
+      <tr><td>Volumen compartido entre servicios</td><td><b>Sí</b> — como <i>datastore</i>, más el montaje abajo</td><td>Hay un contrato implícito (layout de directorios, marca de fin) y un acoplamiento real entre dos servicios.</td></tr>
+      <tr><td>Volumen compartido entre réplicas del <b>mismo</b> servicio</td><td>Zona gris — normalmente sólo deployment</td><td>Sigue siendo un container. Pero si implica coordinación (locks, elección de líder), la coordinación sí es lógica.</td></tr>
+    </table>
+
+    <div class="warn"><b>Detalle de Azure que decide el diseño:</b> un <b>Azure Disk</b> es
+    <code class="k">ReadWriteOnce</code> — se monta en <b>un solo nodo</b>. No puedes montarlo en dos pods de dos
+    servicios y esperar que funcione: o acaban en el mismo nodo por casualidad, o el segundo pod se queda en
+    <code class="k">Pending</code>. Para <code class="k">ReadWriteMany</code> de verdad se usa <b>Azure Files</b>
+    (SMB/NFS) o NFS sobre Blob. Y sí, existen los <i>shared disks</i> de Azure, pero están pensados para clústeres
+    con un filesystem que sepa coordinarse (reservas SCSI); montar ext4 desde dos sitios corrompe los datos.
+    Si hoy «lo montan varios» y es un managed disk, merece la pena comprobar <i>qué</i> está pasando de verdad:
+    suele ser Azure Files, o pods del mismo servicio en el mismo nodo.</div>
+
+    <p>Cómo queda en el modelo — arriba la dependencia, abajo el montaje:</p>
+    <pre class="code"><span class="c">// 02-model.c4 — el área compartida SÍ es lógica: es un canal de integración</span>
+sharedArea = datastore <span class="str">'Área de trabajo compartida'</span> {
+  <span class="tag">#shared-state</span>
+  technology <span class="str">'Azure Files Premium · SMB · ReadWriteMany'</span>
+  description <span class="str">'''</span>
+<span class="str">    Contrato implícito: layout de directorios por jobId y un fichero `.done`</span>
+<span class="str">    como marca de commit. **Riesgo:** no hay esquema ni versión — cambiar el</span>
+<span class="str">    layout rompe al lector sin que ningún compilador avise.</span>
+<span class="str">  '''</span>
+}
+
+tileRenderer.scratch -[share]-&gt; sharedArea <span class="str">'escribe intermedios por jobId'</span>
+reportService       -[share]-&gt; sharedArea <span class="str">'lee intermedios'</span></pre>
+
+    <pre class="code"><span class="c">// 03-deployment.c4 — abajo, el recurso y los DOS montajes con sus permisos</span>
+paas sharedFiles <span class="str">'Azure Files Premium · 2 TiB'</span> {
+  <span class="tag">#shared-state</span>
+  description <span class="str">'PVC azurefile-csi, ReadWriteMany. Montado por renderer y report.'</span>
+  technology  <span class="str">'file.csi.azure.com · SMB 3.1.1'</span>
+  instanceOf platform.sharedArea
+}
+
+cluster.ns.compute.renderer.svc.scratch -[disk]-&gt; scratchDisk  <span class="str">'monta /var/scratch (RWO, uno por réplica)'</span>
+cluster.ns.compute.renderer -[disk]-&gt; sharedFiles <span class="str">'monta /mnt/shared (RWX, rw)'</span>
+cluster.ns.general.report   -[disk]-&gt; sharedFiles <span class="str">'monta /mnt/shared (RWX, ro)'</span></pre>
+    <div class="codecap">Los permisos (<code class="k">rw</code> / <code class="k">ro</code>) en el título no son
+    adorno: dicen quién es el dueño del dato y quién es un lector. Es la información que evita que alguien «arregle»
+    algo escribiendo desde el lado equivocado.</div>
+
+    <pre class="code"><span class="c">// 04-views.c4 — la vista que hace visible el acoplamiento invisible</span>
+<span class="kw">view</span> estadoCompartido {
+  title <span class="str">'Transversal · quién comparte estado por ficheros'</span>
+  include platform.**, platform.sharedArea
+  exclude * -&gt; * <span class="kw">where</span> tag is not <span class="tag">#shared-state</span>
+}</pre>
+
+    <p>Esa vista es de las más rentables del modelo, porque enseña justo lo que ninguna otra documentación recoge.
+    Preguntas que responde de un vistazo, y que normalmente se contestan mirando manifiestos de Helm:</p>
+    <ul>
+      <li><b>¿A quién rompo si cambio el layout de directorios?</b> A todo el que tenga una flecha roja de entrada.</li>
+      <li><b>¿Puedo escalar el lector?</b> Si varios pods leen el mismo directorio sin coordinación, procesarán lo
+      mismo dos veces — el share no da exclusión mutua, sólo acceso concurrente.</li>
+      <li><b>¿Puedo migrar este servicio de clúster o de región?</b> No sin llevarse el volumen: un share es la
+      atadura física más fuerte que existe entre dos servicios.</li>
+      <li><b>¿Debería seguir existiendo?</b> Casi siempre la respuesta a medio plazo es sustituirlo por Blob más un
+      evento («ya está listo, está aquí»), que es lo mismo pero con contrato y sin atadura de despliegue. Tenerlo
+      dibujado en rojo es lo que hace que esa conversación ocurra.</li>
+    </ul>
+
+  </section>
+
+  <!-- 09 ============================================================= -->
+  <section class="sec" id="nativo">
+    <div class="num">11</div>
+    <h2>El sándwich: wrapper C# con motor C++ dentro</h2>
+    <p class="sub">Aquí es donde el nivel 3 y el nivel 4 se ganan el sueldo</p>
+
+    <p>Sí, C4 llega hasta ahí — para eso está el zoom. Y tu caso es de los pocos donde bajar de verdad compensa,
+    porque la frontera gestionado/nativo es <b>invisible en el código</b> (parece una llamada a método normal) y a
+    la vez es donde aparecen los problemas caros: marshalling, ownership de memoria, excepciones que no cruzan,
+    ABI que se rompe al recompilar.</p>
+
+    <div class="figure" id="figSandwich"></div>
+    <p class="caption">Tres zonas, una frontera. La capa de interop es un componente de primera clase:
+    es la que traduce, y por tanto la que falla.</p>
+
+    <p>Lo importante del modelo de arriba: <b>el motor C++ no es un container</b> (no se despliega solo, vive en el
+    mismo proceso), es un componente. Y merece la pena declararlo con su propio <i>kind</i>
+    (<code class="k">nativeComponent</code>) para que salga de otro color en todos los diagramas: de un vistazo se
+    ve qué parte del sistema es nativa.</p>
+
+    <pre class="code"><span class="c">// 02-model.c4 — nivel 3 y nivel 4 del Tile Renderer</span>
+tileRenderer = service <span class="str">'Tile Renderer'</span> {
+  <span class="tag">#cpp</span> <span class="tag">#csharp</span>
+  technology <span class="str">'Worker .NET 8 · núcleo C++20'</span>
+
+  <span class="c">// ── Nivel 3: mundo gestionado ──</span>
+  host      = managedComponent <span class="str">'Worker Host'</span>        { description <span class="str">'BackgroundService: receive → procesar → ack.'</span> }
+  messaging = managedComponent <span class="str">'Messaging Adapter'</span>  { description <span class="str">'IJobSource: KafkaJobSource | ServiceBusJobSource.'</span> }
+  uploader  = managedComponent <span class="str">'Blob Uploader'</span>      { description <span class="str">'Azure.Storage.Blobs.'</span> }
+  scratch   = managedComponent <span class="str">'Scratch Store'</span>      { description <span class="str">'Temporales grandes en el disco montado.'</span> }
+
+  <span class="c">// ── Nivel 3: la frontera, como componente propio ──</span>
+  interop = interopComponent <span class="str">'RenderEngine.Interop'</span> {
+    description <span class="str">'SafeHandle + DllImport sobre una C ABI plana. Marshalling y errores.'</span>
+  }
+
+  <span class="c">// ── Nivel 3 + 4: el motor nativo y su interior ──</span>
+  core = nativeComponent <span class="str">'Render Core'</span> {
+    technology <span class="str">'C++20 · shared library'</span>
+
+    api       = nativeComponent <span class="str">'C API façade'</span>   { description <span class="str">'render_*.h — frontera estable, sin name mangling.'</span> }
+    scheduler = nativeComponent <span class="str">'Tile Scheduler'</span> { description <span class="str">'Reparte tiles entre el thread pool.'</span> }
+    raster    = nativeComponent <span class="str">'Rasterizer'</span>     { description <span class="str">'SIMD. El bucle caliente de verdad.'</span> }
+    io        = nativeComponent <span class="str">'Local IO'</span>       { description <span class="str">'Buffers intermedios en el disco montado.'</span> }
+
+    api -&gt; scheduler <span class="str">'encola el trabajo'</span>
+    scheduler -&gt; raster <span class="str">'despacha tiles'</span>
+    raster -&gt; io <span class="str">'vuelca buffers'</span>
+  }
+
+  messaging -&gt; host <span class="str">'entrega el trabajo'</span>
+  host -&gt; interop   <span class="str">'invoca el render'</span>
+  host -&gt; uploader  <span class="str">'publica resultados'</span>
+  interop -[interop]-&gt; core.api <span class="str">'DllImport sobre la C ABI'</span>
+  core.io -&gt; scratch <span class="str">'usa el directorio de trabajo'</span>
+}</pre>
+
+    <pre class="code"><span class="c">// 04-views.c4 — la vista que hace legible el sándwich: grupos</span>
+<span class="kw">view</span> tileRenderer <span class="kw">of</span> platform.tileRenderer {
+  title <span class="str">'C3 · Dentro del Tile Renderer (wrapper C# ↔ núcleo C++)'</span>
+  include *
+  include platform.tileRenderer.core.*
+
+  <span class="kw">group</span> <span class="str">'Mundo gestionado (.NET)'</span> {
+    include platform.tileRenderer.host, platform.tileRenderer.messaging,
+            platform.tileRenderer.uploader, platform.tileRenderer.scratch
+  }
+  <span class="kw">group</span> <span class="str">'Frontera (C ABI)'</span>    { include platform.tileRenderer.interop }
+  <span class="kw">group</span> <span class="str">'Mundo nativo (C++)'</span>  { include platform.tileRenderer.core }
+}</pre>
+    <div class="codecap">Los <code class="k">group</code> dibujan un marco alrededor de un conjunto de elementos.
+    Es la forma barata de hacer visible una separación que no está en la jerarquía del modelo.</div>
+
+    <h3>¿Hasta dónde bajar dentro del C++?</h3>
+    <p>No modeles clases. Modela las <b>fases</b> y las <b>fronteras</b>, que son estables:</p>
+    <ul>
+      <li><b>Sí:</b> la fachada C (el contrato que no puede cambiar sin romper a todo el mundo), el scheduler, el
+      bucle caliente, el punto donde se toca el disco. Cuatro cajas que siguen siendo verdad dentro de dos años.</li>
+      <li><b>No:</b> cada clase, cada template, cada helper. Eso lo cuenta mejor un <code class="k">doxygen</code>
+      o el propio código. Aquí sólo generarías deuda de mantenimiento.</li>
+    </ul>
+    <div class="note">Complemento natural: en <code class="k">cpp/abi.html</code> de este repo está explicado por
+    qué esa frontera debe ser una C ABI plana y qué la rompe. El diagrama dice <i>dónde</i> está el peligro;
+    ese documento dice <i>por qué</i>.</div>
+  
+    <h3>Qué cruza la frontera y qué no (y por qué merece su propio componente)</h3>
+    <p>El motivo de fondo por el que el interop se modela aparte: en el código parece una llamada normal, pero
+    ahí dentro cambian <b>cuatro contratos a la vez</b>. Modelarlo hace visible que esa caja tiene trabajo real:</p>
+    <table class="t">
+      <tr><th>Contrato</th><th>Qué pasa al cruzar</th><th>Consecuencia de diseño</th></tr>
+      <tr><td><b>Errores</b></td><td>Una excepción C++ que llega al runtime .NET es comportamiento indefinido</td><td>La C ABI devuelve códigos; el wrapper los traduce a excepciones .NET <i>en el lado gestionado</i></td></tr>
+      <tr><td><b>Memoria</b></td><td>Dos asignadores distintos: quien reserva debe liberar</td><td>La API expone <code class="k">create</code>/<code class="k">destroy</code>; en C# eso es un <code class="k">SafeHandle</code>, no un <code class="k">IntPtr</code> suelto</td></tr>
+      <tr><td><b>Tipos</b></td><td>Lo <i>blittable</i> pasa gratis; strings, bool y structs con punteros se copian</td><td>El coste de marshalling es real en bucles: se pasan buffers grandes, no mil llamaditas</td></tr>
+      <tr><td><b>Vida de los objetos</b></td><td>El GC mueve la memoria; el C++ no lo sabe</td><td>Buffers <i>pinned</i> o memoria nativa; los callbacks hacia C++ hay que mantenerlos vivos explícitamente</td></tr>
+    </table>
+    <div class="note">Por eso la fachada es <b>C plana</b> y no C++ directo: los nombres de C++ llevan
+    <i>mangling</i> del compilador, y el layout de una clase (tamaño, vtable, offsets) es parte del ABI. Recompilar
+    con otra versión o cambiar un miembro privado puede romper al llamante sin que nada avise.
+    <code class="k">cpp/abi.html</code> de este repo enseña exactamente cómo se rompe.</div>
+
+    <h3>El ciclo de vida es lo que merece una vista dinámica</h3>
+    <p>Más útil que el diagrama de cajas: cuándo se crea el motor, cuántas veces y quién lo destruye. Eso explica
+    de un vistazo el consumo de memoria del pod.</p>
+    <pre class="code"><span class="kw">dynamic view</span> engineLifecycle {
+  title <span class="str">'Interop · ciclo de vida del motor nativo'</span>
+  <span class="kw">variant</span> sequence
+
+  host -&gt; interop <span class="str">'render_create() al arrancar'</span> {
+    notes <span class="str">'''</span>
+<span class="str">      **Uno por proceso**, no por trabajo: crear el motor reserva el thread pool</span>
+<span class="str">      y las tablas de la caché. Hacerlo por mensaje multiplicaría la memoria por N.</span>
+<span class="str">    '''</span>
+  }
+  interop -&gt; core.api <span class="str">'devuelve un handle opaco'</span>
+  <span class="kw">loop</span> <span class="str">'por cada trabajo'</span> {
+    host -&gt; interop <span class="str">'render_submit(handle, buffer)'</span>
+    interop -&gt; core.api <span class="str">'buffer pinned, sin copia'</span>
+  }
+  host -&gt; interop <span class="str">'Dispose() → render_destroy()'</span>
+}</pre>
+
+    <h3>Un detalle de Kubernetes que muerde justo aquí</h3>
+    <div class="warn"><b>El thread pool nativo no ve los límites del pod.</b> El código C++ que decide cuántos
+    hilos crear con <code class="k">hardware_concurrency()</code> ve <b>los cores del nodo</b> (pongamos 16),
+    no el <code class="k">cpu limit</code> del contenedor (pongamos 4). Resultado: 16 hilos peleándose por 4
+    cores, <i>throttling</i> de cgroups y latencias peores que en secuencial. Es la razón por la que el renderer
+    vive en un node pool dedicado con requests y limits alineados — y por la que ese node pool aparece en el
+    modelo de despliegue con nombre propio. El diagrama no arregla el bug, pero hace que la pregunta se haga
+    <i>antes</i>.</div>
+
+    <h3>Dónde parar</h3>
+    <p>Modela las cuatro cosas estables: la <b>fachada</b> (contrato), el <b>reparto de trabajo</b>, el <b>bucle
+    caliente</b> y el <b>punto donde se toca el disco</b>. Todo lo demás — jerarquías de clases, templates,
+    helpers — no entra: cambia cada sprint, lo cuenta mejor el código, y meterlo convierte el modelo en algo que
+    nadie actualiza. Si dudas de si una caja merece existir, pregúntate si alguien ha hecho una pregunta sobre
+    ella en los últimos seis meses.</p>
+
+  </section>
+
+  <!-- 10 ============================================================= -->
+  <section class="sec" id="flujo">
+    <div class="num">12</div>
+    <h2>Vistas dinámicas: contar un flujo, no una estructura</h2>
+    <p class="sub">Lo que ninguna vista estática puede enseñar</p>
+
+    <p>Las vistas que hemos visto son estructurales: qué existe y qué habla con qué. Pero la pregunta más frecuente
+    del que llega nuevo es <b>«¿qué pasa cuando entra un trabajo?»</b>. Para eso está
+    <code class="k">dynamic view</code>: mismos elementos, pero con <b>orden</b> y numeración, y opcionalmente
+    renderizado como diagrama de secuencia clásico. Y no ensucia el modelo: los pasos viven sólo en la vista.</p>
+
+    <pre class="code"><span class="kw">dynamic view</span> jobFlow {
+  title <span class="str">'Flujo · de POST /jobs a los tiles en Blob'</span>
+
+  clienteApi -&gt; platform.ingestApi <span class="str">'POST /jobs'</span>
+  platform.ingestApi -&gt; blobStorage  <span class="str">'guarda el fichero de entrada'</span>
+  platform.ingestApi -&gt; kafkaCluster <span class="str">'publica job.requested'</span>
+  kafkaCluster -&gt; platform.tileRenderer.messaging <span class="str">'consume (offset commit tras ack)'</span>
+  platform.tileRenderer.messaging -&gt; platform.tileRenderer.host <span class="str">'entrega el trabajo'</span>
+  platform.tileRenderer.host -&gt; platform.tileRenderer.interop <span class="str">'render_submit()'</span>
+  platform.tileRenderer.interop -&gt; platform.tileRenderer.core.api <span class="str">'DllImport'</span>
+
+  <span class="kw">parallel</span> {                                   <span class="c">// se ejecutan a la vez</span>
+    platform.tileRenderer.core.scheduler -&gt; platform.tileRenderer.core.raster <span class="str">'despacha tiles'</span>
+    platform.tileRenderer.core.raster -&gt; platform.tileRenderer.core.io <span class="str">'vuelca buffers al scratch'</span>
+  }
+
+  platform.tileRenderer.host -&gt; platform.tileRenderer.uploader <span class="str">'publica resultados'</span>
+  platform.tileRenderer.uploader -&gt; blobStorage <span class="str">'PUT tiles + manifiesto'</span>
+  platform.tileRenderer.host -&gt; serviceBus <span class="str">'publica job.completed'</span>
+  serviceBus -&gt; platform.reportService <span class="str">'recibe job.completed'</span>
+}</pre>
+    <div class="codecap">Hay más bloques de control: <code class="k">alt/when/else</code>,
+    <code class="k">loop</code>, <code class="k">opt</code>, <code class="k">try/catch/finally</code> y
+    <code class="k">break</code>. Con ellos se cuentan bien los reintentos y la DLQ.</div>
+
+    <p>Dos detalles que rentan mucho:</p>
+    <ul>
+      <li>Una relación del modelo puede llevar <code class="k">navigateTo jobFlow</code>: al hacer clic en la flecha
+      del diagrama estático, el visor abre el flujo detallado. Es el «zoom» aplicado a una <i>interacción</i>.</li>
+      <li>Cada paso admite <code class="k">notes '…'</code> con Markdown: perfecto para dejar escrito ahí el
+      <i>at-least-once</i>, el timeout, o qué pasa si el ack falla.</li>
+    </ul>
+  </section>
+
+  <!-- 11 ============================================================= -->
+  <section class="sec" id="claridad">
+    <div class="num">13</div>
+    <h2>Recetas para que se entienda</h2>
+    <p class="sub">Lo que separa un modelo útil de un modelo que nadie abre</p>
+
+    <div class="grid cols-2">
+      <div class="actor" style="--ac:var(--c-l2)">
+        <div class="st">receta 1</div><div class="nm">Una vista, una pregunta</div>
+        <div class="ds">Si al enseñar un diagrama tienes que decir «ignora esta parte», pártelo. Es gratis: son
+        cuatro líneas de <code class="k">view</code> sobre el mismo modelo. Ponle a cada vista un
+        <code class="k">description</code> con la pregunta que responde.</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-l3)">
+        <div class="st">receta 2</div><div class="nm">Incluye de más, filtra después</div>
+        <div class="ds"><code class="k">include *</code> seguido de <code class="k">exclude … where</code> es más
+        robusto que enumerar: cuando alguien añada un servicio nuevo, aparecerá solo en las vistas donde toca en vez
+        de faltar en silencio.</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-kafka)">
+        <div class="st">receta 3</div><div class="nm">El color significa algo</div>
+        <div class="ds">Define el color en el <code class="k">specification</code> (por kind o por tag), nunca a mano
+        por diagrama. Un color = un concepto: nativo, gestionado, externo, se-retira. Si hacen falta más de cinco
+        colores, sobran conceptos.</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-infra)">
+        <div class="st">receta 4</div><div class="nm">Escribe las descripciones</div>
+        <div class="ds">El <code class="k">description</code> es donde vive lo que un diagrama no puede dibujar:
+        garantías de entrega, idempotencia, quién es el dueño. Acepta Markdown y sale en el panel de detalle del visor.
+        Es tu documentación, y no se te va a desincronizar.</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-l1)">
+        <div class="st">receta 5</div><div class="nm">Nombres del dominio</div>
+        <div class="ds">Los identificadores del modelo deberían coincidir con los del repo, el chart de Helm y la
+        conversación del equipo. Si en el diagrama pone <code class="k">tileRenderer</code> y en producción es
+        <code class="k">svc-tiles-v2</code>, el modelo ya empezó a mentir.</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-cpp)">
+        <div class="st">receta 6</div><div class="nm">Validar en CI</div>
+        <div class="ds"><code class="k">npx likec4 validate</code> en el pipeline. Barato, y convierte el modelo en
+        algo que se rompe cuando está mal — que es justo lo que un documento nunca hace.</div>
+      </div>
+    </div>
+
+    <h3>Errores frecuentes, con su antídoto</h3>
+    <table class="t">
+      <tr><th>Error</th><th>Se nota en que…</th><th>Antídoto</th></tr>
+      <tr><td>Mezclar niveles</td><td>En el mismo dibujo hay un sistema entero y una clase</td><td>Una vista por nivel; usa <code class="k">of</code> para acotar el foco</td></tr>
+      <tr><td>Infraestructura en el modelo lógico</td><td>Aparecen «pod», «ingress», «PVC» en el nivel 2</td><td>Bloque <code class="k">deployment</code> + <code class="k">instanceOf</code></td></tr>
+      <tr><td>Flechas sin etiqueta</td><td>Nadie sabe si es HTTP síncrono o un evento</td><td><i>kinds</i> de relación + título con verbo</td></tr>
+      <tr><td>Duplicar el modelo para el «futuro»</td><td>Dos carpetas que ya no coinciden</td><td>Tags <code class="k">#as-is</code>/<code class="k">#to-be</code> y vistas filtradas</td></tr>
+      <tr><td>Bajar a nivel 4 en todo</td><td>Nadie lo mantiene y a los dos meses miente</td><td>Nivel 4 sólo en fronteras y zonas calientes</td></tr>
+      <tr><td>El modelo vive fuera del repo</td><td>Se actualiza «cuando haya tiempo»</td><td><code class="k">.c4</code> junto al código, cambios en el mismo PR</td></tr>
+    </table>
+  </section>
+  <!-- GOBERNANZA ===================================================== -->
+  <section class="sec" id="gobernanza">
+    <div class="num">14</div>
+    <h2>Que no se pudra: gobernanza del modelo</h2>
+    <p class="sub">El 90% de los modelos de arquitectura mueren por esto, no por la notación</p>
+
+    <p>Un modelo desactualizado es peor que no tener modelo: la gente lo cree. Y no se actualiza por falta de
+    ganas, sino porque nada obliga. Cuatro mecanismos, de más barato a más caro:</p>
+
+    <div class="grid cols-2">
+      <div class="actor" style="--ac:var(--c-l2)">
+        <div class="st">mecanismo 1 · gratis</div><div class="nm">Vive en el repo del código</div>
+        <div class="ds">Si el <code class="k">.c4</code> está en Confluence, se actualiza «cuando haya tiempo».
+        Si está a tres carpetas del <code class="k">Program.cs</code>, se actualiza en el mismo PR que el cambio,
+        porque el revisor lo ve en el diff.</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-l3)">
+        <div class="st">mecanismo 2 · cinco minutos</div><div class="nm"><code class="k">validate</code> en CI</div>
+        <div class="ds">Convierte el modelo en algo que <b>se rompe</b>. Renombrar un elemento y olvidar una vista
+        deja de ser un diagrama silenciosamente incorrecto y pasa a ser un build en rojo.</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-infra)">
+        <div class="st">mecanismo 3 · una tarde</div><div class="nm">Publicar en cada merge</div>
+        <div class="ds"><code class="k">likec4 build</code> a GitHub Pages o a la wiki interna en cada merge a main.
+        Un enlace estable que siempre está al día es lo que hace que la gente lo use — y usarlo es lo que hace que
+        alguien note cuando miente.</div>
+      </div>
+      <div class="actor" style="--ac:var(--c-cpp)">
+        <div class="st">mecanismo 4 · opcional</div><div class="nm">Dueño por elemento</div>
+        <div class="ds"><code class="k">metadata { owner 'team-plataforma' }</code> y una vista por equipo. Sirve
+        para revisiones («cada equipo mira lo suyo una vez al trimestre») y para saber a quién preguntar. Sin dueño,
+        la responsabilidad se diluye y el modelo envejece por consenso.</div>
+      </div>
+    </div>
+
+    <pre class="code"><span class="c"># .github/workflows/architecture.yml — lo mínimo que merece la pena</span>
+- run: npx likec4 validate architecture/likec4-demo
+- run: npx likec4 build -o dist architecture/likec4-demo   <span class="c"># sólo en main</span></pre>
+
+    <h3>La pregunta de fondo: ¿modelo escrito a mano o generado?</h3>
+    <p>Un modelo generado desde la infraestructura (Terraform, manifiestos de k8s, trazas) no se desactualiza
+    nunca… y no sirve para pensar: refleja lo que hay, incluidos los accidentes, y no dice qué es importante. Un
+    modelo escrito a mano es una <b>interpretación</b> — por eso es útil y por eso se pudre. La combinación que
+    funciona en la práctica:</p>
+    <ul>
+      <li><b>A mano</b> los niveles 1 y 2 y el modelo lógico: son decisiones, no hechos.</li>
+      <li><b>Comprobado contra la realidad</b> el despliegue: existen herramientas de <i>drift detection</i> que
+      comparan modelo e infraestructura y avisan de lo que sobra o falta.</li>
+      <li><b>Nunca generes el nivel 3-4 automáticamente</b> desde el código: obtendrías un mapa de todas las
+      clases, que es exactamente el diagrama que nadie mira.</li>
+    </ul>
+
+    <h3>Señales de que el modelo está muriendo</h3>
+    <ul>
+      <li>Alguien dibuja un diagrama nuevo en una presentación en vez de enlazar una vista. <b>Causa habitual:</b>
+      no existe la vista que responde a su pregunta — créala, son cuatro líneas.</li>
+      <li>Hay elementos que nadie sabe explicar. <b>Causa:</b> se modeló algo que no importaba. Bórralo.</li>
+      <li>Los PR de código no tocan nunca el <code class="k">.c4</code>. <b>Causa:</b> el modelo está en un nivel
+      de detalle que no cambia con el código… o ya está desactualizado.</li>
+      <li>Las vistas tardan en cargar y hay treinta. <b>Causa:</b> vistas por si acaso. Borra las que nadie abre;
+      el modelo no se pierde, sólo la consulta.</li>
+    </ul>
+  </section>
+
+
+  <!-- 12 ============================================================= -->
+  <section class="sec" id="plan">
+    <div class="num">15</div>
+    <h2>Plan para empezar mañana</h2>
+    <p class="sub">Seis pasos, y el primero cabe en una tarde</p>
+
+    <ol>
+      <li><b>Instala y arranca en vacío.</b> Extensión LikeC4 de VS Code y
+      <code class="k">npx likec4 start architecture/likec4-demo</code>. Toca el modelo de ejemplo y mira cómo se
+      repinta solo: eso te da la intuición más rápido que cualquier lectura.</li>
+
+      <li><b>Escribe el nivel 1 de memoria, sin mirar código.</b> Personas, tu sistema como una sola caja, y los
+      externos (Kafka, Service Bus, Blob, sistemas de terceros). Si tardas más de media hora, es que estás bajando
+      de nivel sin querer.</li>
+
+      <li><b>Nivel 2 con todos los servicios.</b> Aquí aparece el trabajo de verdad: cada servicio, cada puerta
+      (REST / Kafka / ASB) y cada escritura a Blob. Define ya los <i>kinds</i> de relación por transporte —
+      hacerlo después es reescribir todas las flechas.</li>
+
+      <li><b>Añade los tags de migración</b> <code class="k">#as-is</code>/<code class="k">#to-be</code> en las
+      relaciones que van a cambiar, y crea las tres vistas (actual, objetivo, migración). En este punto ya tienes
+      algo que llevar a una reunión y que sustituye a un PowerPoint.</li>
+
+      <li><b>Modelo de despliegue.</b> AKS, node pools, PaaS y discos, con <code class="k">instanceOf</code>.
+      Empieza por un solo entorno; los demás son copiar el bloque y cambiar nombres.</li>
+
+      <li><b>Nivel 3 sólo del servicio más difícil de entender</b> — el del sándwich C#/C++ — y nivel 4 sólo del
+      motor nativo. Cuando alguien nuevo entre al equipo, mira qué te preguntan: eso, y sólo eso, es lo que merece
+      un diagrama más.</li>
+    </ol>
+
+    <h3>Dónde vive todo</h3>
+    <pre class="code">architecture/
+├─ likec4.html                 <span class="c"># esta guía</span>
+└─ likec4-demo/                <span class="c"># proyecto ejecutable y validado</span>
+   ├─ 01-specification.c4      <span class="c"># vocabulario: kinds, tags, estilos</span>
+   ├─ 02-model.c4              <span class="c"># modelo lógico (niveles 1 a 4)</span>
+   ├─ 03-deployment.c4         <span class="c"># AKS, node pools, PaaS, disco</span>
+   ├─ 04-views.c4              <span class="c"># todas las vistas</span>
+   └─ README.md                <span class="c"># cómo arrancarlo</span></pre>
+
+    <div class="ok"><b>El criterio de éxito no es tener diagramas bonitos.</b> Es que cuando alguien pregunte
+    «¿quién escribe en ese contenedor de Blob?» o «¿qué se rompe si migro este servicio a Service Bus?», la
+    respuesta esté a un <code class="k">npx likec4 start</code> de distancia — y sea correcta, porque el modelo
+    se revisó en el mismo PR que el cambio.</div>
+  
+    <h3>Checklist de revisión (úsalo en el PR)</h3>
+    <table class="t">
+      <tr><th>Comprobación</th><th>Por qué</th></tr>
+      <tr><td>¿Cada vista tiene <code class="k">title</code> y <code class="k">description</code> con su pregunta?</td><td>Si no sabes escribirla, la vista no tiene propósito</td></tr>
+      <tr><td>¿Alguna flecha sin verbo?</td><td>Una flecha sin verbo se interpreta como cada uno quiera</td></tr>
+      <tr><td>¿Hay conexiones con título <code class="k">[...]</code>?</td><td>Relaciones fusionadas: falta decidir el título o poner <code class="k">multiple true</code></td></tr>
+      <tr><td>¿Alguna relación declarada dos veces, arriba y abajo?</td><td>La de arriba sobra: la derivación ya la dibuja</td></tr>
+      <tr><td>¿Aparece infraestructura en el modelo lógico?</td><td>Pods, PVC e ingress van en <code class="k">deployment</code></td></tr>
+      <tr><td>¿Los nombres coinciden con el repo y el chart?</td><td>Cuanto mayor la distancia, antes empieza a mentir</td></tr>
+      <tr><td>¿El cambio de código de este PR está reflejado?</td><td>Es el único momento en que el contexto está fresco</td></tr>
+      <tr><td>¿Sigue habiendo algún nivel 4 que nadie ha mirado en meses?</td><td>Candidato a borrar: el modelo también se poda</td></tr>
+    </table>
+
+  </section>
+
+  <footer>
+    <p><b>Referencias</b> · <a href="https://c4model.com">c4model.com</a> (Simon Brown, el modelo original) ·
+    <a href="https://likec4.dev">likec4.dev</a> · <a href="https://likec4.dev/dsl/deployment/model/">Deployment model</a> ·
+    <a href="https://likec4.dev/dsl/views/predicates/">Predicados de vistas</a> ·
+    <a href="https://likec4.dev/dsl/views/dynamic/">Vistas dinámicas</a> ·
+    <a href="https://playground.likec4.dev/w/tutorial/">Playground</a></p>
+    <p>En este mismo repo: <code class="k">kafka/kafka.html</code> (Kafka vs Service Bus, simulado) ·
+    <code class="k">cpp/abi.html</code> (por qué la frontera nativa debe ser una C ABI) ·
+    <code class="k">kubernetes/scheduler.html</code>.</p>
+  </footer>
+</div>
+
+<script>
+'use strict';
+(function(){
+
+  // ── helpers de dibujo ──────────────────────────────────────────────────────
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  function box(x,y,w,h,title,sub,color,o){
+    o = o || {};
+    const fill = o.fill || '#ffffff';
+    const dash = o.dash ? ' stroke-dasharray="5 4"' : '';
+    const r = o.r == null ? 9 : o.r;
+    const ty = sub ? y+h/2-4 : y+h/2+4;
+    let out = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${fill}" stroke="${color}" stroke-width="${o.sw||1.6}"${dash}/>`;
+    if(o.multiple){
+      out = `<rect x="${x+5}" y="${y+5}" width="${w}" height="${h}" rx="${r}" fill="#ffffff" stroke="${color}" stroke-width="1" opacity=".5"/>` + out;
+    }
+    out += `<text x="${x+w/2}" y="${ty}" text-anchor="middle" font-size="${o.fs||12.5}" font-weight="800" fill="${color}">${esc(title)}</text>`;
+    if(sub) out += `<text x="${x+w/2}" y="${y+h/2+12}" text-anchor="middle" font-size="10.5" fill="#9aa1ad" font-weight="700">${esc(sub)}</text>`;
+    return out;
+  }
+  function frame(x,y,w,h,label,color,o){
+    o = o || {};
+    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="${o.fill||'rgba(0,0,0,.015)'}" stroke="${color}" stroke-width="1.3" stroke-dasharray="${o.dash||'6 5'}"/>`
+         + `<text x="${x+12}" y="${y+17}" font-size="10.5" font-weight="800" fill="${color}" letter-spacing=".6">${esc(label)}</text>`;
+  }
+  function arrow(x1,y1,x2,y2,label,color,o){
+    o = o || {};
+    const id = 'ah'+Math.random().toString(36).slice(2,8);
+    const dash = o.dash ? ' stroke-dasharray="6 5"' : '';
+    const mx = (x1+x2)/2, my = (y1+y2)/2;
+    const path = o.curve
+      ? `<path d="M ${x1} ${y1} Q ${o.curve[0]} ${o.curve[1]} ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="1.7"${dash} marker-end="url(#${id})"/>`
+      : `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="1.7"${dash} marker-end="url(#${id})"/>`;
+    let out = `<defs><marker id="${id}" markerWidth="9" markerHeight="9" refX="8" refY="3.2" orient="auto">
+       <path d="M0,0 L8,3.2 L0,6.4 z" fill="${color}"/></marker></defs>` + path;
+    if(label){
+      const lx = o.lx!=null?o.lx:mx, ly = o.ly!=null?o.ly:my-7;
+      out += `<text x="${lx}" y="${ly}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${color}">${esc(label)}</text>`;
+    }
+    return out;
+  }
+  const svg = (vb,inner) => `<svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+
+  const C = {
+    l1:'#7c3aed', l2:'#2563eb', l3:'#0d9488', l4:'#2e7d4f',
+    kafka:'#d97706', asb:'#0284c7', rest:'#475569', infra:'#db2777',
+    cpp:'#2e7d4f', cs:'#4f46e5', mut:'#9aa1ad', ink:'#23272f'
+  };
+
+  // ── 02 · explorador de niveles ─────────────────────────────────────────────
+  const LEVELS = [
+    {
+      id:'l1', tab:'1 · Context', color:C.l1, name:'Nivel 1 · Contexto del sistema',
+      q:'¿Qué hace el sistema y con quién habla?',
+      txt:'Una sola caja para toda tu plataforma. Alrededor, las personas y los sistemas que no controlas. Nada de servicios, ni de tecnología interna. Es el diagrama que enseñas a alguien que llega hoy.',
+      lst:'<b>Se ve:</b> el borde del sistema · <b>No se ve:</b> nada de dentro',
+      svg: svg('0 0 560 300',
+        box(30,40,140,58,'Operador','persona',C.l1)+
+        box(30,150,140,58,'Sistema cliente','integración de terceros',C.l1)+
+        box(215,85,150,90,'Plataforma de Procesado','tu sistema',C.l2,{sw:2.4,fs:13.5})+
+        box(410,20,120,52,'Kafka','externo',C.kafka)+
+        box(410,105,120,52,'Service Bus','externo',C.asb)+
+        box(410,190,120,52,'Blob Storage','externo',C.mut)+
+        arrow(170,69,213,110,'REST',C.rest)+
+        arrow(170,179,213,152,'REST',C.rest,{ly:186})+
+        arrow(365,110,408,58,'eventos',C.kafka,{dash:1})+
+        arrow(365,130,408,131,'mensajes',C.asb,{dash:1,ly:124})+
+        arrow(365,152,408,205,'ficheros',C.mut,{ly:196})
+      )
+    },
+    {
+      id:'l2', tab:'2 · Container', color:C.l2, name:'Nivel 2 · Containers',
+      q:'¿De qué piezas desplegables se compone?',
+      txt:'Abrimos la caja del sistema. Cada pieza es algo que arrancas y escalas por separado. Aquí ya aparece la tecnología de cada una y el transporte de cada flecha — es el diagrama más consultado de todos.',
+      lst:'<b>Se ve:</b> servicios, brokers, storage y transportes · <b>No se ve:</b> el interior de cada servicio',
+      svg: svg('0 0 560 300',
+        frame(120,18,300,265,'PLATAFORMA DE PROCESADO',C.l2)+
+        box(140,48,120,54,'Ingest API','ASP.NET Core 8',C.l2)+
+        box(140,140,120,60,'Tile Renderer','.NET 8 + C++20',C.l2,{multiple:true,sw:2})+
+        box(140,228,120,44,'Report Service','.NET 8',C.l2)+
+        box(20,120,80,50,'Cliente','',C.l1)+
+        box(450,30,95,48,'Kafka','',C.kafka)+
+        box(450,130,95,48,'Service Bus','',C.asb)+
+        box(450,230,95,48,'Blob','',C.mut)+
+        arrow(100,140,138,80,'REST',C.rest,{ly:104})+
+        arrow(262,66,448,52,'publica',C.kafka,{dash:1,ly:44})+
+        arrow(448,66,262,140,'consume',C.kafka,{dash:1,lx:350,ly:112})+
+        arrow(262,168,448,152,'job.completed',C.asb,{dash:1,ly:150})+
+        arrow(448,168,262,244,'recibe',C.asb,{dash:1,lx:355,ly:222})+
+        arrow(262,190,448,240,'tiles',C.mut,{dash:1,lx:360,ly:200})
+      )
+    },
+    {
+      id:'l3', tab:'3 · Component', color:C.l3, name:'Nivel 3 · Componentes',
+      q:'¿Cómo está organizado por dentro el Tile Renderer?',
+      txt:'Abrimos un container concreto — sólo los que tienen miga. Aquí se ve el sándwich: adaptadores de mensajería, el host, la capa de interop y el motor nativo. Todo dentro del mismo proceso.',
+      lst:'<b>Se ve:</b> responsabilidades internas y la frontera C# ↔ C++ · <b>No se ve:</b> clases',
+      svg: svg('0 0 560 300',
+        frame(20,14,520,272,'TILE RENDERER · un solo proceso',C.l3)+
+        frame(35,42,270,150,'MUNDO GESTIONADO (.NET)',C.cs,{dash:'3 3'})+
+        box(50,66,110,48,'Messaging Adapter','IJobSource',C.cs,{fs:11})+
+        box(180,66,110,48,'Worker Host','BackgroundService',C.cs,{fs:11})+
+        box(50,130,110,44,'Blob Uploader','',C.cs,{fs:11})+
+        box(180,130,110,44,'Scratch Store','',C.cs,{fs:11})+
+        box(345,66,175,48,'RenderEngine.Interop','P/Invoke · SafeHandle',C.kafka,{dash:1,fs:11.5})+
+        box(345,150,175,58,'Render Core','C++20 · shared library',C.cpp,{sw:2.2,fs:12.5})+
+        arrow(160,90,178,90,'',C.cs)+
+        arrow(235,114,235,128,'',C.cs)+
+        arrow(290,90,343,90,'invoca',C.cs,{ly:84})+
+        arrow(432,114,432,148,'C ABI',C.kafka,{dash:1,lx:465,ly:136})+
+        box(35,228,140,40,'Kafka / Service Bus','fuera del proceso',C.mut,{fs:11})+
+        arrow(105,226,105,116,'',C.mut,{dash:1})+
+        box(360,228,150,40,'Blob + disco','fuera del proceso',C.mut,{fs:11})+
+        arrow(180,152,358,240,'',C.mut,{dash:1})
+      )
+    },
+    {
+      id:'l4', tab:'4 · Code', color:C.l4, name:'Nivel 4 · Código',
+      q:'¿Cómo está hecho el Render Core por dentro?',
+      txt:'El último zoom, y el que casi nunca hay que dibujar. Aquí se justifica porque la fachada C es un contrato que no puede romperse y porque el pipeline de fases es estable aunque las clases cambien.',
+      lst:'<b>Se ve:</b> la frontera estable y las fases · <b>No se ve:</b> cada clase — eso lo cuenta el código',
+      svg: svg('0 0 560 300',
+        frame(30,20,500,255,'RENDER CORE (C++20)',C.l4)+
+        box(60,55,180,50,'C API façade','render_*.h · extern "C"',C.l4,{sw:2.2})+
+        box(60,135,180,46,'Tile Scheduler','thread pool',C.l4)+
+        box(320,135,180,46,'Rasterizer','SIMD · bucle caliente',C.l4)+
+        box(320,215,180,44,'Local IO','buffers al scratch',C.l4)+
+        arrow(150,105,150,133,'encola',C.l4,{lx:196,ly:124})+
+        arrow(240,158,318,158,'despacha tiles',C.l4,{ly:152})+
+        arrow(410,181,410,213,'vuelca',C.l4,{lx:452,ly:202})+
+        box(300,45,200,40,'⇧ RenderEngine.Interop (C#)','llama sólo a la fachada',C.cs,{dash:1,fs:11})+
+        arrow(300,65,242,72,'DllImport',C.cs,{dash:1,ly:52})
+      )
+    }
+  ];
+
+  const zoom = document.getElementById('zoom');
+  const tabs = document.getElementById('zoomTabs');
+  const stage = document.getElementById('zoomStage');
+  const info = document.getElementById('zoomInfo');
+  function renderZoom(i){
+    const L = LEVELS[i];
+    zoom.style.setProperty('--tc', L.color);
+    [...tabs.children].forEach((b,j)=>b.classList.toggle('on', j===i));
+    stage.innerHTML = L.svg;
+    info.innerHTML = `<div class="q">${esc(L.q)}</div><h4>${esc(L.name)}</h4>`
+      + `<p>${L.txt}</p><div class="lst">${L.lst}</div>`;
+  }
+  LEVELS.forEach((L,i)=>{
+    const b = document.createElement('button');
+    b.textContent = L.tab;
+    b.onclick = ()=>renderZoom(i);
+    tabs.appendChild(b);
+  });
+  renderZoom(0);
+
+  // ── 05 · anatomía del proyecto ─────────────────────────────────────────────
+  document.getElementById('figAnatomia').innerHTML = svg('0 0 860 250',
+    box(20,60,180,90,'specification','kinds · tags · estilos',C.l1,{sw:2})+
+    box(240,60,180,90,'model','arquitectura lógica',C.l2,{sw:2})+
+    box(240,175,180,60,'deployment','dónde corre',C.infra,{sw:2})+
+    box(500,40,180,64,'views','vistas estáticas',C.l3,{sw:2})+
+    box(500,120,180,60,'dynamic views','flujos',C.l3,{sw:2})+
+    box(500,196,180,44,'deployment views','',C.infra,{sw:2})+
+    box(740,95,100,60,'.svg .png','sitio web',C.mut)+
+    arrow(200,95,238,95,'da vocabulario a',C.l1,{ly:88})+
+    arrow(110,150,110,205,'',C.l1)+
+    arrow(110,205,238,205,'',C.l1)+
+    arrow(420,90,498,75,'consultan',C.l2,{ly:66})+
+    arrow(420,110,498,140,'',C.l2)+
+    arrow(420,205,498,215,'instanceOf ↑',C.infra,{ly:230})+
+    arrow(680,120,738,120,'',C.mut)+
+    `<text x="330" y="45" text-anchor="middle" font-size="11" font-weight="800" fill="#9aa1ad">QUÉ ES VERDAD</text>`+
+    `<text x="590" y="25" text-anchor="middle" font-size="11" font-weight="800" fill="#9aa1ad">QUÉ SE ENSEÑA</text>`
+  );
+
+  // ── 06 · broker: nodo vs arista ────────────────────────────────────────────
+  document.getElementById('figBroker').innerHTML = svg('0 0 860 220',
+    frame(15,15,400,190,'A · BROKER COMO NODO — la verdad completa',C.kafka)+
+    box(40,80,105,50,'Ingest API','',C.l2)+
+    box(180,75,105,60,'Kafka','topic · particiones',C.kafka,{sw:2.2,fs:12})+
+    box(320,80,80,50,'Renderer','',C.l2)+
+    arrow(145,105,178,105,'publica',C.kafka,{dash:1,ly:98})+
+    arrow(285,105,318,105,'consume',C.kafka,{dash:1,ly:98})+
+    `<text x="215" y="180" text-anchor="middle" font-size="11" fill="#6b7280">nadie llama a nadie · se puede hablar de offsets, DLQ, grupos</text>`+
+    frame(445,15,400,190,'B · BROKER COMO ARISTA — el flujo de negocio',C.l2)+
+    box(490,80,120,50,'Ingest API','',C.l2)+
+    box(700,80,120,50,'Renderer','',C.l2)+
+    arrow(610,105,698,105,'job.requested · Kafka',C.kafka,{dash:1,ly:96})+
+    `<text x="645" y="180" text-anchor="middle" font-size="11" fill="#6b7280">menos ruido · pierdes el desacoplamiento y el detalle del broker</text>`
+  );
+
+  // ── 08 · dos capas ─────────────────────────────────────────────────────────
+  document.getElementById('figLayers').innerHTML = svg('0 0 860 330',
+    frame(15,10,830,120,'MODELO LÓGICO · qué es el sistema',C.l2,{fill:'rgba(37,99,235,.03)'})+
+    box(45,45,130,54,'Ingest API','',C.l2)+
+    box(215,45,130,54,'Tile Renderer','',C.l2)+
+    box(385,45,130,54,'Report Service','',C.l2)+
+    box(560,45,110,54,'Kafka','externo',C.kafka)+
+    box(700,45,120,54,'Blob Storage','externo',C.mut)+
+    frame(15,155,830,165,'MODELO DE DESPLIEGUE · dónde corre',C.infra,{fill:'rgba(219,39,119,.03)'})+
+    frame(35,185,470,120,'aks · aks-platform-we / ns: platform',C.infra,{dash:'4 4'})+
+    box(55,225,120,50,'pod ingest-api','×3',C.infra,{multiple:true,fs:11})+
+    box(200,225,140,50,'sts tile-renderer','×6 · node pool compute',C.infra,{multiple:true,fs:11})+
+    box(360,225,120,50,'pod report','×2',C.infra,{multiple:true,fs:11})+
+    box(530,200,140,44,'Event Hubs (Kafka)','PaaS',C.kafka,{fs:11})+
+    box(530,258,140,44,'Storage Account','PaaS',C.mut,{fs:11})+
+    box(700,225,130,50,'Managed Disk','PVC · RWO · 512 GiB',C.infra,{sw:2.2,fs:11})+
+    arrow(115,222,110,102,'instanceOf',C.infra,{dash:1,lx:60,ly:165})+
+    arrow(270,222,280,102,'instanceOf',C.infra,{dash:1,lx:330,ly:165})+
+    arrow(420,222,450,102,'instanceOf',C.infra,{dash:1,lx:470,ly:150})+
+    arrow(600,198,615,102,'instanceOf',C.infra,{dash:1,lx:660,ly:165})+
+    arrow(640,256,760,102,'instanceOf',C.infra,{dash:1,lx:790,ly:150})+
+    arrow(340,250,698,250,'monta /var/scratch',C.infra,{ly:243})+
+    `<text x="700" y="300" text-anchor="middle" font-size="11" fill="#6b7280">el disco NO existe arriba: es detalle de ejecución</text>`
+  );
+
+  // ── 09 · el sándwich ───────────────────────────────────────────────────────
+  document.getElementById('figSandwich').innerHTML = svg('0 0 860 300',
+    frame(15,15,830,270,'TILE RENDERER · UN SOLO PROCESO, UN SOLO POD',C.l3)+
+    frame(40,50,360,210,'MUNDO GESTIONADO · C# / .NET 8',C.cs,{dash:'3 3'})+
+    box(60,85,150,50,'Messaging Adapter','IJobSource',C.cs,{fs:11.5})+
+    box(240,85,140,50,'Worker Host','BackgroundService',C.cs,{fs:11.5})+
+    box(60,160,150,46,'Blob Uploader','',C.cs,{fs:11.5})+
+    box(240,160,140,46,'Scratch Store','',C.cs,{fs:11.5})+
+    frame(425,50,120,210,'FRONTERA',C.kafka,{dash:'3 3'})+
+    box(440,120,90,110,'Interop','P/Invoke·SafeHandle',C.kafka,{dash:1,fs:12})+
+    frame(570,50,255,210,'MUNDO NATIVO · C++20',C.cpp,{dash:'3 3'})+
+    box(595,85,205,44,'C API façade','extern "C" · sin mangling',C.cpp,{sw:2.2,fs:11.5})+
+    box(595,145,95,44,'Scheduler','',C.cpp,{fs:11.5})+
+    box(705,145,95,44,'Rasterizer','',C.cpp,{fs:11.5})+
+    box(595,205,205,42,'Local IO','buffers al disco montado',C.cpp,{fs:11.5})+
+    arrow(210,110,238,110,'',C.cs)+
+    arrow(310,135,310,158,'',C.cs)+
+    arrow(380,120,438,150,'render_submit()',C.cs,{ly:114})+
+    arrow(530,150,593,110,'DllImport · C ABI',C.kafka,{dash:1,ly:132})+
+    arrow(645,129,645,143,'',C.cpp)+
+    arrow(690,167,703,167,'',C.cpp)+
+    arrow(752,189,700,203,'',C.cpp)+
+    `<text x="430" y="278" text-anchor="middle" font-size="11" fill="#6b7280">excepciones, memoria y tipos NO cruzan solos: los traduce la capa naranja</text>`
+  );
+
+
+  // ── 06 · derivación de relaciones ──────────────────────────────────────────
+  document.getElementById('figDeriv').innerHTML = svg('0 0 860 300',
+    `<text x="20" y="26" font-size="11" font-weight="800" fill="#9aa1ad">LO QUE ESCRIBES · UNA VEZ, EN EL NIVEL 3</text>` +
+    frame(20,38,400,110,'TILE RENDERER',C.l3)+
+    box(45,72,110,44,'Worker Host','',C.cs,{fs:11})+
+    box(180,72,110,44,'Blob Uploader','',C.cs,{fs:11})+
+    box(500,72,130,44,'Blob Storage','',C.mut,{fs:11})+
+    arrow(155,94,178,94,'',C.cs)+
+    arrow(290,94,498,94,'sube tiles y manifiesto',C.l3,{dash:1,ly:86})+
+    `<text x="20" y="192" font-size="11" font-weight="800" fill="#9aa1ad">LO QUE LIKEC4 DIBUJA EN LA VISTA DE NIVEL 2 · SIN QUE ESCRIBAS NADA</text>` +
+    box(45,210,150,50,'Tile Renderer','caja cerrada',C.l2,{sw:2})+
+    box(500,210,130,50,'Blob Storage','',C.mut)+
+    arrow(195,235,498,235,'sube tiles y manifiesto  (derivada)',C.l2,{dash:1,ly:227})+
+    `<text x="680" y="120" font-size="11.5" font-weight="700" fill="#6b7280">1 relación declarada</text>` +
+    `<text x="680" y="250" font-size="11.5" font-weight="700" fill="#6b7280">N conexiones dibujadas</text>` +
+    arrow(120,148,120,206,'',C.mut,{dash:1})
+  );
+
+
+  // ── 10 · disco privado vs volumen compartido ───────────────────────────────
+  document.getElementById('figShare').innerHTML = svg('0 0 860 320',
+    frame(15,10,830,120,'MODELO LÓGICO',C.l2,{fill:'rgba(37,99,235,.03)'})+
+    box(60,45,150,54,'Tile Renderer','',C.l2)+
+    box(620,45,160,54,'Report Service','',C.l2)+
+    box(330,42,180,60,'Área compartida','contrato implícito',C.infra,{sw:2.4,fs:12})+
+    arrow(210,72,328,72,'escribe (rw)',C.infra,{ly:64})+
+    arrow(618,72,512,72,'lee (ro)',C.infra,{ly:64})+
+    `<text x="420" y="120" text-anchor="middle" font-size="11" fill="#6b7280">dos servicios acoplados por ficheros: esto SÍ es arquitectura</text>`+
+    frame(15,155,830,150,'MODELO DE DESPLIEGUE',C.infra,{fill:'rgba(219,39,119,.03)'})+
+    box(50,195,170,54,'pod tile-renderer','×6',C.infra,{multiple:true,fs:11})+
+    box(610,195,170,54,'pod report','×2',C.infra,{multiple:true,fs:11})+
+    box(330,185,180,50,'Azure Files (RWX)','montado por los dos',C.infra,{sw:2.4,fs:11.5})+
+    box(60,262,150,38,'Azure Disk (RWO)','uno por réplica',C.mut,{fs:11})+
+    arrow(220,215,328,210,'/mnt/shared rw',C.infra,{ly:200})+
+    arrow(608,215,512,210,'/mnt/shared ro',C.infra,{ly:200})+
+    arrow(135,249,135,260,'',C.mut)+
+    arrow(420,183,420,104,'instanceOf',C.infra,{dash:1,lx:472,ly:145})+
+    `<text x="290" y="290" font-size="11" fill="#6b7280">el privado no sube: nadie más lo lee</text>`
+  );
+
+  // ── 07 · migración: as-is / to-be / ambos ──────────────────────────────────
+  const MIG = [
+    {id:'now', tab:'view containers · hoy', cap:'exclude * -> * where tag is #to-be — sólo la ruta Kafka. Es lo que hay en producción.'},
+    {id:'target', tab:'view containersTarget · objetivo', cap:'exclude * -> * where tag is #as-is + exclude kafkaCluster — sólo la ruta Service Bus.'},
+    {id:'both', tab:'view migration · las dos', cap:'Sin filtro, con estilos por tag: se apaga lo que se retira y se resalta lo que llega.'}
+  ];
+  function migSvg(mode){
+    const showK = mode!=='target', showS = mode!=='now';
+    const kOp = mode==='both' ? .32 : 1;
+    let s = box(30,90,130,56,'Ingest API','',C.l2);
+    s += box(660,90,150,56,'Tile Renderer','.messaging',C.l2);
+    if(showK){
+      s += `<g opacity="${kOp}">`
+        + box(320,25,150,54,'Kafka','topic · offsets',C.kafka,{sw:2})
+        + arrow(160,105,318,58,'publica job.requested',C.kafka,{dash:1,lx:238,ly:70})
+        + arrow(470,58,658,105,'consume · consumer group',C.kafka,{dash:1,lx:565,ly:66})
+        + `</g>`;
+    }
+    if(showS){
+      s += box(320,160,150,54,'Service Bus','cola · peek-lock',C.asb,{sw:2})
+        + arrow(160,131,318,187,'envía job.requested',C.asb,{dash:1,lx:238,ly:186})
+        + arrow(470,187,658,131,'recibe · competing consumers',C.asb,{dash:1,lx:568,ly:190});
+    }
+    return svg('0 0 860 240', s);
+  }
+  const migCtrls = document.getElementById('migCtrls');
+  const migStage = document.getElementById('migStage');
+  const migCap = document.getElementById('migCap');
+  function renderMig(i){
+    [...migCtrls.querySelectorAll('button')].forEach((b,j)=>b.classList.toggle('on', j===i));
+    migStage.innerHTML = `<div class="figure">${migSvg(MIG[i].id)}</div>`;
+    migCap.textContent = MIG[i].cap;
+  }
+  MIG.forEach((m,i)=>{
+    const b = document.createElement('button');
+    b.textContent = m.tab;
+    b.onclick = ()=>renderMig(i);
+    migCtrls.appendChild(b);
+  });
+  const hint = document.createElement('span');
+  hint.className = 'hint';
+  hint.textContent = 'un solo modelo · tres vistas';
+  migCtrls.appendChild(hint);
+  renderMig(0);
+
+  // ── índice activo al hacer scroll ──────────────────────────────────────────
+  const links = [...document.querySelectorAll('#toc a')];
+  const secs = links.map(a=>document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  function spy(){
+    let cur = 0;
+    secs.forEach((s,i)=>{ if(s.getBoundingClientRect().top <= 90) cur = i; });
+    links.forEach((a,i)=>a.classList.toggle('active', i===cur));
+  }
+  window.addEventListener('scroll', spy, {passive:true});
+  spy();
+
+})();
+</script>
+
+</body>
+</html>

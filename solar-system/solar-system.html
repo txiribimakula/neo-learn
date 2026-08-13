@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sistema Solar · aprende por fases</title>
+  <style>
+    :root{--ink:#eaf0ff;--muted:#aab8d8;--blue:#6ba7ff;--line:rgba(153,187,255,.18);--panel:rgba(13,25,57,.72);--gold:#ffc767;--bg:#050a1b}
+    *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;background:radial-gradient(ellipse at 55% -20%,#182c66 0,transparent 43%),var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
+    .stars,.stars:after{position:fixed;inset:0;pointer-events:none;content:"";background-image:radial-gradient(#fff 1px,transparent 1.4px),radial-gradient(#a4c8ff 1px,transparent 1.2px);background-size:97px 83px,137px 149px;background-position:12px 21px,66px 39px;opacity:.45}
+    main{max-width:1180px;margin:auto;padding:32px 22px 56px;position:relative}.eyebrow{color:var(--gold);font-size:.78rem;font-weight:750;letter-spacing:.12em;text-transform:uppercase}h1{font-size:clamp(2.1rem,5vw,4.3rem);line-height:1;margin:.35rem 0 .75rem;max-width:800px} .intro{max-width:670px;color:var(--muted);font-size:1.08rem;line-height:1.55;margin:0 0 28px}
+    .phases{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:22px}.phase{border:1px solid var(--line);background:rgba(14,29,66,.55);color:var(--muted);padding:14px;border-radius:12px;text-align:left;cursor:pointer;transition:.2s;font:inherit}.phase:hover{border-color:var(--blue);color:var(--ink);transform:translateY(-2px)}.phase[aria-selected="true"]{background:linear-gradient(135deg,rgba(79,136,255,.35),rgba(13,25,57,.8));border-color:var(--blue);color:var(--ink)}.phase b{display:block;font-size:.78rem;color:var(--gold);margin-bottom:4px}.phase span{font-weight:700;font-size:.94rem}
+    .learning{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(260px,.75fr);gap:18px;align-items:stretch}.space{position:relative;min-height:490px;overflow:hidden;border:1px solid var(--line);border-radius:20px;background:radial-gradient(circle at 50% 50%,rgba(255,197,74,.13),transparent 22%),#080f28}.orbit{position:absolute;border:1px solid rgba(178,205,255,.18);border-radius:50%;left:50%;top:50%;transform:translate(-50%,-50%)}.sun{position:absolute;width:70px;height:70px;border-radius:50%;left:50%;top:50%;transform:translate(-50%,-50%);background:radial-gradient(circle at 35% 30%,#fff8c2,#ffc75e 43%,#e57a1d);box-shadow:0 0 35px 13px rgba(255,178,50,.35)}
+    .planet{position:absolute;border:0;border-radius:50%;transform:translate(-50%,-50%);cursor:pointer;transition:transform .2s,box-shadow .2s}.planet:hover,.planet.active{transform:translate(-50%,-50%) scale(1.3);box-shadow:0 0 0 5px rgba(107,167,255,.25)}.planet::after{content:attr(data-name);position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);color:#dce8ff;font-size:.72rem;white-space:nowrap;text-shadow:0 1px 4px #000}.planet.hidden{display:none}.tag{position:absolute;top:18px;left:18px;color:var(--muted);font-size:.8rem;background:rgba(5,10,27,.7);padding:7px 10px;border-radius:99px;border:1px solid var(--line)}
+    aside{padding:24px;border:1px solid var(--line);border-radius:20px;background:var(--panel);display:flex;flex-direction:column}.step{color:var(--gold);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase}.topic{font-size:1.65rem;margin:9px 0}.detail{color:var(--muted);line-height:1.55;min-height:110px}.fact{margin-top:auto;padding-top:18px;border-top:1px solid var(--line);color:#dce8ff;line-height:1.45}.fact strong{color:var(--gold)}
+    .next{margin-top:20px;display:flex;justify-content:space-between;gap:12px;align-items:center;color:var(--muted);font-size:.9rem}.next button{border:0;border-radius:9px;padding:10px 15px;background:var(--blue);color:#071026;font-weight:800;font:inherit;cursor:pointer}.next button:hover{filter:brightness(1.12)}.memory,.origins,.details{margin-top:30px;padding:25px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(130deg,rgba(26,48,100,.6),rgba(10,18,43,.7))}.memory h2,.origins h2,.details h2{margin:5px 0 8px;font-size:1.45rem}.memory>p,.origins>p,.details>p{color:var(--muted);margin:0;line-height:1.5}.mnemonic{margin:18px 0;padding:15px 18px;border-left:3px solid var(--gold);background:rgba(5,10,27,.35);color:#f6f8ff;font-size:1.1rem;line-height:1.5}.mnemonic strong{color:var(--gold)}.memory-grid,.name-grid,.detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.memory-card{min-height:112px;padding:12px;border:1px solid var(--line);border-radius:11px;background:rgba(8,15,40,.65);color:var(--ink);text-align:left;cursor:pointer;font:inherit}.memory-card:hover,.memory-card:focus{border-color:var(--blue)}.memory-card b{display:block;color:var(--gold);font-size:.85rem;margin-bottom:7px}.memory-card span{display:block;color:var(--muted);font-size:.84rem;line-height:1.35}.memory-card .answer{display:none;color:#e8f0ff}.memory-card.open .prompt{display:none}.memory-card.open .answer{display:block}.memory-tip{margin:14px 0 0;color:var(--muted);font-size:.86rem}.name-grid,.detail-grid{margin-top:18px}.name-card,.detail-card{padding:13px;border-top:2px solid var(--line);background:rgba(8,15,40,.38)}.name-card h3,.detail-card h3{font-size:1rem;margin:0 0 6px}.name-card .source,.detail-card .label{color:var(--gold);font-size:.78rem;font-weight:700}.name-card p,.detail-card p{color:var(--muted);font-size:.86rem;line-height:1.42;margin:6px 0 0}.detail-card p+p{margin-top:8px}.detail-card strong{color:#e9f1ff}.origins a{color:#b9d4ff}.guide{margin-top:40px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.guide article{border-top:2px solid var(--line);padding-top:12px}.guide b{color:var(--gold);font-size:.78rem}.guide h2{font-size:1rem;margin:6px 0}.guide p{color:var(--muted);line-height:1.45;font-size:.9rem;margin:0}
+    @media(max-width:760px){main{padding:25px 16px 42px}.phases,.guide,.memory-grid,.name-grid,.detail-grid{grid-template-columns:repeat(2,1fr)}.learning{grid-template-columns:1fr}.space{min-height:390px}aside{min-height:280px}} @media(max-width:410px){.phases,.guide,.memory-grid,.name-grid,.detail-grid{grid-template-columns:1fr}.space{min-height:350px}}
+  </style>
+</head>
+<body>
+<div class="stars"></div>
+<main>
+  <div class="eyebrow">Ruta de aprendizaje visual</div>
+  <h1>Del Sol a los confines del Sistema Solar</h1>
+  <p class="intro">Avanza por fases. Primero mira el conjunto; después descubre los mundos, sus movimientos y las preguntas que aún estamos explorando.</p>
+  <nav class="phases" aria-label="Fases de aprendizaje">
+    <button class="phase" data-phase="0" aria-selected="true"><b>Fase 1 · Orientación</b><span>El gran mapa</span></button>
+    <button class="phase" data-phase="1" aria-selected="false"><b>Fase 2 · Mundos</b><span>Planetas y tamaños</span></button>
+    <button class="phase" data-phase="2" aria-selected="false"><b>Fase 3 · Movimiento</b><span>Órbitas y gravedad</span></button>
+    <button class="phase" data-phase="3" aria-selected="false"><b>Fase 4 · Explora</b><span>Lunas, anillos y más</span></button>
+  </nav>
+  <section class="learning" aria-label="Explorador del Sistema Solar">
+    <div class="space" id="space" aria-label="Diagrama interactivo del sistema solar">
+      <span class="tag" id="mapLabel">Vista general · 8 planetas</span><div class="sun" aria-label="El Sol"></div>
+    </div>
+    <aside>
+      <div class="step" id="stepLabel">Fase 1 · Orientación</div><h2 class="topic" id="topic">Todo gira alrededor del Sol</h2>
+      <p class="detail" id="detail">El Sistema Solar es nuestra vecindad cósmica: una estrella, ocho planetas, lunas, asteroides y cometas. Empieza por reconocer el orden desde el Sol.</p>
+      <p class="fact" id="fact"><strong>Idea clave:</strong> las distancias reales son enormes. Este mapa comprime las órbitas para que puedas compararlas.</p>
+      <div class="next"><span id="hint">Pulsa un planeta para conocerlo.</span><button id="next" type="button">Siguiente fase</button></div>
+    </aside>
+  </section>
+  <section class="memory" aria-labelledby="memoryTitle">
+    <div class="eyebrow">Anclas de memoria</div>
+    <h2 id="memoryTitle">Recuerda el orden y las pistas</h2>
+    <p>Las mnemotecnias funcionan mejor si creas una imagen mental y después recuperas la respuesta sin mirarla.</p>
+    <p class="mnemonic"><strong>Historia de los nombres:</strong> «<strong>Mercurio</strong>, mensajero veloz, pero que se le hace tarde esperando a la noche. Intenta besar a la ardiente <strong>Venus</strong>, pero ella gira la cara hacia el otro lado. Tras visitar la <strong>Tierra</strong>, evita a <strong>Marte</strong>: el guerrero está encerrado levantando hierros en el gimnasio. Ante la orden de <strong>Júpiter</strong>, señor de las tormentas, ayuda a <strong>Saturno</strong> a recoger la siembra, sin que se le caigan los anillos por ello. Agotado, se tumba tapado con una manta con <strong>Urano</strong> para mirar el curioso cielo inclinado. Por último intenta zarpar con <strong>Neptuno</strong>, pero hay un vendaval y el mar está helado».<br>Mercurio · Venus · Tierra · Marte · Júpiter · Saturno · Urano · Neptuno.</p>
+    <p class="memory-tip"><strong>Cómo leerla:</strong> Mercurio, Venus, Marte, Júpiter, Saturno y Neptuno remiten a dioses romanos; Urano procede del dios griego del cielo. La Tierra es la excepción: su nombre significa el suelo o mundo que habitamos, no el de un dios.</p>
+    <div class="memory-grid" aria-label="Tarjetas de mnemotecnias de los planetas">
+      <button class="memory-card" type="button"><b>Mercurio</b><span class="prompt">¿Qué lo hace veloz?</span><span class="answer">Mensajero veloz: está cerca del Sol y su año dura 88 días.</span></button>
+      <button class="memory-card" type="button"><b>Venus</b><span class="prompt">¿Qué temperatura imaginas?</span><span class="answer">Venus = horno: su atmósfera atrapa muchísimo calor.</span></button>
+      <button class="memory-card" type="button"><b>Tierra</b><span class="prompt">¿Qué color la delata?</span><span class="answer">Tierra azul = agua líquida y vida conocida.</span></button>
+      <button class="memory-card" type="button"><b>Marte</b><span class="prompt">¿Qué color la delata?</span><span class="answer">Marte rojo: imagina polvo de óxido de hierro.</span></button>
+      <button class="memory-card" type="button"><b>Júpiter</b><span class="prompt">¿Qué tamaño tiene?</span><span class="answer">Júpiter gigante: el más grande, con una gran tormenta roja.</span></button>
+      <button class="memory-card" type="button"><b>Saturno</b><span class="prompt">¿Qué lleva puesto?</span><span class="answer">Saturno con sombrero: sus anillos de hielo y roca.</span></button>
+      <button class="memory-card" type="button"><b>Urano</b><span class="prompt">¿Cómo se mueve?</span><span class="answer">Urano tumbado: gira casi de lado, como una rueda.</span></button>
+      <button class="memory-card" type="button"><b>Neptuno</b><span class="prompt">¿Qué clima imaginas?</span><span class="answer">Neptuno azul y ventoso: frío, lejano y con vientos extremos.</span></button>
+    </div>
+    <p class="memory-tip">Recita la escena mientras señalas el mapa: cada personaje conserva el orden, el origen del nombre y una característica. Toca una tarjeta para comprobar tu recuerdo.</p>
+  </section>
+  <section class="origins" aria-labelledby="originsTitle">
+    <div class="eyebrow">La explicación histórica</div>
+    <h2 id="originsTitle">Por qué recibieron esos nombres</h2>
+    <p>Mercurio, Venus, Marte, Júpiter y Saturno ya eran “luces errantes” conocidas a simple vista por los antiguos romanos. Los relacionaron con sus dioses principales. Los dos planetas descubiertos con telescopio conservaron esa tradición; Tierra no la siguió.</p>
+    <div class="name-grid">
+      <article class="name-card"><h3>Mercurio</h3><span class="source">Dios romano mensajero</span><p>Los romanos asociaron este “astro errante” con su dios más veloz. El planeta recorre el Sol en 88 días, la órbita más rápida: la asociación sigue teniendo sentido.</p></article>
+      <article class="name-card"><h3>Venus</h3><span class="source">Diosa romana del amor y la belleza</span><p>Los romanos lo asignaron a una de sus diosas principales. Es una de las luces más brillantes del cielo y el único planeta con nombre de diosa.</p></article>
+      <article class="name-card"><h3>Tierra</h3><span class="source">Palabra de uso común</span><p>No fue bautizada por una divinidad. “Earth” procede del inglés antiguo; en español, Tierra continúa el latín <em>terra</em>: suelo o mundo habitado.</p></article>
+      <article class="name-card"><h3>Marte</h3><span class="source">Dios romano de la guerra</span><p>Su tono rojizo, visible a ojo desnudo, evocaba la sangre y la guerra. De ahí la asociación tradicional con Marte.</p></article>
+      <article class="name-card"><h3>Júpiter</h3><span class="source">Rey de los dioses romanos</span><p>Es el soberano asociado al cielo diurno, el rayo y las tormentas; no es el cielo mismo. El planeta más grande recibió el nombre del jefe del panteón.</p></article>
+      <article class="name-card"><h3>Saturno</h3><span class="source">Dios romano de la siembra</span><p>Saturno estaba ligado a la agricultura y al tiempo; se representaba con una hoz. Por eso “siembra con Saturno” es una pista histórica, no solo una rima.</p></article>
+      <article class="name-card"><h3>Urano</h3><span class="source">Personificación griega del cielo</span><p>Es el cielo mismo personificado. Tras su descubrimiento en 1781, se eligió Urano para mantener la tradición mitológica: es padre de Cronos/Saturno y abuelo de Zeus/Júpiter.</p></article>
+      <article class="name-card"><h3>Neptuno</h3><span class="source">Dios romano del mar</span><p>Al descubrirse en 1846 se mantuvo la convención de nombres mitológicos. Neptuno, dios del mar, completaba además la familia clásica de los planetas exteriores.</p></article>
+    </div>
+    <p class="memory-tip">Consulta: <a href="https://science.nasa.gov/astrobiology/learning-resources/alp/how-did-our-solar-system-form/" target="_blank" rel="noopener">NASA sobre la tradición de nombres</a> y <a href="https://science.nasa.gov/missions/hubble/240-years-ago-astronomer-william-herschel-identifies-uranus-as-the-seventh-planet/" target="_blank" rel="noopener">la historia de Urano</a>.</p>
+  </section>
+  <section class="details" aria-labelledby="detailsTitle">
+    <div class="eyebrow">Fase de profundización</div>
+    <h2 id="detailsTitle">Detalles y curiosidades de cada planeta</h2>
+    <p>Usa estas pistas para pasar de reconocer el nombre a comprender qué hace único a cada mundo.</p>
+    <div class="detail-grid">
+      <article class="detail-card"><h3>Mercurio</h3><span class="label">Pequeño y extremo</span><p>Es el planeta más pequeño y el más cercano al Sol. No tiene lunas ni anillos.</p><p><strong>Curiosidad:</strong> un día solar dura 176 días terrestres: allí amanecer y anochecer van muy despacio.</p></article>
+      <article class="detail-card"><h3>Venus</h3><span class="label">Bella, pero abrasadora</span><p>Recibe el nombre de la diosa de la belleza, aunque su atmósfera de dióxido de carbono retiene tanto calor que es el planeta más caliente.</p><p><strong>Curiosidad:</strong> gira en sentido contrario a la mayoría de planetas; por eso, en la historia, “aparta la cara” y el Sol saldría por el oeste.</p></article>
+      <article class="detail-card"><h3>Tierra</h3><span class="label">Un planeta activo</span><p>Es el único mundo conocido con vida y agua líquida estable en superficie. Su atmósfera modera la temperatura.</p><p><strong>Curiosidad:</strong> las placas tectónicas reciclan la corteza y levantan cordilleras.</p></article>
+      <article class="detail-card"><h3>Marte</h3><span class="label">El guerrero rojo</span><p>El óxido de hierro en roca y polvo le da su color. Tiene una atmósfera muy fina, compuesta sobre todo por dióxido de carbono.</p><p><strong>Curiosidad:</strong> por eso “entrena con hierros oxidados”: une el color rojo, el dios de la guerra y su atmósfera de CO₂. Olympus Mons es su enorme volcán.</p></article>
+      <article class="detail-card"><h3>Júpiter</h3><span class="label">El gigante</span><p>Es el planeta más grande y contiene más masa que el resto de planetas juntos. Su atmósfera es sobre todo hidrógeno y helio.</p><p><strong>Curiosidad:</strong> su Gran Mancha Roja es una tormenta mayor que la Tierra.</p></article>
+      <article class="detail-card"><h3>Saturno</h3><span class="label">El señor de los anillos</span><p>Sus anillos están formados sobre todo por hielo, polvo y roca. Es el segundo planeta más grande.</p><p><strong>Curiosidad:</strong> “no se le caen los anillos por trabajar” recuerda que, aunque los anillos parezcan sólidos, son material que orbita a Saturno.</p></article>
+      <article class="detail-card"><h3>Urano</h3><span class="label">El planeta que mira de lado</span><p>Es un gigante helado, rico en agua, amoníaco y metano bajo sus nubes. Su eje está inclinado casi 98°.</p><p><strong>Curiosidad:</strong> parece mirar el cielo de lado; esa inclinación produce estaciones de alrededor de 21 años terrestres.</p></article>
+      <article class="detail-card"><h3>Neptuno</h3><span class="label">Helado y con vendaval</span><p>Es el planeta más distante y otro gigante helado. El metano contribuye a su color azul.</p><p><strong>Curiosidad:</strong> tarda unos 165 años terrestres en orbitar el Sol y tiene algunos de los vientos más rápidos del Sistema Solar.</p></article>
+    </div>
+  </section>
+  <section class="guide" aria-label="Contenido de cada fase">
+    <article><b>01</b><h2>Ubícate</h2><p>Ordena los planetas y distingue una estrella de un planeta.</p></article>
+    <article><b>02</b><h2>Compara</h2><p>Observa qué mundos son rocosos y cuáles son gigantes gaseosos o helados.</p></article>
+    <article><b>03</b><h2>Explica</h2><p>Relaciona órbitas, años y gravedad con lo que ves en el mapa.</p></article>
+    <article><b>04</b><h2>Investiga</h2><p>Profundiza en lunas, anillos, planetas enanos y exploración espacial.</p></article>
+  </section>
+</main>
+<script>
+(() => {
+  'use strict';
+  const planets=[
+    {n:'Mercurio',c:'#aaa7a3',s:8,o:16,kind:'rocoso',info:'El planeta más cercano al Sol. Un año allí dura solo 88 días terrestres.'},
+    {n:'Venus',c:'#e7ba72',s:12,o:24,kind:'rocoso',info:'Tiene una atmósfera muy densa que atrapa el calor: es el planeta más caliente.'},
+    {n:'Tierra',c:'#4f9eea',s:13,o:33,kind:'rocoso',info:'Nuestro planeta rocoso tiene agua líquida en la superficie y una luna grande.'},
+    {n:'Marte',c:'#d96847',s:10,o:42,kind:'rocoso',info:'El planeta rojo guarda señales de antiguos ríos y lagos.'},
+    {n:'Júpiter',c:'#d9ac7c',s:27,o:53,kind:'gigante gaseoso',info:'Es el mayor planeta. Su Gran Mancha Roja es una tormenta gigantesca.'},
+    {n:'Saturno',c:'#e9d38e',s:23,o:64,kind:'gigante gaseoso',info:'Sus anillos están formados por incontables fragmentos de hielo y roca.'},
+    {n:'Urano',c:'#8fd4e3',s:18,o:75,kind:'gigante helado',info:'Gira casi de lado, como si rodara por su órbita.'},
+    {n:'Neptuno',c:'#4d6fe1',s:18,o:86,kind:'gigante helado',info:'Es un mundo azul, frío y con algunos de los vientos más rápidos conocidos.'}
+  ];
+  const phases=[
+    {label:'Fase 1 · Orientación',title:'Todo gira alrededor del Sol',detail:'El Sistema Solar es nuestra vecindad cósmica: una estrella, ocho planetas, lunas, asteroides y cometas. Empieza por reconocer el orden desde el Sol.',fact:'<strong>Idea clave:</strong> las distancias reales son enormes. Este mapa comprime las órbitas para que puedas compararlas.',hint:'Pulsa un planeta para conocerlo.',map:'Vista general · 8 planetas'},
+    {label:'Fase 2 · Mundos',title:'Dos familias de planetas',detail:'Los cuatro planetas interiores son pequeños y rocosos. Más allá del cinturón de asteroides empiezan los gigantes, mucho más grandes y formados sobre todo por gas o hielo.',fact:'<strong>Observa:</strong> Júpiter y Saturno dominan el tamaño; la Tierra es uno de los cuatro mundos rocosos.',hint:'Compara un planeta interior con uno exterior.',map:'Tamaños exagerados para comparar'},
+    {label:'Fase 3 · Movimiento',title:'La gravedad dibuja las órbitas',detail:'La gravedad del Sol mantiene a los planetas en movimiento. Cuanto más lejos está un planeta, más larga es su órbita y más tarda en completar un año.',fact:'<strong>Conexión:</strong> la Tierra tarda 1 año; Neptuno tarda unos 165 años terrestres.',hint:'Fíjate en cómo crecen las órbitas.',map:'Órbitas · no están a escala'},
+    {label:'Fase 4 · Explora',title:'El mapa no termina en Neptuno',detail:'Las lunas, los anillos, el cinturón de asteroides y los planetas enanos revelan un Sistema Solar mucho más diverso. Cada uno es una nueva pregunta que investigar.',fact:'<strong>Siguiente reto:</strong> compara las lunas de Júpiter con la Luna de la Tierra, o descubre por qué Plutón es un planeta enano.',hint:'Elige un planeta para abrir tu investigación.',map:'Explora objetos y planetas'}
+  ];
+  const space=document.querySelector('#space'), buttons=[...document.querySelectorAll('.phase')];
+  const label=document.querySelector('#mapLabel'), step=document.querySelector('#stepLabel'), topic=document.querySelector('#topic'), detail=document.querySelector('#detail'), fact=document.querySelector('#fact'), hint=document.querySelector('#hint');
+  let phase=0;
+  planets.forEach((p,i)=>{const orbit=document.createElement('div');orbit.className='orbit';orbit.style.width=orbit.style.height=(p.o*2)+'%';orbit.dataset.index=i;space.append(orbit);const el=document.createElement('button');el.className='planet';el.dataset.name=p.n;el.setAttribute('aria-label',p.n);el.style.cssText=`width:${p.s}px;height:${p.s}px;background:${p.c};left:${50+Math.cos(i*1.78)*p.o/2}%;top:${50+Math.sin(i*1.78)*p.o/2}%`;if(p.n==='Saturno')el.style.boxShadow='0 0 0 4px rgba(233,211,142,.45)';el.addEventListener('click',()=>selectPlanet(p,el));space.append(el)});
+  function selectPlanet(p,el){document.querySelectorAll('.planet').forEach(x=>x.classList.remove('active'));el.classList.add('active');topic.textContent=p.n;detail.textContent=p.info;fact.innerHTML=`<strong>${p.kind}:</strong> ${phase===2?'su distancia al Sol determina la duración de su año.':phase===3?'puede tener lunas, atmósfera y una historia propia por explorar.':'compáralo con los otros mundos del mapa.'}`;hint.textContent='Puedes volver a elegir cualquier planeta.'}
+  function render(){const d=phases[phase];step.textContent=d.label;topic.textContent=d.title;detail.textContent=d.detail;fact.innerHTML=d.fact;hint.textContent=d.hint;label.textContent=d.map;buttons.forEach((b,i)=>b.setAttribute('aria-selected',i===phase));document.querySelectorAll('.planet').forEach((x,i)=>x.classList.toggle('hidden',phase===0&&i>3));document.querySelectorAll('.orbit').forEach((x,i)=>x.classList.toggle('hidden',phase===0&&i>3));document.querySelector('#next').textContent=phase===3?'Volver al inicio':'Siguiente fase'}
+  buttons.forEach(b=>b.addEventListener('click',()=>{phase=Number(b.dataset.phase);render()}));document.querySelector('#next').addEventListener('click',()=>{phase=(phase+1)%4;render()});
+  document.querySelectorAll('.memory-card').forEach(card=>card.addEventListener('click',()=>card.classList.toggle('open')));render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,190 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// 01 · SPECIFICATION — el vocabulario del modelo.
+// Aquí NO hay arquitectura todavía: aquí decides qué palabras vas a usar
+// (kinds de elementos, kinds de relación, tags) y cómo se pintan.
+// Cambiar un estilo aquí repinta TODOS los diagramas a la vez.
+// ─────────────────────────────────────────────────────────────────────────────
+specification {
+
+  // ── Kinds de elemento ──────────────────────────────────────────────────────
+  // Nivel 1 (Context)
+  element actor {
+    style {
+      shape person
+      color secondary
+    }
+  }
+  element system {
+    style {
+      color primary
+    }
+  }
+  element externalSystem {
+    notation 'Sistema externo'
+    style {
+      color muted
+    }
+  }
+
+  // Nivel 2 (Containers): unidades desplegables por separado
+  element service {
+    notation 'Servicio desplegable'
+    style {
+      color indigo
+    }
+  }
+  element datastore {
+    notation 'Almacenamiento'
+    style {
+      shape storage
+      color slate
+    }
+  }
+  element broker {
+    notation 'Broker de mensajería'
+    style {
+      shape queue
+      color amber
+    }
+  }
+  element topic {
+    notation 'Topic / Queue'
+    style {
+      shape queue
+      color amber
+    }
+  }
+
+  // Nivel 3 (Components): piezas dentro de un servicio
+  element component {
+    style {
+      color sky
+    }
+  }
+  // Sub-kinds que hacen legible el sándwich C# ↔ C++
+  element managedComponent {
+    notation 'Componente gestionado (C#)'
+    technology '.NET 8 / C#'
+    style {
+      color indigo
+    }
+  }
+  element interopComponent {
+    notation 'Capa de interop (P/Invoke, C++/CLI)'
+    technology 'P/Invoke · C ABI'
+    style {
+      color amber
+      border dashed
+    }
+  }
+  element nativeComponent {
+    notation 'Componente nativo (C++)'
+    technology 'C++20'
+    style {
+      color green
+    }
+  }
+
+  // ── Kinds de relación ──────────────────────────────────────────────────────
+  // El kind lleva la semántica del transporte: así puedes filtrar vistas por él
+  // y estilarlo una sola vez.
+  relationship rest {
+    technology 'HTTPS / REST'
+    // línea sólida = síncrono
+  }
+  relationship grpc {
+    technology 'gRPC'
+  }
+  relationship kafka {
+    #kafka
+    technology 'Kafka'
+    line dashed
+    color amber
+  }
+  relationship asb {
+    #servicebus
+    technology 'Azure Service Bus'
+    line dashed
+    color sky
+  }
+  relationship blob {
+    technology 'Azure Blob (SDK)'
+  }
+  relationship disk {
+    technology 'Azure Disk (filesystem)'
+  }
+  // Acceso a un volumen COMPARTIDO entre servicios: no es lo mismo que un disco
+  // privado. Kind propio para poder filtrarlo y verlo de otro color.
+  relationship share {
+    #shared-state
+    technology 'Volumen compartido (SMB/NFS)'
+    color red
+  }
+  relationship interop {
+    technology 'P/Invoke'
+    line dotted
+    color amber
+  }
+
+  // ── Tags ───────────────────────────────────────────────────────────────────
+  // Los tags son la herramienta clave para representar la MIGRACIÓN:
+  // el mismo modelo contiene el as-is y el to-be, y cada vista filtra.
+  tag kafka {
+    color #E8A33D
+  }
+  tag servicebus {
+    color #3B9CD9
+  }
+  tag as-is {
+    color #9AA1AD
+  }
+  tag to-be {
+    color #2E9E62
+  }
+  tag deprecated {
+    color #D9534F
+  }
+  tag cpp
+  tag csharp
+  // Marca el acoplamiento invisible: dos servicios que se hablan por ficheros
+  tag shared-state {
+    color #D9534F
+  }
+
+  // ── Nodos de despliegue (modelo físico, capa aparte del lógico) ────────────
+  deploymentNode azureSubscription {
+    notation 'Suscripción Azure'
+    technology 'Azure'
+  }
+  deploymentNode region {
+    notation 'Región Azure'
+  }
+  deploymentNode aks {
+    notation 'Cluster AKS'
+    technology 'Kubernetes 1.29'
+    style {
+      color blue
+    }
+  }
+  deploymentNode namespace {
+    notation 'Namespace de Kubernetes'
+  }
+  deploymentNode nodePool {
+    notation 'Node pool'
+    style {
+      multiple true
+    }
+  }
+  deploymentNode pod {
+    notation 'Pod'
+    style {
+      multiple true
+    }
+  }
+  deploymentNode paas {
+    notation 'Servicio gestionado (PaaS)'
+    style {
+      color slate
+    }
+  }
+}

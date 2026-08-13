@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explicación visual de la batalla de Marawi de 2017: origen del conflicto, actores, fases de la operación militar, combate urbano y consecuencias humanitarias.">
+  <meta name="theme-color" content="#14201d">
+  <title>Marawi 2017 · Anatomía de una batalla urbana</title>
+  <style>
+    :root {
+      --ink: #19211f;
+      --muted: #68716d;
+      --paper: #ece9df;
+      --surface: #f8f6ef;
+      --line: #cbc5b7;
+      --night: #14201d;
+      --night-2: #1d2e29;
+      --army: #496e52;
+      --army-dark: #2f5139;
+      --army-soft: #dfe9df;
+      --militant: #a94638;
+      --militant-soft: #f1dfda;
+      --civilian: #d49a31;
+      --civilian-soft: #f5e9cf;
+      --water: #3d7582;
+      --air: #64718d;
+      --violet: #67527c;
+      --shadow: 0 16px 44px rgba(27, 34, 31, .1);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 5% 0%, rgba(73,110,82,.1), transparent 30rem),
+        radial-gradient(circle at 96% 6%, rgba(61,117,130,.11), transparent 34rem),
+        var(--paper);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    a { color: inherit; }
+    button { font: inherit; }
+    button:focus-visible, a:focus-visible { outline: 3px solid var(--civilian); outline-offset: 3px; }
+    .page { width: min(1460px, calc(100% - 28px)); margin: 0 auto; padding: 17px 0 72px; }
+
+    .topbar {
+      position: sticky;
+      z-index: 50;
+      top: 9px;
+      display: flex;
+      gap: 17px;
+      align-items: center;
+      margin-bottom: 15px;
+      padding: 10px 12px 10px 16px;
+      color: white;
+      background: rgba(20,32,29,.95);
+      border: 1px solid rgba(255,255,255,.11);
+      border-radius: 15px;
+      box-shadow: 0 11px 27px rgba(20,30,27,.18);
+      backdrop-filter: blur(14px);
+    }
+    .brand { flex: 0 0 auto; font-size: .72rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+    .nav { display: flex; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+    .nav::-webkit-scrollbar { display: none; }
+    .nav a { flex: 0 0 auto; padding: 6px 9px; color: #bdcac5; border-radius: 999px; font-size: .67rem; font-weight: 780; text-decoration: none; }
+    .nav a:hover { color: white; background: rgba(255,255,255,.1); }
+    .top-date { margin-left: auto; color: #e8c77e; font: 600 .79rem Georgia, serif; white-space: nowrap; }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: minmax(0,1.22fr) minmax(380px,.78fr);
+      min-height: 650px;
+      color: white;
+      background: var(--night);
+      border-radius: 27px;
+      box-shadow: var(--shadow);
+    }
+    .hero::before { content: ""; position: absolute; inset: 0; background: linear-gradient(120deg, rgba(73,110,82,.2), transparent 48%, rgba(61,117,130,.16)); }
+    .hero-copy { position: relative; z-index: 2; padding: clamp(35px,6vw,82px); }
+    .eyebrow { margin: 0 0 14px; color: #dfbc72; font-size: .69rem; font-weight: 900; letter-spacing: .16em; text-transform: uppercase; }
+    h1 { max-width: 900px; margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: clamp(3rem,7.2vw,6.6rem); font-weight: 500; letter-spacing: -.055em; line-height: .91; }
+    .dek { max-width: 760px; margin: 25px 0 0; color: #d6dfdb; font-size: clamp(1rem,1.5vw,1.18rem); }
+    .premise { max-width: 720px; margin-top: 34px; padding: 17px 19px; color: #1e302b; background: #e1e8de; border-left: 5px solid var(--civilian); border-radius: 0 12px 12px 0; font-size: .84rem; }
+    .premise strong { display: block; margin-bottom: 3px; color: #7c342b; font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; }
+
+    .hero-board { position: relative; z-index: 2; display: grid; place-items: center; min-height: 520px; padding: 35px; background: rgba(255,255,255,.025); border-left: 1px solid rgba(255,255,255,.1); }
+    .mini-map { position: relative; overflow: hidden; width: min(100%,430px); aspect-ratio: .92; background: #253630; border: 1px solid rgba(255,255,255,.14); border-radius: 46% 18% 40% 25% / 24% 37% 25% 45%; box-shadow: inset 0 0 70px rgba(0,0,0,.25), 0 24px 50px rgba(0,0,0,.18); transform: rotate(-2deg); }
+    .mini-map::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px), linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px); background-size: 28px 28px; }
+    .lake { position: absolute; right: -12%; bottom: -7%; width: 58%; height: 74%; background: #345f68; border: 1px solid rgba(163,213,222,.3); border-radius: 67% 0 0 35%; box-shadow: inset 18px 12px 45px rgba(255,255,255,.06); }
+    .lake span { position: absolute; top: 52%; left: 25%; color: #b8d2d6; font-size: .61rem; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; transform: rotate(82deg); }
+    .river { position: absolute; z-index: 2; top: 0; right: 34%; width: 12%; height: 74%; background: var(--water); clip-path: polygon(27% 0,78% 0,62% 17%,80% 37%,47% 55%,68% 73%,35% 100%,0 100%,31% 73%,12% 53%,43% 35%,24% 15%); opacity: .9; }
+    .city-grid { position: absolute; z-index: 3; top: 12%; right: 37%; bottom: 14%; left: 11%; background: repeating-linear-gradient(35deg, transparent 0 18px, rgba(255,255,255,.1) 19px 20px), repeating-linear-gradient(122deg, transparent 0 24px, rgba(255,255,255,.08) 25px 26px); }
+    .battle-area { position: absolute; z-index: 4; right: 29%; bottom: 15%; width: 42%; height: 50%; background: rgba(169,70,56,.24); border: 2px dashed #d27566; border-radius: 44% 30% 48% 23%; }
+    .battle-area span { position: absolute; top: 43%; left: 18%; color: #ffd9d2; font-size: .58rem; font-weight: 900; letter-spacing: .07em; text-align: center; text-transform: uppercase; transform: rotate(2deg); }
+    .bridge { position: absolute; z-index: 6; right: 30%; width: 17%; height: 5px; background: #e0bd73; box-shadow: 0 0 0 2px rgba(20,32,29,.8); transform: rotate(-8deg); }
+    .bridge.b1 { top: 36%; } .bridge.b2 { top: 52%; transform: rotate(7deg); } .bridge.b3 { top: 68%; transform: rotate(-2deg); }
+    .cordon { position: absolute; z-index: 7; inset: 7%; border: 2px dotted rgba(225,232,222,.48); border-radius: 42% 32% 43% 35%; }
+    .north-arrow { position: absolute; z-index: 8; top: 8%; left: 9%; color: #e7e9e4; font: 800 .65rem Georgia,serif; text-align: center; }
+    .north-arrow::before { content: "▲"; display: block; color: var(--civilian); font-size: 1rem; }
+    .map-legend { position: absolute; z-index: 10; right: 17px; top: 17px; display: grid; gap: 5px; padding: 9px; color: #dce5e1; background: rgba(13,24,21,.78); border: 1px solid rgba(255,255,255,.1); border-radius: 9px; font-size: .52rem; }
+    .map-legend span { display: flex; gap: 6px; align-items: center; }
+    .map-legend i { width: 9px; height: 9px; background: var(--c); border-radius: 2px; }
+
+    .metrics { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; margin: 15px 0; }
+    .metric { padding: 17px; background: var(--surface); border: 1px solid var(--line); border-radius: 15px; box-shadow: 0 6px 19px rgba(24,32,29,.04); }
+    .metric strong { display: block; margin-bottom: 5px; color: var(--army-dark); font: 500 clamp(1.55rem,2.7vw,2.45rem) Georgia,serif; line-height: 1; }
+    .metric span { color: var(--muted); font-size: .7rem; }
+
+    .section { scroll-margin-top: 82px; margin-top: 18px; padding: clamp(23px,4vw,42px); background: var(--surface); border: 1px solid var(--line); border-radius: 21px; box-shadow: var(--shadow); }
+    .section-head { display: grid; grid-template-columns: minmax(0,1.3fr) minmax(270px,.7fr); gap: 27px; margin-bottom: 26px; }
+    .kicker { margin: 0 0 8px; color: var(--army); font-size: .66rem; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+    h2 { margin: 0; font-family: Georgia,"Times New Roman",serif; font-size: clamp(2rem,4vw,3.45rem); font-weight: 500; letter-spacing: -.035em; line-height: 1.02; }
+    .section-head > p { margin: 3px 0 0; color: var(--muted); font-size: .84rem; }
+
+    .context-chain { display: grid; grid-template-columns: repeat(5,1fr); gap: 8px; }
+    .context-card { position: relative; min-height: 210px; padding: 18px; background: #f0ede4; border: 1px solid #d5cec0; border-radius: 14px; }
+    .context-card:not(:last-child)::after { content: "→"; position: absolute; z-index: 4; top: 50%; right: -12px; display: grid; place-items: center; width: 22px; height: 22px; color: white; background: var(--army); border: 3px solid var(--surface); border-radius: 50%; font-size: .65rem; transform: translateY(-50%); }
+    .context-card b { display: block; margin-bottom: 18px; color: var(--militant); font: 600 .78rem Georgia,serif; }
+    .context-card h3 { margin: 0 0 7px; font: 600 1.08rem Georgia,serif; }
+    .context-card p { margin: 0; color: #5c6561; font-size: .72rem; }
+    .context-note { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+    .context-note div { padding: 16px 18px; border-radius: 12px; font-size: .75rem; }
+    .context-note .not { color: #62332d; background: var(--militant-soft); border: 1px solid #deb9b2; }
+    .context-note .yes { color: #264c33; background: var(--army-soft); border: 1px solid #bed0c0; }
+
+    .actors { display: grid; grid-template-columns: repeat(3,1fr); gap: 11px; }
+    .actor { padding: 20px; border: 1px solid; border-radius: 15px; }
+    .actor.gov { color: #294733; background: var(--army-soft); border-color: #b9ccb9; }
+    .actor.ins { color: #5d3029; background: var(--militant-soft); border-color: #dbb6af; }
+    .actor.civ { color: #5b451f; background: var(--civilian-soft); border-color: #dec997; }
+    .actor small { display: block; margin-bottom: 7px; font-size: .58rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+    .actor h3 { margin: 0 0 9px; font: 600 1.35rem Georgia,serif; }
+    .actor p { margin: 0; font-size: .76rem; }
+    .actor ul { margin: 13px 0 0; padding-left: 17px; font-size: .7rem; }
+    .actor li + li { margin-top: 5px; }
+
+    .operation { color: white; background: var(--night); border-color: #2a3d37; }
+    .operation .kicker { color: #dfbc72; }
+    .operation .section-head > p { color: #bac7c2; }
+    .phase-tabs { display: grid; grid-template-columns: repeat(5,1fr); gap: 7px; margin-bottom: 14px; }
+    .phase-tab { min-height: 83px; padding: 11px; color: #c3ceca; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.12); border-radius: 11px; cursor: pointer; text-align: left; }
+    .phase-tab:hover { background: rgba(255,255,255,.08); }
+    .phase-tab[aria-selected="true"] { color: #17231f; background: #dfc078; border-color: #dfc078; }
+    .phase-tab small { display: block; margin-bottom: 5px; font-size: .54rem; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
+    .phase-tab strong { display: block; font: 600 .82rem Georgia,serif; line-height: 1.15; }
+
+    .battle-console { display: grid; grid-template-columns: minmax(360px,.88fr) minmax(0,1.12fr); overflow: hidden; min-height: 520px; background: #e9e7df; border: 1px solid rgba(255,255,255,.13); border-radius: 16px; }
+    .battle-map { position: relative; min-height: 520px; overflow: hidden; background: #263630; border-right: 1px solid rgba(0,0,0,.3); }
+    .battle-map::before { content: ""; position: absolute; inset: 0; opacity: .55; background-image: linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px); background-size: 30px 30px; }
+    .battle-map .lake { right: -17%; bottom: -7%; width: 58%; height: 76%; }
+    .battle-map .river { right: 35%; height: 80%; }
+    .district { position: absolute; z-index: 3; display: grid; place-items: center; color: #cdd8d4; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.13); font-size: .51rem; font-weight: 850; letter-spacing: .05em; text-align: center; text-transform: uppercase; transition: .35s ease; }
+    .d1 { top: 8%; left: 8%; width: 38%; height: 26%; clip-path: polygon(0 8%,90% 0,100% 72%,12% 100%); }
+    .d2 { top: 34%; left: 10%; width: 37%; height: 28%; clip-path: polygon(9% 0,100% 7%,85% 100%,0 83%); }
+    .d3 { bottom: 7%; left: 7%; width: 40%; height: 31%; clip-path: polygon(0 8%,86% 0,100% 88%,13% 100%); }
+    .d4 { top: 9%; right: 18%; width: 32%; height: 30%; clip-path: polygon(9% 0,100% 16%,86% 100%,0 80%); }
+    .d5 { right: 18%; bottom: 18%; width: 34%; height: 41%; clip-path: polygon(0 8%,90% 0,100% 92%,17% 100%); }
+    .district.contested { color: white; background: rgba(169,70,56,.55); border-color: #db8477; }
+    .district.cleared { color: #e5eee7; background: rgba(73,110,82,.58); border-color: #83a68b; }
+    .district.isolated { box-shadow: inset 0 0 0 3px #d6a84f; }
+    .map-label { position: absolute; z-index: 7; padding: 5px 7px; color: white; background: rgba(14,24,21,.85); border-radius: 7px; font-size: .51rem; font-weight: 850; }
+    .camp { top: 6%; left: 48%; } .lake-label { right: 3%; bottom: 28%; color: #c2dce0; background: transparent; transform: rotate(78deg); }
+    .advance-arrow { position: absolute; z-index: 8; width: 48px; height: 3px; background: #f0cb7a; transform-origin: left center; opacity: 0; transition: .35s ease; }
+    .advance-arrow::after { content: ""; position: absolute; right: -1px; top: -4px; border-width: 5px 0 5px 8px; border-style: solid; border-color: transparent transparent transparent #f0cb7a; }
+    .a1 { top: 24%; left: 19%; transform: rotate(32deg); } .a2 { top: 50%; left: 16%; transform: rotate(-8deg); } .a3 { bottom: 24%; left: 20%; transform: rotate(-27deg); }
+    .battle-map[data-phase="2"] .a1, .battle-map[data-phase="3"] .advance-arrow, .battle-map[data-phase="4"] .advance-arrow, .battle-map[data-phase="5"] .advance-arrow { opacity: 1; }
+    .battle-map[data-phase="3"] .a1, .battle-map[data-phase="3"] .a2 { width: 80px; }
+    .battle-map[data-phase="4"] .advance-arrow, .battle-map[data-phase="5"] .advance-arrow { width: 115px; }
+    .battle-map[data-phase="5"] .advance-arrow { background: #a8c4ae; }
+    .battle-map[data-phase="5"] .advance-arrow::after { border-left-color: #a8c4ae; }
+
+    .phase-detail { padding: clamp(24px,4vw,42px); color: var(--ink); background: #f1efe8; }
+    .phase-no { color: var(--militant); font-size: .62rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+    .phase-detail h3 { max-width: 650px; margin: 8px 0 10px; font: 600 clamp(1.7rem,3.2vw,2.7rem)/1.05 Georgia,serif; letter-spacing: -.025em; }
+    .phase-detail .date { color: var(--army-dark); font-size: .72rem; font-weight: 850; }
+    .phase-detail > p { max-width: 690px; margin: 17px 0; color: #56615d; font-size: .82rem; }
+    .phase-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 20px; }
+    .phase-fact { padding: 13px; background: white; border: 1px solid #d3ccbf; border-radius: 10px; }
+    .phase-fact strong { display: block; margin-bottom: 4px; color: var(--militant); font-size: .62rem; letter-spacing: .07em; text-transform: uppercase; }
+    .phase-fact span { display: block; color: #4f5a56; font-size: .71rem; }
+    .phase-lesson { margin-top: 13px; padding: 13px 15px; color: #3c493f; background: #dfe7dc; border-left: 4px solid var(--army); border-radius: 0 9px 9px 0; font-size: .73rem; }
+
+    .friction-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; }
+    .friction { min-height: 200px; padding: 19px; background: #efede6; border: 1px solid #d4cdc0; border-radius: 13px; }
+    .friction b { display: grid; place-items: center; width: 29px; height: 29px; margin-bottom: 18px; color: white; background: var(--militant); border-radius: 8px; font-size: .7rem; }
+    .friction h3 { margin: 0 0 7px; font: 600 1.08rem Georgia,serif; }
+    .friction p { margin: 0; color: #5a6560; font-size: .72rem; }
+
+    .toolkit { display: grid; grid-template-columns: repeat(4,1fr); gap: 9px; }
+    .tool { padding: 19px; color: white; background: var(--night-2); border: 1px solid #30453f; border-radius: 13px; }
+    .tool small { display: block; margin-bottom: 18px; color: #d7b76d; font-size: .56rem; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
+    .tool h3 { margin: 0 0 7px; font: 500 1.15rem Georgia,serif; }
+    .tool p { margin: 0; color: #bbc8c3; font-size: .7rem; }
+    .tool.limit { color: #3c3020; background: #f0dfbd; border-color: #d8bc82; }
+    .tool.limit small { color: #804137; }
+    .tool.limit p { color: #665a47; }
+
+    .human { color: white; background: #5f302a; border-color: #74423a; }
+    .human .kicker { color: #f0c983; }
+    .human .section-head > p { color: #ead8d4; }
+    .human-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 9px; }
+    .human-card { padding: 20px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.13); border-radius: 13px; }
+    .human-card strong { display: block; margin-bottom: 6px; color: #f2cf89; font: 500 1.8rem Georgia,serif; }
+    .human-card p { margin: 0; color: #eedfdc; font-size: .7rem; }
+    .caveat { margin: 13px 0 0; padding: 13px 15px; color: #f0e4e1; background: rgba(0,0,0,.16); border-radius: 9px; font-size: .69rem; }
+
+    .consequence-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
+    .consequence { padding: 20px; border: 1px solid; border-radius: 14px; }
+    .consequence h3 { margin: 0 0 8px; font: 600 1.25rem Georgia,serif; }
+    .consequence p { margin: 0; font-size: .75rem; }
+    .consequence.security { color: #294733; background: var(--army-soft); border-color: #b9ccb9; }
+    .consequence.politics { color: #493b57; background: #e8e2ec; border-color: #cdbfd5; }
+    .consequence.city { color: #334e56; background: #e0e9e9; border-color: #bdd0d1; }
+    .consequence.open { color: #664936; background: var(--civilian-soft); border-color: #dec997; }
+    .long-tail { display: flex; gap: 11px; align-items: center; margin-top: 12px; padding: 17px 19px; color: #53302b; background: var(--militant-soft); border-left: 5px solid var(--militant); border-radius: 0 11px 11px 0; font-size: .75rem; }
+    .long-tail strong { flex: 0 0 auto; font: 600 1.05rem Georgia,serif; }
+
+    .lessons { display: grid; grid-template-columns: minmax(0,1.25fr) minmax(280px,.75fr); gap: 17px; align-items: start; }
+    .lessons blockquote { margin: 0; font: 500 clamp(1.7rem,3vw,2.65rem)/1.12 Georgia,serif; letter-spacing: -.025em; }
+    .lessons blockquote em { color: var(--militant); font-style: normal; }
+    .lessons ol { margin: 0; padding: 18px 18px 18px 38px; color: #4f5b57; background: #eeebe3; border-radius: 12px; font-size: .73rem; }
+    .lessons li + li { margin-top: 8px; }
+
+    .sources { box-shadow: none; }
+    .source-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; }
+    .source-grid a { display: block; padding: 13px 14px; color: #3e4c47; background: #efede6; border: 1px solid #d4cec2; border-radius: 10px; font-size: .7rem; text-decoration: none; }
+    .source-grid a:hover { color: var(--militant); border-color: #ad9f8d; }
+    .source-grid strong { display: block; margin-bottom: 2px; color: var(--ink); }
+    .method { margin: 17px 0 0; color: var(--muted); font-size: .66rem; }
+    footer { padding: 27px 4px 0; color: var(--muted); font-size: .65rem; text-align: center; }
+
+    @media (max-width: 1000px) {
+      .hero { grid-template-columns: 1fr; }
+      .hero-board { min-height: 430px; border-top: 1px solid rgba(255,255,255,.1); border-left: 0; }
+      .metrics { grid-template-columns: repeat(3,1fr); }
+      .section-head { grid-template-columns: 1fr; gap: 10px; }
+      .context-chain { grid-template-columns: 1fr 1fr; }
+      .context-card:not(:last-child)::after { display: none; }
+      .actors { grid-template-columns: 1fr; }
+      .phase-tabs { grid-template-columns: repeat(5,minmax(150px,1fr)); overflow-x: auto; padding-bottom: 5px; }
+      .battle-console { grid-template-columns: 1fr; }
+      .battle-map { min-height: 460px; border-right: 0; border-bottom: 1px solid #c7c2b7; }
+      .friction-grid { grid-template-columns: repeat(2,1fr); }
+      .toolkit, .human-grid { grid-template-columns: repeat(2,1fr); }
+    }
+
+    @media (max-width: 620px) {
+      .page { width: min(100% - 18px,1460px); padding-top: 8px; }
+      .topbar { top: 5px; }
+      .top-date { display: none; }
+      .hero { min-height: auto; border-radius: 19px; }
+      .hero-copy { padding: 32px 23px; }
+      .hero-board { min-height: 350px; padding: 24px; }
+      .metrics { grid-template-columns: 1fr 1fr; }
+      .section { padding: 23px 18px; border-radius: 17px; }
+      .context-chain, .context-note, .friction-grid, .toolkit, .human-grid, .consequence-grid, .source-grid, .lessons { grid-template-columns: 1fr; }
+      .battle-map { min-height: 390px; }
+      .phase-facts { grid-template-columns: 1fr; }
+      .long-tail { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <nav class="topbar" aria-label="Secciones de la página">
+      <span class="brand">Atlas de conflictos</span>
+      <div class="nav">
+        <a href="#contexto">Contexto</a>
+        <a href="#actores">Actores</a>
+        <a href="#operacion">La operación</a>
+        <a href="#dificultades">Combate urbano</a>
+        <a href="#consecuencias">Consecuencias</a>
+        <a href="#fuentes">Fuentes</a>
+      </div>
+      <span class="top-date">23 mayo — 23 octubre 2017</span>
+    </nav>
+
+    <header class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Marawi · Mindanao · Filipinas</p>
+        <h1>La batalla que duró cinco meses</h1>
+        <p class="dek">Una redada para capturar a un dirigente yihadista reveló una fuerza preparada para ocupar la ciudad. El resultado fue el combate urbano más duro de la historia reciente de Filipinas.</p>
+        <div class="premise"><strong>La idea central</strong>Marawi no cayó porque una columna enemiga invadiera la ciudad desde fuera. Células y combatientes ya infiltrados activaron un plan preparado, aprovecharon edificios de hormigón, túneles, armas almacenadas y rehenes; el Ejército tuvo que aprender a recuperar una ciudad calle por calle.</div>
+      </div>
+      <div class="hero-board" aria-label="Esquema conceptual de Marawi, el río Agus, el lago Lanao y la principal zona de combate">
+        <div class="mini-map">
+          <div class="city-grid"></div>
+          <div class="river"></div>
+          <div class="lake"><span>Lago Lanao</span></div>
+          <div class="battle-area"><span>principal zona<br>de combate</span></div>
+          <i class="bridge b1"></i><i class="bridge b2"></i><i class="bridge b3"></i>
+          <div class="cordon"></div><div class="north-arrow">N</div>
+          <div class="map-legend"><span><i style="--c:#a94638"></i>zona ocupada</span><span><i style="--c:#d49a31"></i>puentes</span><span><i style="--c:#3d7582"></i>agua</span></div>
+        </div>
+      </div>
+    </header>
+
+    <section class="metrics" aria-label="Cifras clave de la batalla">
+      <article class="metric"><strong>154 días</strong><span>de combate, del 23 de mayo al 23 de octubre</span></article>
+      <article class="metric"><strong>353.921</strong><span>personas desplazadas según el Banco Mundial</span></article>
+      <article class="metric"><strong>165</strong><span>militares y policías muertos, cifra oficial</span></article>
+      <article class="metric"><strong>47</strong><span>civiles muertos reconocidos oficialmente</span></article>
+      <article class="metric"><strong>920</strong><span>militantes muertos según el balance oficial</span></article>
+    </section>
+
+    <section class="section" id="contexto">
+      <div class="section-head"><div><p class="kicker">01 · De dónde vino</p><h2>Un conflicto local conectado con una marca global</h2></div><p>Estado Islámico no creó desde cero la violencia en Mindanao. Se insertó en décadas de rebelión, fragmentación armada, agravios, redes de parentesco y débil presencia estatal.</p></div>
+      <div class="context-chain">
+        <article class="context-card"><b>Siglos XIX–XX</b><h3>La cuestión moro</h3><p>Las comunidades musulmanas del sur resistieron a poderes coloniales y, después, a un Estado filipino centralizado. Tierra, representación y autonomía alimentaron un conflicto prolongado.</p></article>
+        <article class="context-card"><b>Décadas de 1970–2000</b><h3>Insurgencia y escisiones</h3><p>El MNLF y después el MILF canalizaron gran parte de la rebelión. Procesos de paz coexistieron con facciones, clanes armados y economías criminales.</p></article>
+        <article class="context-card"><b>Desde los años 1990</b><h3>Abu Sayyaf</h3><p>Red fragmentada activa sobre todo en Basilan y Sulu, vinculada a atentados, secuestros y extorsión. La facción de Isnilon Hapilon juró lealtad a Estado Islámico.</p></article>
+        <article class="context-card"><b>2012–2016</b><h3>Grupo Maute</h3><p>Los hermanos Omar y Abdullah Maute construyeron una organización apoyada en parentesco, redes locales, reclutas jóvenes y experiencia de combate en Lanao del Sur.</p></article>
+        <article class="context-card"><b>2014–2017</b><h3>La marca Estado Islámico</h3><p>Propaganda, prestigio, financiación, contactos y combatientes regionales ayudaron a unir facciones locales bajo Hapilon y a presentar Marawi como proyecto de «provincia» asiática.</p></article>
+      </div>
+      <div class="context-note"><div class="not"><strong>No fue:</strong> una simple extensión importada de Siria e Irak ni una expresión representativa de la población musulmana de Marawi.</div><div class="yes"><strong>Sí fue:</strong> una coalición yihadista filipina, reforzada por conexiones y algunos combatientes extranjeros, que explotó problemas profundamente locales.</div></div>
+    </section>
+
+    <section class="section" id="actores">
+      <div class="section-head"><div><p class="kicker">02 · Quién estaba dentro</p><h2>Tres experiencias superpuestas</h2></div><p>«Gobierno contra terroristas» describe los bandos armados, pero no basta para entender una ciudad llena de residentes, rehenes y personas atrapadas.</p></div>
+      <div class="actors">
+        <article class="actor gov"><small>Fuerzas gubernamentales</small><h3>AFP y Policía Nacional</h3><p>Ejército, Marines, Fuerza Aérea, unidades navales y fuerzas especiales bajo una estructura conjunta.</p><ul><li>Ventaja en efectivos, fuego y capacidad aérea.</li><li>Poca experiencia previa en una batalla urbana sostenida.</li><li>Apoyo exterior de inteligencia, vigilancia, material y formación.</li></ul></article>
+        <article class="actor ins"><small>Coalición pro-Estado Islámico</small><h3>Maute + facción de Hapilon</h3><p>Una coalición de grupos locales, reclutas y combatientes extranjeros alineados con Estado Islámico.</p><ul><li>Preparación previa, armas y suministros ocultos.</li><li>Francotiradores, IED, drones, túneles y posiciones fortificadas.</li><li>Rehenes utilizados como mano de obra y, según testimonios, escudos humanos.</li></ul></article>
+        <article class="actor civ"><small>Población</small><h3>Maranao, cristianos y desplazados</h3><p>Una ciudad de mayoría musulmana convertida sin aviso en campo de batalla.</p><ul><li>Éxodo masivo y familias separadas.</li><li>Civiles atrapados, ejecutados o tomados como rehenes.</li><li>Viviendas, comercios, mezquitas e iglesias destruidos o saqueados.</li></ul></article>
+      </div>
+    </section>
+
+    <section class="section operation" id="operacion">
+      <div class="section-head"><div><p class="kicker">03 · La operación militar</p><h2>Cómo se recuperó la ciudad</h2></div><p>Selecciona una fase. El esquema muestra el cambio progresivo desde una ocupación distribuida hasta un reducto comprimido junto al lago.</p></div>
+      <div class="phase-tabs" role="tablist" aria-label="Fases de la batalla">
+        <button class="phase-tab" role="tab" aria-selected="true" data-phase="1"><small>Fase 1 · 23–25 mayo</small><strong>La redada se convierte en asedio</strong></button>
+        <button class="phase-tab" role="tab" aria-selected="false" data-phase="2"><small>Fase 2 · final de mayo</small><strong>Contener, evacuar, reorganizar</strong></button>
+        <button class="phase-tab" role="tab" aria-selected="false" data-phase="3"><small>Fase 3 · junio–agosto</small><strong>Avance lento por sectores</strong></button>
+        <button class="phase-tab" role="tab" aria-selected="false" data-phase="4"><small>Fase 4 · septiembre</small><strong>Puentes y cerco final</strong></button>
+        <button class="phase-tab" role="tab" aria-selected="false" data-phase="5"><small>Fase 5 · octubre</small><strong>Descabezamiento y cierre</strong></button>
+      </div>
+      <div class="battle-console">
+        <div class="battle-map" data-phase="1" id="battleMap" aria-label="Mapa esquemático que cambia con la fase seleccionada">
+          <div class="river"></div><div class="lake"></div>
+          <div class="district d1 contested">Norte urbano</div><div class="district d2 contested">Centro occidental</div><div class="district d3 contested">Sur</div><div class="district d4 contested">Centro oriental</div><div class="district d5 contested">Zona del lago</div>
+          <span class="map-label camp">Camp Ranao</span><span class="map-label lake-label">Lago Lanao</span>
+          <i class="advance-arrow a1"></i><i class="advance-arrow a2"></i><i class="advance-arrow a3"></i>
+        </div>
+        <article class="phase-detail" aria-live="polite">
+          <span class="phase-no" id="phaseNo">Fase 1 · ruptura</span>
+          <h3 id="phaseTitle">Una captura fallida activa un plan mayor</h3>
+          <span class="date" id="phaseDate">23–25 de mayo de 2017</span>
+          <p id="phaseText">Fuerzas de seguridad intentan detener a Isnilon Hapilon en Basak Malutlut. La resistencia revela muchos más combatientes de lo esperado. Células preparadas ocupan puntos de la ciudad, liberan presos, incendian edificios y toman rehenes.</p>
+          <div class="phase-facts"><div class="phase-fact"><strong>Objetivo gubernamental</strong><span id="phaseGoal">Extraer o neutralizar a Hapilon y recuperar la iniciativa.</span></div><div class="phase-fact"><strong>Ventaja insurgente</strong><span id="phaseEdge">Sorpresa, preparación previa y dispersión rápida dentro del tejido urbano.</span></div></div>
+          <div class="phase-lesson" id="phaseLesson"><strong>Punto de giro:</strong> una operación policial-militar limitada se transforma en una campaña conjunta de recuperación urbana.</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="dificultades">
+      <div class="section-head"><div><p class="kicker">04 · Por qué tardó tanto</p><h2>La ciudad multiplicó la fuerza del defensor</h2></div><p>La superioridad numérica y aérea no se traduce automáticamente en rapidez cuando cada edificio puede ser una fortificación y cada sótano una ruta oculta.</p></div>
+      <div class="friction-grid">
+        <article class="friction"><b>01</b><h3>Hormigón y compartimentos</h3><p>Casas resistentes, muros y sótanos absorbían fuego y obligaban a repetir el ciclo de observar, abrir brecha, entrar y despejar.</p></article>
+        <article class="friction"><b>02</b><h3>Francotiradores</h3><p>Posiciones elevadas dominaban calles y cruces. Las tropas tuvieron que crear equipos propios de contrafrancotiradores y avanzar bajo cobertura.</p></article>
+        <article class="friction"><b>03</b><h3>IED y trampas</h3><p>Explosivos improvisados protegían accesos, edificios y rutas de aproximación, ralentizando incluso áreas aparentemente abandonadas.</p></article>
+        <article class="friction"><b>04</b><h3>Túneles y pasos interiores</h3><p>Los militantes cambiaban de posición sin exponerse. Ingenieros debían localizar, bloquear o colapsar conexiones subterráneas.</p></article>
+        <article class="friction"><b>05</b><h3>Rehenes y civiles atrapados</h3><p>La presencia de no combatientes limitaba los ataques, complicaba la identificación de blancos y hacía cada rescate una operación dentro de otra.</p></article>
+        <article class="friction"><b>06</b><h3>Aprendizaje bajo fuego</h3><p>Unas fuerzas entrenadas sobre todo para selva y contrainsurgencia rural tuvieron que adaptar mando, comunicaciones y tácticas de pequeñas unidades.</p></article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><div><p class="kicker">05 · Herramientas de la recuperación</p><h2>No hubo una solución única</h2></div><p>La operación combinó aislamiento, inteligencia, maniobra terrestre, fuegos y una adaptación táctica continua. Cada herramienta resolvía un problema y creaba otros.</p></div>
+      <div class="toolkit">
+        <article class="tool"><small>Aislar</small><h3>Cordón terrestre y lacustre</h3><p>Controles, bloqueo de rutas y unidades en el lago redujeron refuerzos, fugas y reabastecimiento.</p></article>
+        <article class="tool"><small>Comprender</small><h3>Inteligencia y vigilancia</h3><p>Drones filipinos y apoyo ISR estadounidense y australiano mejoraron la imagen del campo de batalla.</p></article>
+        <article class="tool"><small>Fijar</small><h3>Fuego aéreo e indirecto</h3><p>Ataques aéreos, helicópteros y artillería degradaron posiciones, aunque con enormes riesgos en una ciudad con rehenes.</p></article>
+        <article class="tool"><small>Recuperar</small><h3>Infantería y Marines</h3><p>La decisión llegó mediante asaltos a corta distancia, edificio por edificio, con blindados, francotiradores e ingenieros.</p></article>
+        <article class="tool"><small>Abrir</small><h3>Ingenieros de combate</h3><p>Brechas en muros, limpieza de explosivos y neutralización de túneles permitieron evitar algunas calles batidas.</p></article>
+        <article class="tool"><small>Coordinar</small><h3>Fuerza conjunta</h3><p>Grupos de tarea organizaron ejes distintos y conectaron unidades terrestres, aéreas, navales y policiales.</p></article>
+        <article class="tool"><small>Sostener</small><h3>Logística y rotación</h3><p>Munición, evacuación médica, descanso y refuerzos fueron decisivos en una campaña mucho más larga de lo previsto.</p></article>
+        <article class="tool limit"><small>El coste</small><h3>Destrucción acumulativa</h3><p>El fuego pesado protegió a tropas y venció posiciones, pero devastó barrios y amplificó el desplazamiento y la reconstrucción posterior.</p></article>
+      </div>
+    </section>
+
+    <section class="section human">
+      <div class="section-head"><div><p class="kicker">06 · El coste humano</p><h2>Victoria militar, ciudad rota</h2></div><p>Las cifras oficiales describen una parte. El acceso independiente fue limitado, hubo desaparecidos y organizaciones de derechos humanos pidieron investigar conductas de ambos bandos.</p></div>
+      <div class="human-grid">
+        <article class="human-card"><strong>1.780</strong><p>rehenes rescatados según el Gobierno filipino.</p></article>
+        <article class="human-card"><strong>≥25</strong><p>ejecuciones extrajudiciales de civiles cristianos documentadas por Amnistía Internacional.</p></article>
+        <article class="human-card"><strong>77.170</strong><p>familias desplazadas en ocho regiones según el recuento citado por el Banco Mundial.</p></article>
+        <article class="human-card"><strong>8.200</strong><p>personas aún en alojamientos temporales inadecuados en 2025, según el CICR.</p></article>
+      </div>
+      <p class="caveat"><strong>Responsabilidades diferenciadas:</strong> Amnistía documentó asesinatos, toma de rehenes, malos tratos y saqueo por militantes; también denunció malos tratos, saqueo y posibles daños ilícitos causados por fuerzas gubernamentales, y pidió investigaciones imparciales. Las cifras oficiales de muertos no pudieron verificarse de forma independiente durante el combate.</p>
+    </section>
+
+    <section class="section" id="consecuencias">
+      <div class="section-head"><div><p class="kicker">07 · Lo que cambió</p><h2>Marawi terminó; sus efectos no</h2></div><p>La coalición perdió su santuario urbano y sus principales líderes, pero la batalla transformó la seguridad regional, el gobierno de Mindanao y la vida de los desplazados.</p></div>
+      <div class="consequence-grid">
+        <article class="consequence security"><h3>La amenaza se fragmentó</h3><p>La muerte de Hapilon y Omar Maute rompió el mando reunido en Marawi. Las redes pro-Estado Islámico evolucionaron hacia células más descentralizadas, atentados selectivos y, después, ataques suicidas.</p></article>
+        <article class="consequence politics"><h3>Ley marcial y mayor securitización</h3><p>Duterte declaró la ley marcial en todo Mindanao el primer día de la crisis; se prolongó hasta finales de 2019. Sus defensores la vieron como instrumento de control, sus críticos advirtieron del riesgo de abusos.</p></article>
+        <article class="consequence city"><h3>Reconstrucción larga y disputada</h3><p>La rehabilitación enfrentó destrucción masiva, explosivos sin detonar, títulos de propiedad complejos, pérdida de negocios y críticas por el ritmo y el diseño del retorno.</p></article>
+        <article class="consequence open"><h3>El proceso de paz ganó urgencia</h3><p>Marawi mostró el espacio que podían explotar grupos radicales cuando la autonomía y el desarrollo quedaban bloqueados. En 2019 nació la Región Autónoma Bangsamoro, derivada del acuerdo con el MILF.</p></article>
+      </div>
+      <div class="long-tail"><strong>La cola larga</strong><span>En mayo de 2025 el CICR aún registraba más de 300 casos abiertos de personas desaparecidas y miles de desplazados sin solución duradera. Reconstruir edificios no equivale automáticamente a reconstruir confianza, propiedad y comunidad.</span></div>
+    </section>
+
+    <section class="section lessons">
+      <blockquote>Marawi demostró que una organización local pequeña puede multiplicar su poder si combina <em>preparación urbana, rehenes, propaganda global y sorpresa</em>; derrotarla exige tanto adaptación militar como legitimidad política después del combate.</blockquote>
+      <ol><li>La inteligencia previa importa tanto como la potencia de fuego.</li><li>El cerco limita al defensor, pero no sustituye la limpieza terrestre.</li><li>En ciudad, proteger civiles y vencer posiciones son problemas inseparables.</li><li>Una victoria táctica puede alimentar agravios si el retorno y la reparación fracasan.</li></ol>
+    </section>
+
+    <section class="section sources" id="fuentes">
+      <div class="section-head"><div><p class="kicker">Fuentes y método</p><h2>Para contrastar la historia</h2></div><p>La página combina balances oficiales, análisis militares y fuentes humanitarias. Cuando las cifras no son verificables de manera independiente, se atribuyen.</p></div>
+      <div class="source-grid">
+        <a href="https://mwi.westpoint.edu/urban-warfare-case-study-8-battle-of-marawi/" target="_blank" rel="noreferrer"><strong>Modern War Institute · Caso de estudio urbano</strong>Preparación insurgente, organización de las fuerzas y fases operativas.</a>
+        <a href="https://researchcentre.army.gov.au/library/australian-army-journal-aaj/volume-15-number-1-autumn-edition/battle-marawi-lessons-developing-urban-capabilities" target="_blank" rel="noreferrer"><strong>Australian Army Research Centre</strong>Adaptación táctica, túneles, drones y lecciones para el combate urbano.</a>
+        <a href="https://ctc.westpoint.edu/relatives-redemption-rice-motivations-for-joining-the-maute-group/" target="_blank" rel="noreferrer"><strong>CTC West Point · Motivaciones del Grupo Maute</strong>Investigación con antiguos integrantes y contexto local de reclutamiento.</a>
+        <a href="https://www.amnesty.org/en/documents/asa35/7427/2017/en/" target="_blank" rel="noreferrer"><strong>Amnistía Internacional · Death and Destruction</strong>Abusos contra civiles y alegaciones sobre las partes enfrentadas.</a>
+        <a href="https://documents1.worldbank.org/curated/en/815371611730636596/pdf/Disaster-Response-and-Rehabilitation-in-the-Philippines-Public-Expenditure-Review-Technical-Report.pdf" target="_blank" rel="noreferrer"><strong>Banco Mundial · Rehabilitación de Marawi</strong>Desplazamiento, gasto público y estructura de la reconstrucción.</a>
+        <a href="https://www.icrc.org/en/article/marawi-conflict-eight-years-after-unresolved-issues-displaced-missing-people-hamper-lasting" target="_blank" rel="noreferrer"><strong>CICR · Ocho años después</strong>Desplazamiento prolongado, agua y personas desaparecidas en 2025.</a>
+        <a href="https://www.defence.gov.au/news-events/releases/2017-10-10/hmas-adelaide-hosts-president-duterte-philippines" target="_blank" rel="noreferrer"><strong>Defensa australiana · Apoyo ISR</strong>Vuelos de vigilancia AP-3C Orion en apoyo de las fuerzas filipinas.</a>
+        <a href="https://www.pna.gov.ph/articles/1013556" target="_blank" rel="noreferrer"><strong>Philippine News Agency · Balance oficial</strong>Cierre de la operación, bajas y tácticas atribuidas a los militantes.</a>
+      </div>
+      <p class="method">Nota: el mapa es un esquema explicativo, no una reconstrucción topográfica ni una representación de posiciones a escala. «Yihadista» se aplica aquí a las organizaciones armadas que adoptaron la ideología y la marca de Estado Islámico; no describe a la población musulmana de Marawi ni al movimiento autonomista moro en su conjunto. Actualizado: agosto de 2026.</p>
+    </section>
+
+    <footer>Marawi 2017 · Contexto, operación, coste humano y consecuencias</footer>
+  </main>
+
+  <script>
+    const phases = {
+      1: {
+        no: 'Fase 1 · ruptura', title: 'Una captura fallida activa un plan mayor', date: '23–25 de mayo de 2017',
+        text: 'Fuerzas de seguridad intentan detener a Isnilon Hapilon en Basak Malutlut. La resistencia revela muchos más combatientes de lo esperado. Células preparadas ocupan puntos de la ciudad, liberan presos, incendian edificios y toman rehenes.',
+        goal: 'Extraer o neutralizar a Hapilon y recuperar la iniciativa.', edge: 'Sorpresa, preparación previa y dispersión rápida dentro del tejido urbano.',
+        lesson: '<strong>Punto de giro:</strong> una operación policial-militar limitada se transforma en una campaña conjunta de recuperación urbana.', states: ['contested','contested','contested','contested','contested']
+      },
+      2: {
+        no: 'Fase 2 · contención', title: 'Cerrar la ciudad antes de poder limpiarla', date: 'Finales de mayo–primeros días de junio',
+        text: 'El Gobierno refuerza Camp Ranao, establece controles y reúne unidades. Miles de civiles escapan mientras otros quedan atrapados. Se forman ejes de avance y se intenta impedir que entren refuerzos o salgan dirigentes.',
+        goal: 'Contener la expansión, evacuar civiles y construir una fuerza conjunta.', edge: 'Conocimiento del terreno, rehenes y posiciones preparadas que frenan ataques apresurados.',
+        lesson: '<strong>Decisión operativa:</strong> aislar no recupera terreno, pero evita que el problema urbano se convierta en una insurgencia territorial mayor.', states: ['cleared','contested','contested','contested','contested']
+      },
+      3: {
+        no: 'Fase 3 · desgaste', title: 'Avanzar por bloques bajo fuego', date: 'Junio–agosto de 2017',
+        text: 'Grupos de tarea atacan desde varios ejes. Infantería y Marines abren brechas entre edificios, emplean francotiradores, blindados e ingenieros, y reciben apoyo aéreo y de artillería. Cada posición despejada debe asegurarse de nuevo.',
+        goal: 'Reducir el área controlada y separar núcleos de resistencia.', edge: 'Francotiradores, IED, túneles y movilidad interior que permiten reocupar posiciones.',
+        lesson: '<strong>Adaptación:</strong> las unidades aprenden a evitar calles, combinar pequeños equipos y difundir con rapidez las tácticas enemigas observadas.', states: ['cleared','cleared','contested','cleared','contested']
+      },
+      4: {
+        no: 'Fase 4 · compresión', title: 'Los puentes estrechan el reducto', date: 'Septiembre–primera mitad de octubre',
+        text: 'La recuperación de cruces y edificios clave permite comprimir a los defensores hacia el centro más afectado y la ribera. El bloqueo del lago reduce las rutas de escape y reabastecimiento.',
+        goal: 'Dividir el reducto, dominar accesos y cerrar la salida al lago.', edge: 'Defensa en profundidad, rehenes y un perímetro cada vez menor pero más fortificado.',
+        lesson: '<strong>Lógica del cerco:</strong> al perder espacio, los militantes pierden movilidad; al concentrarse, también aumenta el riesgo para los rehenes.', states: ['cleared','cleared','cleared','cleared','contested isolated']
+      },
+      5: {
+        no: 'Fase 5 · cierre', title: 'Mueren los líderes y termina el combate organizado', date: '16–23 de octubre de 2017',
+        text: 'Isnilon Hapilon y Omar Maute mueren el 16 de octubre durante una operación para rescatar rehenes. Duterte declara Marawi liberada al día siguiente. Las últimas posiciones son reducidas y el 23 de octubre termina oficialmente la operación de combate.',
+        goal: 'Rescatar a los últimos rehenes, neutralizar el mando y limpiar focos residuales.', edge: 'Resistencia final en edificios preparados y presencia de civiles aún retenidos.',
+        lesson: '<strong>Resultado:</strong> la coalición pierde territorio y dirección; comienza una operación mucho más larga de desminado, identificación y reconstrucción.', states: ['cleared','cleared','cleared','cleared','cleared']
+      }
+    };
+
+    const tabs = [...document.querySelectorAll('.phase-tab')];
+    const map = document.getElementById('battleMap');
+    const districts = [...map.querySelectorAll('.district')];
+
+    function setPhase(number) {
+      const phase = phases[number];
+      tabs.forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.phase === String(number))));
+      map.dataset.phase = number;
+      document.getElementById('phaseNo').textContent = phase.no;
+      document.getElementById('phaseTitle').textContent = phase.title;
+      document.getElementById('phaseDate').textContent = phase.date;
+      document.getElementById('phaseText').textContent = phase.text;
+      document.getElementById('phaseGoal').textContent = phase.goal;
+      document.getElementById('phaseEdge').textContent = phase.edge;
+      document.getElementById('phaseLesson').innerHTML = phase.lesson;
+      districts.forEach((district, index) => district.className = `district d${index + 1} ${phase.states[index]}`);
+    }
+
+    tabs.forEach(tab => tab.addEventListener('click', () => setPhase(tab.dataset.phase)));
+  </script>
+</body>
+</html>

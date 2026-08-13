@@ -1,0 +1,96 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// 05 · ENVIRONMENTS — otro entorno SIN duplicar el modelo lógico.
+//
+// dev instancia LOS MISMOS elementos lógicos con otra topología (todo en un
+// pool, una réplica) y con una diferencia real: dev ya está migrado a Service
+// Bus. Que prod y dev no coincidan deja de ser folclore oral y pasa a verse
+// comparando dos vistas.
+// ─────────────────────────────────────────────────────────────────────────────
+deployment {
+
+  azureSubscription dev 'Suscripción DEV' {
+    metadata {
+      environment 'dev'
+    }
+
+    region we 'West Europe' {
+
+      aks cluster 'aks-platform-dev' {
+        namespace ns 'platform' {
+          nodePool general 'nodepool: general (B2s)' {
+            api      = pod 'deploy/ingest-api · 1 réplica'    { instanceOf platform.ingestApi }
+            renderer = pod 'deploy/tile-renderer · 1 réplica' { instanceOf platform.tileRenderer }
+            report   = pod 'deploy/report-service · 1 réplica' { instanceOf platform.reportService }
+          }
+        }
+      }
+
+      // En dev NO hay Kafka: este entorno ya terminó la migración
+      sbns = paas 'Service Bus namespace (dev)' {
+        #to-be
+        instanceOf serviceBus
+      }
+      sa = paas 'Storage Account stplatformdev' {
+        instanceOf blobStorage
+      }
+    }
+  }
+}
+
+views {
+
+  deployment view devDeployment {
+    title 'Deployment · DEV'
+    description 'Mismos elementos lógicos, otra topología. Y ya sin Kafka.'
+
+    include dev.**
+
+    autoLayout TopBottom
+  }
+
+  // ── Vistas de análisis: el modelo respondiendo preguntas ──────────────────
+
+  view impactoRenderer {
+    title 'Impacto · todo lo que toca el Tile Renderer'
+    description 'Entrantes y salientes en una línea: quién se ve afectado si lo tocas.'
+
+    include -> platform.tileRenderer ->
+
+    autoLayout LeftRight
+  }
+
+  view riesgoMigracion {
+    title 'Migración · servicios con requisitos que ASB no cubre igual'
+    description '''
+      Los que dependen del orden por clave o del replay de offsets no migran
+      con un simple cambio de implementación. Esta vista es la lista de trabajo.
+    '''
+
+    include platform.*
+      where metadata.ordering is "by-key" or metadata.replay is "required"
+
+    autoLayout LeftRight
+  }
+
+  // ── El ciclo de vida del motor nativo, como secuencia ─────────────────────
+  dynamic view engineLifecycle {
+    title 'Interop · ciclo de vida del motor nativo'
+    description 'Cuándo se crea el motor, cuántas veces y quién lo destruye.'
+    variant sequence
+
+    platform.tileRenderer.host -> platform.tileRenderer.interop 'render_create() al arrancar' {
+      notes '''
+        **Uno por proceso**, no por trabajo: crear el motor reserva el thread pool
+        y las tablas de caché. Hacerlo por mensaje multiplicaría la memoria por N.
+      '''
+    }
+    platform.tileRenderer.interop -> platform.tileRenderer.core.api 'devuelve un handle opaco'
+
+    loop 'por cada trabajo' {
+      platform.tileRenderer.host -> platform.tileRenderer.interop 'render_submit(handle, buffer)'
+      platform.tileRenderer.interop -> platform.tileRenderer.core.api 'buffer pinned, sin copia'
+    }
+
+    platform.tileRenderer.host -> platform.tileRenderer.interop 'Dispose() → render_destroy()'
+  }
+}

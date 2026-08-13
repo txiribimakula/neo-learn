@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cronología de paquetes · E y P</title>
+  <style>
+    :root {
+      --page: #f4f2ec;
+      --paper: #fffefb;
+      --ink: #20221f;
+      --muted: #73766e;
+      --line: #dbd9d0;
+      --e: #176b87;
+      --e-soft: #dceff4;
+      --p: #985038;
+      --p-soft: #f4e3dc;
+      --future: #e9e7df;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background: radial-gradient(circle at 15% 0%, #dceef1 0, transparent 31rem), var(--page);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main { width: min(1120px, calc(100% - 32px)); margin: 28px auto 56px; }
+    .trigger-tabs { display: flex; gap: 8px; margin-bottom: 8px; overflow-x: auto; padding: 2px; }
+    .trigger-tab { flex: 0 0 auto; min-width: auto; padding: 9px 12px; color: var(--muted); }
+    .trigger-tab[aria-selected="true"] { border-color: var(--e); background: var(--e); color: white; }
+    .scenario-tabs { display: flex; gap: 7px; margin-bottom: 14px; overflow-x: auto; padding: 2px; }
+    .scenario-tab { flex: 0 0 auto; min-width: auto; padding: 8px 11px; color: var(--muted); }
+    .scenario-tab[aria-selected="true"] { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1.38fr) minmax(320px, .9fr); gap: 18px; align-items: start; }
+    .frame {
+      padding: 28px 30px 34px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--paper);
+      box-shadow: 0 18px 50px rgba(40, 43, 34, .09);
+    }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    h1 { margin: 0; font-size: 23px; letter-spacing: -.035em; }
+    .step { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+    .controls { display: flex; gap: 8px; }
+    button {
+      min-width: 94px;
+      padding: 8px 11px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      color: var(--ink);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 750;
+    }
+    button:hover:not(:disabled) { background: #f2f0e9; }
+    button:disabled { opacity: .4; cursor: default; }
+    .timeline { margin-top: 25px; border-top: 1px solid var(--line); }
+    .heads, .event { display: grid; grid-template-columns: 1fr 90px 1fr; }
+    .heads { min-height: 54px; align-items: center; }
+    .team-name { font-size: 12px; font-weight: 850; letter-spacing: .11em; text-transform: uppercase; }
+    .team-name.e { color: var(--e); text-align: right; padding-right: 24px; }
+    .team-name.p { color: var(--p); padding-left: 24px; }
+    .center-label { color: var(--muted); text-align: center; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .event { min-height: 112px; position: relative; transition: transform .46s cubic-bezier(.2,.8,.2,1); will-change: transform; }
+    .event::before {
+      content: "";
+      position: absolute;
+      top: 0; bottom: 0; left: 50%;
+      width: 2px; transform: translateX(-1px);
+      background: var(--line);
+    }
+    .event:first-of-type::before { top: 0; }
+    .rail { position: relative; z-index: 1; display: flex; align-items: center; }
+    .rail.e { justify-content: flex-end; padding-right: 24px; }
+    .rail.p { justify-content: flex-start; padding-left: 24px; }
+    .node {
+      z-index: 2;
+      align-self: center;
+      justify-self: center;
+      width: 14px; height: 14px;
+      border: 3px solid var(--paper);
+      border-radius: 50%;
+      background: var(--future);
+      box-shadow: 0 0 0 1px var(--line);
+    }
+    .event.active .node.e { background: var(--e); box-shadow: 0 0 0 1px var(--e); }
+    .event.active .node.p { background: var(--p); box-shadow: 0 0 0 1px var(--p); }
+    .package {
+      width: min(255px, 100%);
+      padding: 13px 15px;
+      border: 1px solid var(--future);
+      border-radius: 11px;
+      background: #f4f3ee;
+      color: #989a92;
+      opacity: .72;
+      transform: translateY(-4px);
+      transition: opacity .3s, transform .3s, color .3s, border-color .3s, background .3s;
+    }
+    .event.active .package { opacity: 1; transform: translateY(0); }
+    .event.active .package { color: var(--ink); border-color: color-mix(in srgb, var(--e) 44%, var(--line)); background: var(--e-soft); }
+    .event.active .package.test-pass { border-color: color-mix(in srgb, #2d8050 48%, var(--line)); background: #dff1e4; }
+    .event.active .package.test-fail { border-color: color-mix(in srgb, #b4473e 48%, var(--line)); background: #f5dfdc; }
+    .package .type { display: block; color: inherit; font-size: 11px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+    .package .name-row { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+    .package .name { display: block; font: 750 15px/1.25 ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .package .check { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: #2d8050; color: white; font-size: 11px; font-weight: 900; opacity: 0; transform: scale(.65); transition: opacity .25s, transform .25s; }
+    .package.validated .check { opacity: 1; transform: scale(1); }
+    .package .note { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; }
+    .package.placeholder { visibility: hidden; }
+    .event.inactive { display: none; }
+    .event.enter .package:not(.placeholder) { animation: package-enter .42s cubic-bezier(.2,.8,.2,1) both; }
+    .event.enter .node { animation: node-enter .35s ease-out both; }
+    @keyframes package-enter {
+      from { opacity: 0; transform: translateY(-24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes node-enter {
+      from { opacity: 0; transform: scale(.3); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .caption { margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+    .caption b { color: var(--ink); }
+    .test-frame { min-height: 564px; }
+    .test-header { display: block; }
+    .test-header h2 { margin: 0; font-size: 23px; letter-spacing: -.035em; }
+    .test-header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+    .test-stage { position: relative; min-height: 425px; margin-top: 25px; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: #f8f7f2; }
+    .test-stage::before { content: ""; position: absolute; top: 121px; right: 17%; bottom: 96px; width: 1px; background: var(--line); }
+    .test-label { margin: 0; color: var(--muted); font-size: 10px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+    .test-sources { position: absolute; top: 18px; left: 18px; right: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .source-copy { min-height: 68px; padding: 10px; border: 1px dashed var(--line); border-radius: 9px; color: #9b9e96; background: var(--paper); transition: opacity .25s, border-color .25s, background .25s; }
+    .source-copy b { display: block; margin-top: 5px; font: 750 13px/1 ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .source-copy.e { --team: var(--e); --team-soft: var(--e-soft); }
+    .source-copy.p { --team: var(--p); --team-soft: var(--p-soft); }
+    .test-stage.ready .source-copy { color: var(--ink); border-style: solid; border-color: color-mix(in srgb, var(--team) 45%, var(--line)); background: var(--team-soft); }
+    .copy-status { position: absolute; top: 112px; left: 18px; right: 18px; text-align: center; color: var(--muted); font-size: 12px; transition: opacity .25s; }
+    .copy-status b { color: var(--ink); }
+    .sandbox { position: absolute; top: 151px; left: 50%; width: min(220px, calc(100% - 36px)); min-height: 113px; padding: 13px; transform: translateX(-50%); border: 1px solid var(--line); border-radius: 11px; background: var(--paper); }
+    .sandbox-title { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+    .sandbox-title::before { content: "□"; font-size: 18px; line-height: 9px; color: var(--ink); }
+    .sandbox-packages { display: grid; gap: 6px; margin-top: 12px; }
+    .sandbox-package { display: flex; justify-content: space-between; align-items: center; padding: 5px 7px; border-radius: 5px; color: var(--muted); background: var(--future); font: 750 11px/1 ui-monospace, SFMono-Regular, Consolas, monospace; opacity: .36; transition: opacity .28s, background .28s, color .28s; }
+    .sandbox-package.e { --team: var(--e); --team-soft: var(--e-soft); }
+    .sandbox-package.p { --team: var(--p); --team-soft: var(--p-soft); }
+    .test-stage.copied .sandbox-package, .test-stage.running .sandbox-package, .test-stage.finished .sandbox-package { opacity: 1; color: var(--ink); background: var(--team-soft); }
+    .flying-package { position: absolute; top: 102px; left: 50%; z-index: 3; width: 70px; padding: 6px 4px; border-radius: 5px; color: white; opacity: 0; text-align: center; font: 800 10px/1 ui-monospace, SFMono-Regular, Consolas, monospace; transform: translate(-50%, -8px); }
+    .flying-package.e { background: var(--e); }
+    .flying-package.p { background: var(--p); }
+    .test-stage.copying .flying-package { animation: copy-down .68s cubic-bezier(.2,.8,.2,1) both; }
+    .test-stage.copying .flying-package.p { animation-delay: .23s; }
+    @keyframes copy-down { 0% { opacity: 0; transform: translate(-50%, -18px) scale(.8); } 22% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, 76px) scale(.92); } }
+    .runner { position: absolute; right: 18px; bottom: 18px; left: 18px; min-height: 89px; padding: 13px; border-radius: 10px; background: #20231f; color: #cad0c7; font: 11px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .runner .command { color: #7fc8de; }
+    .runner .line { display: none; }
+    .runner .waiting { display: block; color: #8f968d; }
+    .test-stage.ready .runner .waiting { display: none; }
+    .test-stage.copying .runner .copying-line, .test-stage.copied .runner .copied-line, .test-stage.running .runner .running-line, .test-stage.finished .runner .finished-line { display: block; }
+    .test-stage .result-line { color: #d1d5ce; }
+    .test-stage .result-line.pass { color: #92d4a8; }
+    .test-stage .result-line.fail { color: #f19a91; }
+    .diagnosis { position: absolute; right: 18px; bottom: 122px; left: 18px; display: none; padding: 7px 9px; border-radius: 7px; color: var(--muted); background: #eeece5; font-size: 10.5px; line-height: 1.35; }
+    .test-stage.finished .diagnosis { display: block; }
+    .diagnosis b { color: var(--ink); }
+    .spinner { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border: 2px solid #7fc8de; border-right-color: transparent; border-radius: 50%; vertical-align: -1px; animation: spin .65s linear infinite; }
+    @keyframes spin { to { transform: rotate(1turn); } }
+    @media (max-width: 570px) {
+      .frame { padding: 21px 14px 24px; }
+      header { align-items: flex-start; flex-direction: column; }
+      .controls { width: 100%; }
+      button { flex: 1; }
+      .workspace { grid-template-columns: 1fr; }
+      .scenario-tabs { margin-bottom: 10px; }
+      .test-frame { min-height: 0; }
+      .heads, .event { grid-template-columns: 1fr 36px 1fr; }
+      .team-name.e, .rail.e { padding-right: 10px; }
+      .team-name.p, .rail.p { padding-left: 10px; }
+      .package { padding: 11px 9px; }
+      .package .name { font-size: 12px; }
+      .package .note { font-size: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <nav class="trigger-tabs" role="tablist" aria-label="Política que dispara la prueba">
+      <button class="trigger-tab" type="button" role="tab" aria-selected="true" data-trigger="p">La publicación de P dispara la prueba</button>
+      <button class="trigger-tab" type="button" role="tab" aria-selected="false" data-trigger="both">La publicación de E o P dispara la prueba</button>
+      <button class="trigger-tab" type="button" role="tab" aria-selected="false" data-trigger="multi">P mantiene 3 paquetes dependientes</button>
+    </nav>
+    <nav class="scenario-tabs" id="scenario-tabs" role="tablist" aria-label="Escenarios simulados"></nav>
+    <div class="workspace">
+    <div class="frame">
+      <header>
+        <div>
+          <h1>Cronología de paquetes</h1>
+          <p class="step" id="step-text">Paso 1 de 3 · E publica su primer paquete.</p>
+        </div>
+        <nav class="controls" aria-label="Navegación de la cronología">
+          <button type="button" id="previous" disabled>← Anterior</button>
+          <button type="button" id="next">Siguiente →</button>
+        </nav>
+      </header>
+
+      <section class="timeline" aria-label="Cronología vertical de paquetes">
+        <div class="heads">
+          <div class="team-name e">Equipo E</div>
+          <div class="center-label">Más reciente ↑</div>
+          <div class="team-name p">Equipo P</div>
+        </div>
+
+        <div id="timeline-events"></div>
+      </section>
+
+      <p class="caption" id="caption"><b>Lectura:</b> cada paquete ocupa el carril de quien lo generó y aparece arriba al generarse. Los paquetes anteriores son desplazados hacia abajo.</p>
+    </div>
+
+    <aside class="frame test-frame" aria-labelledby="test-title">
+      <header class="test-header">
+        <h2 id="test-title">Prueba de integración</h2>
+        <p>Se copian los últimos paquetes disponibles y se ejecuta la prueba.</p>
+      </header>
+
+      <div class="test-stage" id="test-stage" aria-live="polite">
+        <div class="test-sources" aria-label="Paquetes que se copiarán">
+          <div class="source-copy e"><span class="test-label">Equipo E</span><b id="test-source-e">—</b></div>
+          <div class="source-copy p"><span class="test-label">Equipo P</span><b id="test-source-p">—</b></div>
+        </div>
+        <div class="copy-status" id="copy-status">Esperando un paquete de <b>cada equipo</b>.</div>
+        <div class="flying-package e" aria-hidden="true">E-2</div>
+        <div class="flying-package p" aria-hidden="true">P-1</div>
+        <div class="sandbox">
+          <div class="sandbox-title">Sandbox de prueba</div>
+          <div class="sandbox-packages">
+            <div class="sandbox-package e"><span>DLLs</span><span id="sandbox-e">—</span></div>
+            <div class="sandbox-package p"><span>Ejecutable</span><span id="sandbox-p">—</span></div>
+          </div>
+        </div>
+        <div class="runner" aria-label="Estado de la ejecución">
+          <div class="waiting"># esperando artefactos de E y P</div>
+          <div class="line copying-line"><span class="command">$ copy packages</span><br><span id="copy-command">copiando paquetes…</span></div>
+          <div class="line copied-line"><span class="command">$ copy packages</span><br>copias listas en el sandbox</div>
+          <div class="line running-line"><span class="command">$ ./integration-test</span><br><span class="spinner"></span>ejecutando prueba…</div>
+          <div class="line finished-line"><span class="command">$ ./integration-test</span><br><span class="result-line" id="result-line">prueba finalizada</span></div>
+        </div>
+        <div class="diagnosis" id="diagnosis"></div>
+      </div>
+    </aside>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      const test = (e, p, result, diagnosis) => ({ e, p, result, diagnosis });
+      const defaultBaseline = [
+        { team: "E", name: "E-1", text: "baseline validado (prerrequisito)" },
+        { team: "P", name: "P-1", text: "baseline validado (prerrequisito)" }
+      ];
+      const groups = {
+        p: {
+          scenarios: {
+            normal: { label: "1 · Flujo normal", events: [
+              { team: "E", name: "E-2", text: "E publica E-2; no se ejecuta prueba todavía." },
+              { team: "P", name: "P-2", text: "P publica P-2 y dispara la prueba.", test: test("E-2", "P-2", "pass", "Prueba de integración: <b>E-2 + P-2 pasa</b>.") }
+            ] },
+            e: { label: "2 · Regresión de E", events: [
+              { team: "E", name: "E-2", text: "E publica E-2; no se ejecuta prueba todavía." },
+              { team: "P", name: "P-2", text: "P publica P-2 y la prueba falla.", test: test("E-2", "P-2", "fail", "Falla E-2 + P-2. Hacen falta los dos cruces.") },
+              { kind: "cross", text: "Cruce 1: se prueba E-1 con P-2.", test: test("E-1", "P-2", "pass", "Primer cruce: <b>E-1 + P-2 pasa</b>." ) },
+              { kind: "cross", text: "Cruce 2: se prueba E-2 con P-1.", test: test("E-2", "P-1", "fail", "Segundo cruce: <b>E-2 + P-1 falla</b> → regresión de E.") }
+            ] },
+            joint: { label: "3 · Carambola", events: [
+              { team: "E", name: "E-2", text: "E publica E-2; no se ejecuta prueba todavía." },
+              { team: "P", name: "P-2", text: "P publica P-2 y la prueba falla.", test: test("E-2", "P-2", "fail", "Falla E-2 + P-2. Hacen falta los dos cruces.") },
+              { kind: "cross", text: "Cruce 1: se prueba E-1 con P-2.", test: test("E-1", "P-2", "pass", "Primer cruce: <b>E-1 + P-2 pasa</b>." ) },
+              { kind: "cross", text: "Cruce 2: se prueba E-2 con P-1.", test: test("E-2", "P-1", "pass", "Ambos cruces pasan → solo falla E-2 + P-2: <b>incompatibilidad de integración</b>.") }
+            ] },
+            both: { label: "4 · Doble cambio", events: [
+              { team: "E", name: "E-2", text: "E publica E-2; no se ejecuta prueba todavía." },
+              { team: "P", name: "P-2", text: "P publica P-2 y la prueba falla.", test: test("E-2", "P-2", "fail", "Falla E-2 + P-2. Hacen falta los dos cruces.") },
+              { kind: "cross", text: "Cruce 1: se prueba E-1 con P-2.", test: test("E-1", "P-2", "fail", "Primer cruce: <b>E-1 + P-2 falla</b>." ) },
+              { kind: "cross", text: "Cruce 2: se prueba E-2 con P-1.", test: test("E-2", "P-1", "fail", "Ambos cruces fallan → <b>dos regresiones o causa compartida</b>; no hay responsable único.") }
+            ] }
+          }
+        },
+        both: {
+          scenarios: {
+            normal: { label: "1 · Flujo normal", events: [
+              { team: "E", name: "E-2", text: "E publica E-2 y dispara la prueba.", test: test("E-2", "P-1", "pass", "Nueva prueba: <b>E-2 + P-1 pasa</b>.") },
+              { team: "P", name: "P-2", text: "P publica P-2 y dispara la prueba.", test: test("E-2", "P-2", "pass", "Nueva prueba: <b>E-2 + P-2 pasa</b>.") }
+            ] },
+            e: { label: "2 · Regresión de E", events: [
+              { team: "E", name: "E-2", text: "E publica E-2 y la prueba falla de inmediato.", test: test("E-2", "P-1", "fail", "Como P-1 es el baseline conocido, <b>E-2 + P-1 falla</b> → regresión de E; no hace falta cruce adicional.") }
+            ] },
+            p: { label: "3 · Regresión de P", events: [
+              { team: "P", name: "P-2", text: "P publica P-2 y la prueba falla de inmediato.", test: test("E-1", "P-2", "fail", "Como E-1 es el baseline conocido, <b>E-1 + P-2 falla</b> → regresión de P; no hace falta cruce adicional.") }
+            ] },
+            joint: { label: "4 · Carambola", events: [
+              { team: "E", name: "E-2", text: "E publica E-2; E-2 + P-1 pasa.", test: test("E-2", "P-1", "pass", "Primer cruce ya observado: <b>E-2 + P-1 pasa</b>.") },
+              { team: "P", name: "P-2", text: "P publica P-2 y E-2 + P-2 falla.", test: test("E-2", "P-2", "fail", "Falla la pareja nueva; solo queda probar el otro cruce.") },
+              { kind: "cross", text: "Cruce pendiente: se prueba E-1 con P-2.", test: test("E-1", "P-2", "pass", "Los dos cruces pasan, pero E-2 + P-2 falla → <b>incompatibilidad de integración</b>.") }
+            ] }
+          }
+        },
+        multi: {
+          baseline: [
+            { team: "E", name: "E-1", text: "baseline validado (prerrequisito)" },
+            { team: "P", name: "PA-1", text: "paquete A · baseline validado" },
+            { team: "P", name: "PB-1", text: "paquete B · baseline validado" },
+            { team: "P", name: "PC-1", text: "paquete C · baseline validado" }
+          ],
+          scenarios: {
+            p: { label: "1 · Cambia un paquete de P", events: [
+              { team: "P", name: "PA-2", text: "P publica PA-2; solo se prueba este paquete.", test: test("E-1", "PA-2", "pass", "Solo cambia PA: <b>E-1 + PA-2 pasa</b>. PB-1 y PC-1 no se ejecutan.") }
+            ] },
+            e: { label: "2 · Cambia E", events: [
+              { team: "E", name: "E-2", text: "E publica E-2; se deben ejecutar las 3 dependencias de P." },
+              { kind: "cross", text: "Dependencia 1/3: se prueba E-2 con PA-1.", test: test("E-2", "PA-1", "pass", "Dependencia 1/3: <b>E-2 + PA-1 pasa</b>.") },
+              { kind: "cross", text: "Dependencia 2/3: se prueba E-2 con PB-1.", test: test("E-2", "PB-1", "pass", "Dependencia 2/3: <b>E-2 + PB-1 pasa</b>.") },
+              { kind: "cross", text: "Dependencia 3/3: se prueba E-2 con PC-1.", test: test("E-2", "PC-1", "pass", "Las 3 dependencias pasan → <b>E-2 queda validado</b> con todos los paquetes de P.") }
+            ] },
+            p_fail: { label: "3 · Regresión en un P", events: [
+              { team: "P", name: "PB-2", text: "P publica PB-2; solo se prueba el paquete cambiado.", test: test("E-1", "PB-2", "fail", "<b>E-1 + PB-2 falla</b>; E-1 es baseline validado → regresión localizada en PB-2.") }
+            ] },
+            e_mixed: { label: "4 · Cambio de E con un fallo", events: [
+              { team: "E", name: "E-2", text: "E publica E-2; se deben ejecutar las 3 dependencias de P." },
+              { kind: "cross", text: "Dependencia 1/3: se prueba E-2 con PA-1.", test: test("E-2", "PA-1", "pass", "Dependencia 1/3: <b>E-2 + PA-1 pasa</b>.") },
+              { kind: "cross", text: "Dependencia 2/3: se prueba E-2 con PB-1.", test: test("E-2", "PB-1", "fail", "Dependencia 2/3: <b>E-2 + PB-1 falla</b>. La incidencia queda aislada al contrato E ↔ PB.") },
+              { kind: "cross", text: "Dependencia 3/3: se prueba E-2 con PC-1.", test: test("E-2", "PC-1", "pass", "Dependencia 3/3: <b>E-2 + PC-1 pasa</b>. Solo queda investigar la pareja E-2 + PB-1.") }
+            ] }
+          }
+        }
+      };
+      const timelineEvents = document.getElementById("timeline-events");
+      const previous = document.getElementById("previous");
+      const next = document.getElementById("next");
+      const stepText = document.getElementById("step-text");
+      const testStage = document.getElementById("test-stage");
+      const testSourceE = document.getElementById("test-source-e");
+      const testSourceP = document.getElementById("test-source-p");
+      const sandboxE = document.getElementById("sandbox-e");
+      const sandboxP = document.getElementById("sandbox-p");
+      const copyStatus = document.getElementById("copy-status");
+      const copyCommand = document.getElementById("copy-command");
+      const resultLine = document.getElementById("result-line");
+      const diagnosis = document.getElementById("diagnosis");
+      const scenarioTabs = document.getElementById("scenario-tabs");
+      const triggerTabs = [...document.querySelectorAll(".trigger-tab")];
+      let trigger = "p";
+      let scenario = groups[trigger].scenarios.normal;
+      let scenarioKey = "normal";
+      let events = [];
+      let current = 0;
+      let testTimers = [];
+      let validated = new Set();
+      let packageResults = new Map();
+
+      function clearTestTimers() {
+        testTimers.forEach(window.clearTimeout);
+        testTimers = [];
+      }
+
+      function latestPackage(team, at = current) {
+        for (let index = at; index >= 0; index -= 1) {
+          if (scenario.events[index].team === team) return scenario.events[index].name;
+        }
+        return baselineForScenario().find(event => event.team === team)?.name ?? "—";
+      }
+
+      function baselineForScenario() {
+        return groups[trigger].baseline ?? defaultBaseline;
+      }
+
+      function setSources(e, p) {
+        testSourceE.textContent = e;
+        testSourceP.textContent = p;
+        document.querySelector(".flying-package.e").textContent = e;
+        document.querySelector(".flying-package.p").textContent = p;
+        copyCommand.textContent = `copiando ${e} y ${p}…`;
+      }
+
+      function validationsBeforeCurrent() {
+        return new Set([
+          ...baselineForScenario().map(event => event.name),
+          ...scenario.events.slice(0, Math.max(current, 0)).flatMap(event => event.test?.result === "pass" ? [event.test.e, event.test.p] : [])
+        ]);
+      }
+
+      function resultsBeforeCurrent() {
+        const results = new Map(baselineForScenario().map(event => [event.name, "pass"]));
+        scenario.events.slice(0, Math.max(current, 0)).forEach(event => {
+          if (!event.test) return;
+          results.set(event.test.e, event.test.result);
+          results.set(event.test.p, event.test.result);
+        });
+        return results;
+      }
+
+      function paintValidations() {
+        timelineEvents.querySelectorAll("[data-package]").forEach(packageEl => {
+          packageEl.classList.toggle("validated", validated.has(packageEl.dataset.package));
+          packageEl.classList.toggle("test-pass", packageResults.get(packageEl.dataset.package) === "pass");
+          packageEl.classList.toggle("test-fail", packageResults.get(packageEl.dataset.package) === "fail");
+        });
+      }
+
+      function finishTest(test) {
+        testStage.className = "test-stage ready copied finished";
+        setSources(test.e, test.p);
+        sandboxE.textContent = test.e;
+        sandboxP.textContent = test.p;
+        resultLine.textContent = test.result === "pass" ? "prueba pasa" : "prueba falla";
+        resultLine.className = `result-line ${test.result}`;
+        copyStatus.innerHTML = test.result === "pass" ? "Prueba <b>superada</b>." : "Prueba <b>fallida</b>. Se lanzan los cruces para atribuirla.";
+        diagnosis.innerHTML = test.diagnosis;
+        if (test.result === "pass") {
+          validated.add(test.e);
+          validated.add(test.p);
+        }
+        packageResults.set(test.e, test.result);
+        packageResults.set(test.p, test.result);
+        paintValidations();
+      }
+
+      function updateTest({ run = false } = {}) {
+        clearTestTimers();
+        const latestE = latestPackage("E");
+        const latestP = latestPackage("P");
+        setSources(latestE, latestP);
+        sandboxE.textContent = "—";
+        sandboxP.textContent = "—";
+        testStage.className = "test-stage";
+        diagnosis.innerHTML = "";
+        resultLine.className = "result-line";
+
+        const currentEvent = scenario.events[current];
+        if (!currentEvent) {
+          copyStatus.innerHTML = "<b>Baseline validado.</b> Esperando la próxima publicación.";
+          return;
+        }
+        const previousTest = [...scenario.events.slice(0, current + 1)].reverse().find(event => event.test)?.test;
+        if (!run && previousTest) {
+          finishTest(previousTest);
+          return;
+        }
+
+        if (!currentEvent.test) {
+          copyStatus.innerHTML = "Esperando un paquete de <b>P</b>.";
+          return;
+        }
+
+        const test = currentEvent.test;
+        setSources(test.e, test.p);
+        testStage.classList.add("ready", "copying");
+        copyStatus.innerHTML = "Copiando los últimos paquetes al <b>sandbox</b>…";
+        testTimers.push(window.setTimeout(() => {
+          testStage.classList.remove("copying");
+          testStage.classList.add("copied");
+          sandboxE.textContent = test.e;
+          sandboxP.textContent = test.p;
+          copyStatus.innerHTML = "Copias completas. Preparando la <b>prueba</b>…";
+        }, 850));
+        testTimers.push(window.setTimeout(() => {
+          testStage.classList.remove("copied");
+          testStage.classList.add("running");
+          copyStatus.innerHTML = "Prueba de integración en <b>ejecución</b>.";
+        }, 1450));
+        testTimers.push(window.setTimeout(() => {
+          finishTest(test);
+        }, 2800));
+      }
+
+      function buildTimeline() {
+        const packageEvents = [
+          ...baselineForScenario().map(event => ({ event, index: -1 })),
+          ...scenario.events.map((event, index) => ({ event, index })).filter(({ event }) => !event.kind)
+        ];
+        timelineEvents.innerHTML = packageEvents.map(({ event, index }) => {
+          const own = `<div class="package ${event.team.toLowerCase()}" data-package="${event.name}"><span class="type">Paquete de ${event.team}</span><span class="name-row"><span class="name">${event.name}</span><span class="check" aria-label="Paquete validado">✓</span></span><span class="note">${event.text}</span></div>`;
+          const empty = '<div class="package placeholder">—</div>';
+          return `<div class="event inactive" data-step="${index}">
+            <div class="rail e">${event.team === "E" ? own : empty}</div>
+            <div class="node ${event.team.toLowerCase()}" aria-hidden="true"></div>
+            <div class="rail p">${event.team === "P" ? own : empty}</div>
+          </div>`;
+        }).reverse().join("");
+        events = [...timelineEvents.querySelectorAll(".event")];
+      }
+
+      function render({ animate = true } = {}) {
+        const before = new Map(
+          events
+            .filter(event => !event.classList.contains("inactive"))
+            .map(event => [event, event.getBoundingClientRect().top])
+        );
+        const newlyVisible = [];
+        events.forEach(event => {
+          const eventStep = Number(event.dataset.step);
+          const wasVisible = !event.classList.contains("inactive");
+          const isVisible = eventStep <= current;
+          event.classList.toggle("inactive", !isVisible);
+          event.classList.toggle("active", isVisible);
+          event.classList.remove("enter");
+          if (isVisible && !wasVisible) newlyVisible.push(event);
+        });
+        stepText.textContent = current < 0
+          ? `Punto base · ${baselineForScenario().map(event => event.name).join(", ")} ya están validados; no cuenta como paso.`
+          : `Paso ${current + 1} de ${scenario.events.length} · ${scenario.events[current].text}`;
+        previous.disabled = current <= -1;
+        const scenarioKeys = Object.keys(groups[trigger].scenarios);
+        const isLastScenario = scenarioKeys.indexOf(scenarioKey) === scenarioKeys.length - 1;
+        const isLastStep = current === scenario.events.length - 1;
+        next.disabled = isLastStep && isLastScenario;
+        next.textContent = isLastStep && !isLastScenario ? "Siguiente escenario →" : "Siguiente →";
+        validated = validationsBeforeCurrent();
+        packageResults = resultsBeforeCurrent();
+        paintValidations();
+        updateTest({ run: Boolean(scenario.events[current]?.test) && animate });
+
+        if (!animate) return;
+        events.forEach(event => {
+          const oldTop = before.get(event);
+          if (oldTop === undefined || event.classList.contains("inactive")) return;
+          const delta = oldTop - event.getBoundingClientRect().top;
+          if (!delta) return;
+          event.style.transition = "none";
+          event.style.transform = `translateY(${delta}px)`;
+          requestAnimationFrame(() => {
+            event.style.transition = "";
+            event.style.transform = "";
+          });
+        });
+        newlyVisible.forEach(event => {
+          requestAnimationFrame(() => event.classList.add("enter"));
+        });
+      }
+      function selectScenario(name) {
+        scenario = groups[trigger].scenarios[name];
+        scenarioKey = name;
+        current = -1;
+        validated = new Set();
+        packageResults = new Map();
+        buildTimeline();
+        [...scenarioTabs.querySelectorAll(".scenario-tab")].forEach(tab => tab.setAttribute("aria-selected", String(tab.dataset.scenario === name)));
+        render({ animate: false });
+      }
+      function selectTrigger(name) {
+        trigger = name;
+        triggerTabs.forEach(tab => tab.setAttribute("aria-selected", String(tab.dataset.trigger === name)));
+        const entries = Object.entries(groups[name].scenarios);
+        scenarioTabs.innerHTML = entries.map(([key, item], index) => `<button class="scenario-tab" type="button" role="tab" aria-selected="${index === 0}" data-scenario="${key}">${item.label}</button>`).join("");
+        scenarioTabs.querySelectorAll(".scenario-tab").forEach(tab => tab.addEventListener("click", () => selectScenario(tab.dataset.scenario)));
+        selectScenario(entries[0][0]);
+      }
+      triggerTabs.forEach(tab => tab.addEventListener("click", () => selectTrigger(tab.dataset.trigger)));
+      previous.addEventListener("click", () => { current -= 1; render(); });
+      next.addEventListener("click", () => {
+        if (current < scenario.events.length - 1) {
+          current += 1;
+          render();
+          return;
+        }
+        const keys = Object.keys(groups[trigger].scenarios);
+        const nextKey = keys[keys.indexOf(scenarioKey) + 1];
+        if (nextKey) selectScenario(nextKey);
+      });
+      selectTrigger("p");
+    })();
+  </script>
+</body>
+</html>

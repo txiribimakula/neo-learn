@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Historia visual del retorno de Hong Kong a China: guerras del Opio, tratados coloniales, negociación sino-británica, un país dos sistemas y consolidación posterior.">
+  <meta name="theme-color" content="#102420">
+  <title>Hong Kong: de colonia británica a región china</title>
+  <style>
+    :root {
+      --ink: #17201e;
+      --muted: #68716d;
+      --paper: #f3efe5;
+      --surface: #fbf9f3;
+      --line: #d5cebe;
+      --china: #aa342c;
+      --china-dark: #76241f;
+      --china-soft: #f3ded9;
+      --britain: #315f79;
+      --britain-soft: #dfe9ed;
+      --hongkong: #16705e;
+      --hongkong-soft: #dcede7;
+      --gold: #c8912e;
+      --night: #102420;
+      --shadow: 0 18px 48px rgba(25, 34, 31, .11);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 6% 0%, rgba(170,52,44,.09), transparent 30rem),
+        radial-gradient(circle at 94% 7%, rgba(22,112,94,.10), transparent 34rem),
+        var(--paper);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    button, input { font: inherit; }
+    a { color: inherit; }
+    a:focus-visible, button:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+
+    .page { width: min(1420px, calc(100% - 28px)); margin: 0 auto; padding: 18px 0 76px; }
+
+    .topbar {
+      position: sticky;
+      z-index: 40;
+      top: 10px;
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      margin-bottom: 16px;
+      padding: 10px 12px 10px 17px;
+      color: #eef4f1;
+      background: rgba(16,36,32,.94);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      box-shadow: 0 12px 28px rgba(16,28,25,.18);
+      backdrop-filter: blur(14px);
+    }
+    .brand { flex: 0 0 auto; font-size: .74rem; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
+    .nav { display: flex; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+    .nav::-webkit-scrollbar { display: none; }
+    .nav a { flex: 0 0 auto; padding: 6px 9px; color: #bfcbc7; border-radius: 999px; font-size: .69rem; font-weight: 760; text-decoration: none; }
+    .nav a:hover { color: white; background: rgba(255,255,255,.1); }
+    .top-year { margin-left: auto; color: #f1ce83; font: 600 .82rem Georgia, serif; white-space: nowrap; }
+
+    .hero {
+      position: relative;
+      min-height: 620px;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: minmax(0, 1.22fr) minmax(340px, .78fr);
+      color: white;
+      background: var(--night);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+    }
+    .hero::before {
+      content: "香港";
+      position: absolute;
+      right: -3vw;
+      bottom: -11vw;
+      color: rgba(255,255,255,.035);
+      font: 700 clamp(15rem, 34vw, 34rem) Georgia, serif;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .hero-copy { position: relative; z-index: 2; padding: clamp(34px, 6vw, 82px); }
+    .eyebrow { margin: 0 0 14px; color: #d6ab62; font-size: .7rem; font-weight: 900; letter-spacing: .17em; text-transform: uppercase; }
+    h1 { max-width: 850px; margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: clamp(3rem, 7vw, 6.6rem); font-weight: 500; letter-spacing: -.055em; line-height: .92; }
+    .hero .dek { max-width: 760px; margin: 26px 0 0; color: #d9e3df; font-size: clamp(1rem, 1.5vw, 1.18rem); }
+    .answer {
+      max-width: 740px;
+      margin-top: 34px;
+      padding: 18px 20px;
+      color: #142b26;
+      background: #dce9df;
+      border-left: 5px solid #d5a341;
+      border-radius: 0 13px 13px 0;
+      font-size: .88rem;
+    }
+    .answer strong { display: block; margin-bottom: 3px; color: #6f231e; font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; }
+
+    .hero-visual { position: relative; z-index: 2; display: grid; place-items: center; padding: 36px; background: linear-gradient(145deg, rgba(255,255,255,.025), rgba(255,255,255,.075)); border-left: 1px solid rgba(255,255,255,.1); }
+    .territory {
+      position: relative;
+      width: min(100%, 390px);
+      aspect-ratio: .9;
+      padding: 28px;
+      background: rgba(7,21,18,.44);
+      border: 1px solid rgba(255,255,255,.13);
+      border-radius: 50% 50% 22% 28% / 36% 46% 28% 32%;
+      transform: rotate(-2deg);
+      box-shadow: inset 0 0 70px rgba(22,112,94,.13);
+    }
+    .territory::before, .territory::after { content: ""; position: absolute; border-radius: 50%; }
+    .territory::before { right: 7%; bottom: 18%; width: 25%; height: 15%; background: rgba(193,145,53,.18); border: 1px solid rgba(222,182,105,.42); transform: rotate(24deg); }
+    .territory::after { left: 3%; bottom: 4%; width: 13%; height: 9%; background: rgba(193,145,53,.14); border: 1px solid rgba(222,182,105,.34); }
+    .land-label { position: absolute; color: #e8eee9; font-size: .68rem; font-weight: 850; letter-spacing: .05em; text-transform: uppercase; }
+    .label-nt { top: 21%; left: 30%; }
+    .label-kowloon { left: 27%; bottom: 33%; }
+    .label-island { right: 18%; bottom: 16%; color: #efcb85; }
+    .lease-ring { position: absolute; inset: 16%; border: 2px dashed rgba(218,175,90,.56); border-radius: 50%; animation: orbit 22s linear infinite; }
+    .lease-ring span { position: absolute; top: -17px; left: 50%; padding: 5px 9px; color: #18221f; background: #e9c77f; border-radius: 999px; font-size: .58rem; font-weight: 900; letter-spacing: .06em; white-space: nowrap; transform: translateX(-50%); }
+    .water-lines { position: absolute; inset: 0; opacity: .25; background: repeating-radial-gradient(ellipse at 65% 80%, transparent 0 14px, rgba(255,255,255,.18) 15px 16px); pointer-events: none; }
+    @keyframes orbit { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .lease-ring { animation: none; } }
+
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0; }
+    .metric { padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 17px; box-shadow: 0 7px 20px rgba(25,34,31,.045); }
+    .metric strong { display: block; margin-bottom: 4px; color: var(--china); font: 500 clamp(1.7rem, 3vw, 2.6rem) Georgia, serif; line-height: 1; }
+    .metric span { color: var(--muted); font-size: .75rem; }
+
+    .section { scroll-margin-top: 82px; margin-top: 18px; padding: clamp(22px, 4vw, 42px); background: var(--surface); border: 1px solid var(--line); border-radius: 22px; box-shadow: var(--shadow); }
+    .section-head { display: grid; grid-template-columns: minmax(0,1.35fr) minmax(260px,.65fr); gap: 26px; margin-bottom: 26px; }
+    .kicker { margin: 0 0 8px; color: var(--hongkong); font-size: .67rem; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+    h2 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: clamp(2rem, 4vw, 3.5rem); font-weight: 500; letter-spacing: -.035em; line-height: 1.02; }
+    .section-head > p { margin: 4px 0 0; color: var(--muted); font-size: .88rem; }
+
+    .territory-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 11px; }
+    .territory-card { position: relative; overflow: hidden; min-height: 226px; padding: 21px; background: #eff3f0; border: 1px solid #cad8d2; border-radius: 16px; }
+    .territory-card::after { content: attr(data-n); position: absolute; right: 10px; bottom: -24px; color: rgba(22,112,94,.08); font: 600 8rem Georgia, serif; }
+    .territory-card time { display: block; color: var(--china); font-size: .7rem; font-weight: 900; letter-spacing: .08em; }
+    .territory-card h3 { margin: 8px 0; font-family: Georgia, serif; font-size: 1.4rem; font-weight: 600; }
+    .territory-card p { position: relative; z-index: 1; margin: 0; color: #58635f; font-size: .8rem; }
+    .status { display: inline-block; margin-top: 15px; padding: 5px 8px; color: #faf6ec; background: var(--britain); border-radius: 999px; font-size: .58rem; font-weight: 900; text-transform: uppercase; }
+    .status.lease { background: var(--china); }
+
+    .hinge { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 13px; }
+    .hinge > div { padding: 22px; border-radius: 16px; }
+    .hinge .problem { color: #edf4f1; background: var(--night); }
+    .hinge .leverage { color: #3e2821; background: #f4e5c8; border: 1px solid #ddc38d; }
+    .hinge small { display: block; margin-bottom: 8px; font-size: .62rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+    .hinge strong { display: block; font: 500 1.35rem/1.15 Georgia, serif; }
+    .hinge p { margin: 9px 0 0; color: inherit; opacity: .82; font-size: .78rem; }
+
+    .tools-filter { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 22px; }
+    .tools-filter button { padding: 8px 11px; color: #48534f; background: #f3f0e8; border: 1px solid #cfc7b8; border-radius: 999px; cursor: pointer; font-size: .7rem; font-weight: 820; }
+    .tools-filter button:hover { background: white; }
+    .tools-filter button[aria-pressed="true"] { color: white; background: var(--night); border-color: var(--night); }
+
+    .timeline-layout { display: grid; grid-template-columns: 175px minmax(0,1fr); gap: 24px; }
+    .era-index { position: sticky; top: 86px; align-self: start; padding: 15px; background: #ece8dd; border: 1px solid #d4cbbb; border-radius: 14px; }
+    .era-index strong { display: block; margin-bottom: 9px; font-size: .67rem; letter-spacing: .09em; text-transform: uppercase; }
+    .era-index a { display: block; padding: 6px 7px; color: var(--muted); border-left: 2px solid #c8bfae; font-size: .69rem; text-decoration: none; }
+    .era-index a:hover { color: var(--china); border-color: var(--china); }
+
+    .timeline { position: relative; }
+    .timeline::before { content: ""; position: absolute; top: 8px; bottom: 10px; left: 76px; width: 1px; background: #bfb6a6; }
+    .event { position: relative; display: grid; grid-template-columns: 58px 18px minmax(0,1fr); gap: 10px; margin-bottom: 12px; scroll-margin-top: 90px; }
+    .event[hidden] { display: none; }
+    .event time { padding-top: 17px; color: var(--china-dark); font: 700 .85rem Georgia, serif; text-align: right; }
+    .event .dot { z-index: 2; width: 12px; height: 12px; margin-top: 20px; background: var(--tool-color, var(--hongkong)); border: 3px solid var(--surface); border-radius: 50%; box-shadow: 0 0 0 2px var(--tool-color, var(--hongkong)); }
+    .event-card { padding: 18px 20px; background: #f5f2ea; border: 1px solid #d8d1c3; border-radius: 14px; transition: .18s ease; }
+    .event-card:hover { border-color: #ada493; transform: translateX(3px); }
+    .event-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+    .era { color: var(--muted); font-size: .58rem; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
+    .tool-tag { padding: 3px 6px; color: white; background: var(--tool-color, var(--hongkong)); border-radius: 999px; font-size: .53rem; font-weight: 900; text-transform: uppercase; }
+    .event h3 { margin: 0 0 6px; font-family: Georgia, serif; font-size: 1.25rem; font-weight: 600; }
+    .event p { margin: 0; color: #59635f; font-size: .8rem; }
+    .event .why { margin-top: 10px; padding: 9px 11px; color: #4d4030; background: #eee5d4; border-radius: 8px; font-size: .72rem; }
+    .event .why strong { color: #7d332d; }
+
+    .tool-war { --tool-color: #8d3b32; }
+    .tool-treaty { --tool-color: #315f79; }
+    .tool-diplomacy { --tool-color: #16705e; }
+    .tool-economy { --tool-color: #a66c18; }
+    .tool-institution { --tool-color: #66558a; }
+    .tool-control { --tool-color: #222a28; }
+
+    .formula { color: white; background: var(--night); border-color: #263e38; }
+    .formula .kicker { color: #dcb762; }
+    .formula .section-head > p { color: #b9c7c2; }
+    .formula-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+    .formula-card { padding: 20px; background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.13); border-radius: 15px; }
+    .formula-card b { display: grid; place-items: center; width: 30px; height: 30px; margin-bottom: 22px; color: #1b2d29; background: #d7b66d; border-radius: 9px; font: 700 .82rem Georgia, serif; }
+    .formula-card h3 { margin: 0 0 8px; font-family: Georgia, serif; font-size: 1.2rem; font-weight: 500; }
+    .formula-card p { margin: 0; color: #bfcac6; font-size: .75rem; }
+    .formula-card .result { display: block; margin-top: 15px; color: #eccb83; font-size: .62rem; font-weight: 850; text-transform: uppercase; }
+
+    .balance-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; }
+    .balance-card { padding: 22px; border: 1px solid; border-radius: 16px; }
+    .balance-card h3 { margin: 0 0 10px; font: 600 1.35rem Georgia, serif; }
+    .balance-card p { margin: 0; font-size: .8rem; }
+    .balance-card.china { color: #522822; background: var(--china-soft); border-color: #dbb1aa; }
+    .balance-card.uk { color: #263f4d; background: var(--britain-soft); border-color: #b9cdd5; }
+    .balance-card.hk { color: #1d4b40; background: var(--hongkong-soft); border-color: #b4d5ca; }
+    .balance-card.limit { color: #554621; background: #f3ead2; border-color: #dbc899; }
+
+    .after-grid { display: grid; grid-template-columns: minmax(0,.8fr) minmax(0,1.2fr); gap: 14px; }
+    .after-summary { padding: 24px; color: white; background: var(--china-dark); border-radius: 17px; }
+    .after-summary strong { display: block; margin-bottom: 10px; font: 500 1.55rem Georgia, serif; }
+    .after-summary p { margin: 0; color: #eeddd9; font-size: .82rem; }
+    .after-list { display: grid; gap: 8px; }
+    .after-item { display: grid; grid-template-columns: 64px 1fr; gap: 12px; padding: 14px 16px; background: #f3f0e8; border: 1px solid #d8d1c3; border-radius: 12px; }
+    .after-item time { color: var(--china); font: 700 .86rem Georgia, serif; }
+    .after-item p { margin: 0; color: #56615d; font-size: .75rem; }
+    .after-item strong { color: var(--ink); }
+
+    .verdict { display: grid; grid-template-columns: minmax(0,1.25fr) minmax(280px,.75fr); gap: 20px; align-items: center; }
+    .verdict blockquote { margin: 0; font: 500 clamp(1.7rem,3vw,2.7rem)/1.12 Georgia, serif; letter-spacing: -.025em; }
+    .verdict blockquote em { color: var(--china); font-style: normal; }
+    .verdict aside { padding: 18px; color: #4b5652; background: #eeeae0; border-radius: 13px; font-size: .78rem; }
+
+    .sources { box-shadow: none; }
+    .source-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 9px; }
+    .source-grid a { display: block; padding: 14px; color: #34443f; background: #f0ede5; border: 1px solid #d6d0c4; border-radius: 11px; font-size: .73rem; text-decoration: none; }
+    .source-grid a:hover { color: var(--china); border-color: #b9ad9b; }
+    .source-grid strong { display: block; margin-bottom: 2px; color: var(--ink); }
+    .method-note { margin: 18px 0 0; color: var(--muted); font-size: .68rem; }
+
+    footer { padding: 27px 4px 0; color: var(--muted); font-size: .67rem; text-align: center; }
+
+    @media (max-width: 930px) {
+      .hero { grid-template-columns: 1fr; }
+      .hero-visual { min-height: 370px; border-top: 1px solid rgba(255,255,255,.1); border-left: 0; }
+      .metrics, .formula-grid { grid-template-columns: repeat(2,1fr); }
+      .section-head { grid-template-columns: 1fr; gap: 10px; }
+      .territory-cards { grid-template-columns: 1fr; }
+      .territory-card { min-height: auto; }
+      .timeline-layout { grid-template-columns: 1fr; }
+      .era-index { position: static; display: flex; gap: 4px; overflow-x: auto; }
+      .era-index strong { display: none; }
+      .era-index a { flex: 0 0 auto; border-left: 0; border-bottom: 2px solid #c8bfae; }
+      .after-grid, .verdict { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 620px) {
+      .page { width: min(100% - 18px, 1420px); padding-top: 9px; }
+      .topbar { top: 5px; }
+      .top-year { display: none; }
+      .hero { min-height: auto; border-radius: 20px; }
+      .hero-copy { padding: 32px 23px; }
+      .hero-visual { min-height: 320px; padding: 25px; }
+      .metrics { grid-template-columns: 1fr 1fr; }
+      .metric { padding: 14px; }
+      .section { padding: 23px 18px; border-radius: 18px; }
+      .hinge, .balance-grid, .source-grid { grid-template-columns: 1fr; }
+      .timeline::before { left: 58px; }
+      .event { grid-template-columns: 42px 14px minmax(0,1fr); gap: 7px; }
+      .event-card { padding: 15px; }
+      .event h3 { font-size: 1.1rem; }
+      .formula-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <nav class="topbar" aria-label="Secciones">
+      <span class="brand">Atlas histórico</span>
+      <div class="nav">
+        <a href="#territorio">La clave territorial</a>
+        <a href="#cronologia">Cronología</a>
+        <a href="#herramientas">Herramientas</a>
+        <a href="#despues">Después de 1997</a>
+        <a href="#fuentes">Fuentes</a>
+      </div>
+      <span class="top-year">1842 → 1997</span>
+    </nav>
+
+    <header class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Hong Kong · soberanía, negociación y poder</p>
+        <h1>Cómo China recuperó Hong Kong</h1>
+        <p class="dek">Un siglo y medio en el que la fuerza creó la colonia, un reloj jurídico la hizo insostenible y la diplomacia diseñó su regreso.</p>
+        <div class="answer">
+          <strong>La respuesta corta</strong>
+          China no tomó Hong Kong por la fuerza en 1997. Esperó a que la posición británica se debilitara, rechazó prolongar el arrendamiento de la mayor parte del territorio y negoció la devolución completa a cambio de preservar durante 50 años su sistema económico y jurídico diferenciado.
+        </div>
+      </div>
+      <div class="hero-visual" aria-label="Esquema conceptual de las tres partes históricas de Hong Kong">
+        <div class="territory">
+          <div class="water-lines"></div>
+          <div class="lease-ring"><span>arrendamiento · 1898–1997</span></div>
+          <span class="land-label label-nt">Nuevos Territorios</span>
+          <span class="land-label label-kowloon">Kowloon</span>
+          <span class="land-label label-island">Isla de Hong Kong</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="metrics" aria-label="Datos clave">
+      <article class="metric"><strong>3</strong><span>acuerdos coloniales configuraron el territorio británico</span></article>
+      <article class="metric"><strong>99 años</strong><span>duró el arrendamiento de los Nuevos Territorios</span></article>
+      <article class="metric"><strong>13 años</strong><span>entre la Declaración Conjunta y el traspaso</span></article>
+      <article class="metric"><strong>50 años</strong><span>de continuidad prometida desde 1997</span></article>
+    </section>
+
+    <section class="section" id="territorio">
+      <div class="section-head">
+        <div><p class="kicker">01 · El problema que decidió el desenlace</p><h2>Hong Kong no tenía un solo título jurídico</h2></div>
+        <p>Dos partes habían sido cedidas «a perpetuidad» y la mayor —además esencial para agua, suelo e infraestructuras— solo estaba arrendada hasta 1997.</p>
+      </div>
+      <div class="territory-cards">
+        <article class="territory-card" data-n="1"><time>1842</time><h3>Isla de Hong Kong</h3><p>El Tratado de Nankín puso fin a la primera guerra del Opio. El Imperio Qing cedió la isla a Gran Bretaña bajo coerción militar.</p><span class="status">Cesión perpetua</span></article>
+        <article class="territory-card" data-n="2"><time>1860</time><h3>Sur de Kowloon</h3><p>La Convención de Pekín, tras la segunda guerra del Opio, añadió Kowloon al sur de Boundary Street y Stonecutters Island.</p><span class="status">Cesión perpetua</span></article>
+        <article class="territory-card" data-n="3"><time>1898</time><h3>Nuevos Territorios</h3><p>Otra convención amplió drásticamente la colonia, pero como arrendamiento por 99 años. Su fecha final era el 30 de junio de 1997.</p><span class="status lease">Arrendamiento temporal</span></article>
+      </div>
+      <div class="hinge">
+        <div class="problem"><small>Problema británico</small><strong>Devolver solo la zona arrendada habría dejado una ciudad territorial y económicamente inviable.</strong><p>La administración, las redes, la vivienda y la economía funcionaban como una unidad. La división jurídica del siglo XIX no servía como división real en el XX.</p></div>
+        <div class="leverage"><small>Palanca china</small><strong>Pekín podía limitarse a no renovar el arrendamiento.</strong><p>Eso convirtió 1997 en un plazo creíble. Londres conservaba títulos sobre una parte; China controlaba el futuro práctico del conjunto.</p></div>
+      </div>
+    </section>
+
+    <section class="section" id="cronologia">
+      <div class="section-head">
+        <div><p class="kicker">02 · Cronología razonada</p><h2>De la coerción imperial a la negociación</h2></div>
+        <p>Filtra la secuencia por tipo de herramienta. Cada hito indica no solo qué ocurrió, sino por qué alteró el margen de maniobra.</p>
+      </div>
+      <div class="tools-filter" role="group" aria-label="Filtrar cronología por herramienta">
+        <button type="button" data-filter="all" aria-pressed="true">Todo</button>
+        <button type="button" data-filter="war" aria-pressed="false">Fuerza</button>
+        <button type="button" data-filter="treaty" aria-pressed="false">Tratados</button>
+        <button type="button" data-filter="diplomacy" aria-pressed="false">Diplomacia</button>
+        <button type="button" data-filter="economy" aria-pressed="false">Economía</button>
+        <button type="button" data-filter="institution" aria-pressed="false">Instituciones</button>
+        <button type="button" data-filter="control" aria-pressed="false">Control político</button>
+      </div>
+      <div class="timeline-layout">
+        <aside class="era-index" aria-label="Periodos de la cronología">
+          <strong>Periodos</strong>
+          <a href="#e1842">La colonia</a>
+          <a href="#e1949">China espera</a>
+          <a href="#e1979">La negociación</a>
+          <a href="#e1984">La transición</a>
+          <a href="#e1997">El traspaso</a>
+        </aside>
+        <div class="timeline" aria-live="polite">
+          <article class="event tool-war" id="e1842" data-tool="war treaty"><time>1839–42</time><i class="dot"></i><div class="event-card"><div class="event-meta"><span class="era">Origen colonial</span><span class="tool-tag">Fuerza</span><span class="tool-tag">Tratado</span></div><h3>Primera guerra del Opio y Tratado de Nankín</h3><p>La victoria británica obligó al Qing a abrir puertos y ceder la isla. La soberanía colonial nació de una guerra y de uno de los llamados «tratados desiguales».</p><div class="why"><strong>Efecto:</strong> Gran Bretaña obtiene una base comercial y naval permanente en la costa china.</div></div></article>
+
+          <article class="event tool-war" data-tool="war treaty"><time>1856–60</time><i class="dot"></i><div class="event-card"><div class="event-meta"><span class="era">Expansión</span><span class="tool-tag">Fuerza</span><span class="tool-tag">Tratado</span></div><h3>Segunda guerra del Opio y ampliación a Kowloon</h3><p>Otra derrota china llevó a la Convención de Pekín. El núcleo colonial se amplió al continente inmediato.</p><div class="why"><strong>Efecto:</strong> se consolida el puerto, pero el territorio aún carece de profundidad estratégica.</div></div></article>
+
+          <article class="event tool-treaty" data-tool="treaty"><time>1898</time><i class="dot"></i><div class="event-card"><div class="event-meta"><span class="era">El reloj empieza</span><span class="tool-tag">Tratado</span></div><h3>Arrendamiento de los Nuevos Territorios</h3><p>En el contexto del reparto imperial de China, Londres obtiene una enorme extensión adicional por 99 años.</p><div class="why"><strong>Efecto:</strong> el territorio se vuelve viable, pero aparece una fecha de caducidad que un siglo después será la mejor palanca de Pekín.</div></div></article>
+
+          <article class="event tool-war" data-tool="war"><time>1941–45</time><i class="dot"></i><div class="event-card"><div class="event-meta"><span class="era">Interrupción</span><span class="tool-tag">Fuerza</span></div><h3>Ocupación japonesa</h3><p>Japón ocupa Hong Kong durante la Segunda Guerra Mundial. Al terminar, Gran Bretaña restablece su administración.</p><div class="why"><strong>Efecto:</strong> la colonia británica regresa, pero el orden imperial europeo ya está en retirada.</div></div></article>
+
+          <article class="event tool-diplomacy" id="e1949" data-tool="diplomacy economy"><time>1949</time><i class="dot"></i><div class="event-card"><div class="event-meta"><span class="era">Paciencia estratégica</span><span class="tool-tag">Diplomacia</span><span class="tool-tag">Economía</span></div><h3>Nace la República Popular China y no ocupa Hong Kong</h3><p>El nuevo Estado reivindica el territorio, pero permite que siga bajo control británico. Hong Kong ofrece comercio, divisas, información y una ventana al exterior.</p><div class="why"><strong>Herramienta:</strong> aplazar la soberanía inmediata para conservar una utilidad económica y diplomática.</div></div></article>
+
+          <article class="event tool-diplomacy" data-tool="diplomacy institution"><time>1972</time><i class="dot"></i><div class="event-card"><div class="event-meta"><span class="era">Marco internacional</span><span class="tool-tag">Diplomacia</span><span class="tool-tag">Institución</span></div><h3>Hong Kong sale de la lista de territorios no autónomos de la ONU</h3><p>A petición de la República Popular, la cuestión deja de tratarse como un proceso clásico de descolonización dirigido por Naciones Unidas.</p><div class="why"><strong>Efecto:</strong> Pekín refuerza su tesis: Hong Kong es territorio chino pendiente de recuperación, no una colonia con opción política separada.</div></div></article>
+
+          <article class="event tool-economy" data-tool="economy"><time>1978</time><i class="dot"></i><div class="event-card"><div class="event-meta"><span class="era">Cambio de contexto</span><span class="tool-tag">Economía</span></div><h3>Reforma y apertura de Deng Xiaoping</h3><p>China inicia su transformación económica. La brecha de poder con el Reino Unido empieza a cambiar y Hong Kong gana valor como puente financiero y comercial.</p><div class="why"><strong>Efecto:</strong> recuperar sin destruir se vuelve más valioso que ocupar y absorber de inmediato.</div></div></article>
+
+          <article class="event tool-diplomacy" id="e1979" data-tool="diplomacy"><time>1979</time><i class="dot"></i><div class="event-card"><div class="event-meta"><span class="era">Sondeo</span><span class="tool-tag">Diplomacia</span></div><h3>MacLehose pregunta por el futuro</h3><p>El gobernador Murray MacLehose plantea en Pekín la incertidumbre que el vencimiento de 1997 crea para inversiones y contratos de suelo. Deng responde que China recuperará Hong Kong.</p><div class="why"><strong>Herramienta:</strong> convertir el calendario inmobiliario y financiero en presión negociadora mucho antes de la fecha final.</div></div></article>
+
+          <article class="event tool-diplomacy" data-tool="diplomacy"><time>1982</time><i class="dot"></i><div class="event-card"><div class="event-meta"><span class="era">Negociación</span><span class="tool-tag">Diplomacia</span></div><h3>Thatcher y Deng fijan posiciones</h3><p>Londres intenta separar soberanía y administración; Pekín exige ambas. Deng presenta la idea de «un país, dos sistemas» como vía para mantener el capitalismo local bajo soberanía china.</p><div class="why"><strong>Relación de fuerzas:</strong> el Reino Unido posee títulos históricos; China puede hacer inviable su ejercicio después de 1997.</div></div></article>
+
+          <article class="event tool-economy" data-tool="economy diplomacy"><time>1983</time><i class="dot"></i><div class="event-card"><div class="event-meta"><span class="era">Presión del mercado</span><span class="tool-tag">Economía</span><span class="tool-tag">Diplomacia</span></div><h3>Crisis de confianza y dólar hongkonés</h3><p>La incertidumbre sobre las conversaciones golpea la moneda y la confianza empresarial. Hong Kong vincula su dólar al estadounidense.</p><div class="why"><strong>Efecto:</strong> muestra a ambas partes que una transición caótica destruiría parte del valor que pretendían conservar.</div></div></article>
+
+          <article class="event tool-treaty" id="e1984" data-tool="treaty diplomacy institution"><time>1984</time><i class="dot"></i><div class="event-card"><div class="event-meta"><span class="era">Acuerdo</span><span class="tool-tag">Tratado</span><span class="tool-tag">Diplomacia</span><span class="tool-tag">Institución</span></div><h3>Declaración Conjunta sino-británica</h3><p>Firmada el 19 de diciembre, establece que China reanudará el ejercicio de soberanía sobre todo Hong Kong el 1 de julio de 1997. Pekín promete alto grado de autonomía, derechos, moneda, sistema capitalista y common law durante 50 años, salvo defensa y asuntos exteriores.</p><div class="why"><strong>Intercambio:</strong> Londres acepta el retorno completo; Pekín ofrece continuidad para reducir la fuga de capital, talento y confianza.</div></div></article>
+
+          <article class="event tool-institution" data-tool="institution"><time>1985–90</time><i class="dot"></i><div class="event-card"><div class="event-meta"><span class="era">Diseño del régimen</span><span class="tool-tag">Institución</span></div><h3>La Ley Básica convierte la fórmula en arquitectura</h3><p>Un comité con miembros de China continental y Hong Kong redacta la futura constitución de la región. La Asamblea Popular Nacional la aprueba en 1990.</p><div class="why"><strong>Herramienta:</strong> una región administrativa especial con autonomía delimitada, gobierno local y sistemas económico y jurídico propios.</div></div></article>
+
+          <article class="event tool-diplomacy" data-tool="diplomacy control"><time>1989–94</time><i class="dot"></i><div class="event-card"><div class="event-meta"><span class="era">Transición tensa</span><span class="tool-tag">Diplomacia</span><span class="tool-tag">Control</span></div><h3>Tiananmén, emigración y disputa por las reformas</h3><p>La represión de 1989 erosiona la confianza local. Las reformas electorales del gobernador Chris Patten generan una fuerte disputa: China promete deshacer las incompatibles con su diseño.</p><div class="why"><strong>Efecto:</strong> la transición deja de ser solo técnica; se convierte en una lucha sobre cuánto pluralismo heredará 1997.</div></div></article>
+
+          <article class="event tool-institution" id="e1997" data-tool="institution diplomacy"><time>1997</time><i class="dot"></i><div class="event-card"><div class="event-meta"><span class="era">Traspaso</span><span class="tool-tag">Institución</span><span class="tool-tag">Diplomacia</span></div><h3>China reanuda la soberanía</h3><p>A medianoche del 1 de julio termina la administración británica. Nace la Región Administrativa Especial de Hong Kong; entra en vigor la Ley Básica y se despliega una guarnición china.</p><div class="why"><strong>Resultado:</strong> soberanía china inmediata; integración institucional gradual y diferenciada bajo «un país, dos sistemas».</div></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section formula" id="herramientas">
+      <div class="section-head">
+        <div><p class="kicker">03 · La caja de herramientas</p><h2>Qué utilizó China y para qué</h2></div>
+        <p>Ninguna herramienta explica por sí sola el desenlace. El éxito consistió en combinarlas y aplicarlas en el momento adecuado.</p>
+      </div>
+      <div class="formula-grid">
+        <article class="formula-card"><b>01</b><h3>Reivindicación constante</h3><p>Nunca reconoció como legítimos los tratados coloniales ni abandonó la reclamación de soberanía.</p><span class="result">Mantuvo el objetivo</span></article>
+        <article class="formula-card"><b>02</b><h3>Paciencia estratégica</h3><p>No ocupó la colonia cuando hacerlo habría tenido un coste elevado y habría destruido una útil puerta económica.</p><span class="result">Esperó mejor correlación</span></article>
+        <article class="formula-card"><b>03</b><h3>Palanca jurídica</h3><p>El final del arrendamiento de los Nuevos Territorios impedía a Londres garantizar el futuro del conjunto.</p><span class="result">Hizo creíble el plazo</span></article>
+        <article class="formula-card"><b>04</b><h3>Presión diplomática</h3><p>Rechazó separar soberanía de administración y encuadró el caso como reparación de una humillación nacional.</p><span class="result">Fijó el marco</span></article>
+        <article class="formula-card"><b>05</b><h3>Incentivo económico</h3><p>Prometió conservar mercado, moneda, puerto libre, propiedad privada y common law.</p><span class="result">Redujo el coste del cambio</span></article>
+        <article class="formula-card"><b>06</b><h3>Innovación institucional</h3><p>«Un país, dos sistemas» permitió unir soberanía única y sistemas diferentes dentro del mismo Estado.</p><span class="result">Resolvió la incompatibilidad</span></article>
+        <article class="formula-card"><b>07</b><h3>Transición larga</h3><p>Trece años permitieron redactar la Ley Básica, acordar asuntos prácticos y preparar instituciones.</p><span class="result">Administró el riesgo</span></article>
+        <article class="formula-card"><b>08</b><h3>Poder soberano posterior</h3><p>Después de 1997, Pekín usó interpretación constitucional, legislación nacional y reforma electoral.</p><span class="result">Amplió el control efectivo</span></article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div><p class="kicker">04 · Por qué Londres aceptó</p><h2>Una negociación, pero no entre posiciones equivalentes</h2></div>
+        <p>La entrega no fue automática: fue pactada. Sin embargo, las alternativas británicas eran cada vez menos creíbles.</p>
+      </div>
+      <div class="balance-grid">
+        <article class="balance-card china"><h3>China tenía tiempo y geografía</h3><p>Controlaba el territorio circundante, el abastecimiento continental y la decisión de renovar o no el arrendamiento.</p></article>
+        <article class="balance-card uk"><h3>Reino Unido tenía administración y experiencia</h3><p>Gobernaba una plaza financiera valiosa y podía negociar garantías para la transición, pero no defender indefinidamente una colonia junto a una China nuclear.</p></article>
+        <article class="balance-card hk"><h3>Hong Kong tenía valor que ambas partes querían preservar</h3><p>Capital, instituciones, comercio, talento y redes internacionales daban a China un incentivo para ofrecer continuidad y a Londres uno para evitar el colapso.</p></article>
+        <article class="balance-card limit"><h3>Los habitantes no decidieron el acuerdo</h3><p>Hubo consultas durante la redacción de la Ley Básica, pero la soberanía se resolvió bilateralmente entre China y Reino Unido, sin referéndum local.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="despues">
+      <div class="section-head">
+        <div><p class="kicker">05 · El segundo proceso</p><h2>Recuperar soberanía no fue lo mismo que integrar políticamente</h2></div>
+        <p>El traspaso se completó en 1997. Desde entonces, la cuestión ha sido el alcance real de la autonomía dentro de China.</p>
+      </div>
+      <div class="after-grid">
+        <div class="after-summary"><strong>Dos relatos conviven.</strong><p>Pekín presenta las medidas posteriores como cierre de lagunas de seguridad, restauración del orden y aplicación plena de «un país». Gobiernos occidentales y órganos de derechos humanos de la ONU describen una reducción intensa del pluralismo, las libertades y la autonomía prometida. La página distingue ambos juicios del hecho indiscutible del traspaso de 1997.</p></div>
+        <div class="after-list">
+          <div class="after-item"><time>2003</time><p><strong>Artículo 23.</strong> Una gran movilización lleva al Gobierno local a retirar su primer proyecto de ley de seguridad nacional.</p></div>
+          <div class="after-item"><time>2014</time><p><strong>Movimiento de los Paraguas.</strong> Ocupaciones masivas reclaman una elección más abierta del jefe ejecutivo.</p></div>
+          <div class="after-item"><time>2019</time><p><strong>Protestas contra la extradición.</strong> El proyecto se retira, pero la crisis escala hacia una confrontación política más amplia.</p></div>
+          <div class="after-item"><time>2020</time><p><strong>Ley de Seguridad Nacional.</strong> La Asamblea Popular Nacional establece delitos, órganos y mecanismos aplicables en Hong Kong.</p></div>
+          <div class="after-item"><time>2021</time><p><strong>Reforma electoral.</strong> Un sistema de selección y control de candidaturas refuerza el principio oficial de «patriotas administrando Hong Kong».</p></div>
+          <div class="after-item"><time>2024</time><p><strong>Ordenanza local de seguridad.</strong> Hong Kong aprueba finalmente legislación propia bajo el artículo 23 de la Ley Básica.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section verdict">
+      <blockquote>China consiguió el retorno porque convirtió una <em>fecha jurídica</em> en poder político, su mayor peso estratégico en poder negociador y la continuidad de Hong Kong en una oferta que Londres podía aceptar.</blockquote>
+      <aside><strong>La idea clave:</strong> el siglo XIX explica por qué existía una colonia; 1898 explica por qué tenía fecha límite; la China reformista de Deng explica por qué volvió mediante acuerdo y con un sistema diferenciado.</aside>
+    </section>
+
+    <section class="section sources" id="fuentes">
+      <div class="section-head">
+        <div><p class="kicker">Fuentes primarias y contraste</p><h2>Documentos para seguir leyendo</h2></div>
+        <p>Se priorizan textos jurídicos y organismos oficiales. Las valoraciones sobre la etapa reciente se atribuyen expresamente.</p>
+      </div>
+      <div class="source-grid">
+        <a href="https://www.nationalarchives.gov.uk/education/resources/hong-kong-and-the-opium-wars/" target="_blank" rel="noreferrer"><strong>Archivos Nacionales británicos · Guerras del Opio</strong>Mapas y documentos del Tratado de Nankín y del origen colonial.</a>
+        <a href="https://www.yearbook.gov.hk/2019/en/pdf/E22.pdf" target="_blank" rel="noreferrer"><strong>Hong Kong Yearbook · Historia</strong>Síntesis oficial de las cesiones de 1842 y 1860 y el arrendamiento de 1898.</a>
+        <a href="https://treaties.un.org/Pages/showDetails.aspx?objid=08000002800d4d6e" target="_blank" rel="noreferrer"><strong>ONU · Declaración Conjunta sino-británica</strong>Registro, fecha, partes y texto del acuerdo de 1984.</a>
+        <a href="https://www.un.org/dppa/decolonization/history/former-trust-and-nsgts" target="_blank" rel="noreferrer"><strong>ONU · Territorios no autónomos</strong>Registro del cambio de estatus de Hong Kong en 1972.</a>
+        <a href="https://www.basiclaw.gov.hk/en/basiclawtext/index.html" target="_blank" rel="noreferrer"><strong>Hong Kong · Ley Básica</strong>Texto constitucional y anexos de la región administrativa especial.</a>
+        <a href="https://www.basiclaw.gov.hk/en/index/" target="_blank" rel="noreferrer"><strong>Hong Kong · Introducción oficial</strong>Origen de «un país, dos sistemas», autonomía y entrada en vigor.</a>
+        <a href="https://www.legislation.gov.uk/ukpga/1985/15/pdfs/ukpga_19850015_en.pdf" target="_blank" rel="noreferrer"><strong>Reino Unido · Hong Kong Act 1985</strong>Fin legal de la soberanía y jurisdicción británicas el 1 de julio de 1997.</a>
+        <a href="https://www.gov.uk/government/publications/six-monthly-report-on-hong-kong-january-to-june-2021/six-monthly-report-on-hong-kong-1-january-to-30-june-2021" target="_blank" rel="noreferrer"><strong>Reino Unido · Informe semestral de 2021</strong>Evaluación británica de la ley de seguridad y la reforma electoral.</a>
+        <a href="https://docstore.ohchr.org/SelfServices/FilesHandler.ashx?enc=GnNAwjkruBe%2FqgdDVsCnZwzPgbXzgUgahjkxrkZgT7v1KW69oIYcWhGM1BszvFDBpi2%2BcO26rLf9ikeFNORvLrs%2BvBJfm7fCr%2F0qxPZKUmY%3D" target="_blank" rel="noreferrer"><strong>ONU · Comité de Derechos Humanos</strong>Observaciones sobre la Ley de Seguridad Nacional y su aplicación.</a>
+      </div>
+      <p class="method-note">Nota de método: «recuperó» describe la posición oficial china y el resultado territorial; no legitima retrospectivamente los tratados coloniales ni resuelve el debate sobre la representación política de la población de Hong Kong. Actualizado: agosto de 2026.</p>
+    </section>
+
+    <footer>Una cronología visual sobre territorio, soberanía y negociación · Hong Kong, 1842–actualidad</footer>
+  </main>
+
+  <script>
+    const filterButtons = [...document.querySelectorAll('[data-filter]')];
+    const events = [...document.querySelectorAll('.event')];
+
+    filterButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const filter = button.dataset.filter;
+        filterButtons.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+        events.forEach(event => {
+          const tools = event.dataset.tool.split(' ');
+          event.hidden = filter !== 'all' && !tools.includes(filter);
+        });
+      });
+    });
+  </script>
+</body>
+</html>

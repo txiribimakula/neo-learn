@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orientarse en Noja · técnicas de orientación urbana</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root {
+      --paper: #f4efe6;
+      --paper-deep: #e9e0d1;
+      --ink: #20242a;
+      --muted: #666d76;
+      --line: #cfc6b7;
+      --hito: #a65c39;      /* landmarks */
+      --senda: #4b63b3;     /* paths */
+      --borde: #2f766c;     /* edges */
+      --nodo: #a47825;      /* nodes */
+      --barrio: #6b4c8f;    /* districts */
+      --accent: #a65c39;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; display: grid; grid-template-columns: minmax(0, 290px) minmax(0, 1fr) minmax(0, 330px); grid-template-rows: auto minmax(0, 1fr); height: 100dvh; overflow: hidden; }
+
+    /* ---------- Barra superior ---------- */
+    .topbar { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; padding: 12px 22px 10px; border-bottom: 1px solid var(--line); }
+    .topbar h1 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 1.35rem; letter-spacing: -.02em; }
+    .topbar .eyebrow { color: var(--accent); font-size: .64rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    .topbar .hint { margin: 0 0 0 auto; color: var(--muted); font-size: .72rem; max-width: 460px; }
+
+    /* ---------- Columna de técnicas ---------- */
+    .tech-pane { grid-column: 1; grid-row: 2; overflow-y: auto; border-right: 1px solid var(--line); background: #f9f6f0; padding: 12px 14px 20px; scrollbar-width: thin; }
+    .tech-pane h2 { margin: 2px 0 10px; font-size: .66rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+    .tech { display: block; width: 100%; text-align: left; margin: 0 0 8px; padding: 9px 11px; border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; font: inherit; color: inherit; transition: box-shadow .15s, border-color .15s; }
+    .tech:hover { box-shadow: 0 2px 8px rgba(32,36,42,.1); }
+    .tech.active { border-left-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+    .tech .num { display: inline-block; min-width: 20px; color: var(--accent); font-family: Georgia, serif; font-weight: 700; }
+    .tech b { font-size: .82rem; }
+    .tech small { display: block; margin-top: 3px; color: var(--muted); font-size: .68rem; line-height: 1.35; }
+
+    /* ---------- Mapa ---------- */
+    .map-pane { grid-column: 2; grid-row: 2; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 8px 10px 6px; }
+    #map { flex: 1; min-height: 0; border-radius: 10px; border: 1px solid var(--line); background: #dfe8ea; }
+    .legend { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 2px 4px; align-items: center; }
+    .legend .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 99px; background: #fff; padding: 3px 10px; font-size: .66rem; font-weight: 700; cursor: pointer; color: var(--ink); user-select: none; }
+    .chip i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; background: var(--c); }
+    .chip.off { opacity: .4; text-decoration: line-through; }
+    .legend .fineprint { margin-left: auto; color: var(--muted); font-size: .6rem; }
+
+    /* Capas Lynch (panes de Leaflet): se apagan con las fichas de la leyenda */
+    body[data-off~="hitos"] .leaflet-hitos-pane,
+    body[data-off~="sendas"] .leaflet-sendas-pane,
+    body[data-off~="bordes"] .leaflet-bordes-pane,
+    body[data-off~="nodos"] .leaflet-nodos-pane,
+    body[data-off~="barrios"] .leaflet-barrios-pane { display: none; }
+
+    .leaflet-hitos-pane, .leaflet-sendas-pane, .leaflet-bordes-pane,
+    .leaflet-nodos-pane, .leaflet-barrios-pane, .leaflet-overlay-tech-pane { transition: opacity .4s; }
+
+    /* Foco por técnica: atenúa las capas que no tocan */
+    body[data-tech="t2"] :is(.leaflet-sendas-pane, .leaflet-nodos-pane, .leaflet-barrios-pane) { opacity: .15; }
+    body[data-tech="t3"] :is(.leaflet-bordes-pane, .leaflet-barrios-pane, .leaflet-hitos-pane) { opacity: .2; }
+    body[data-tech="t4"] :is(.leaflet-bordes-pane, .leaflet-barrios-pane, .leaflet-hitos-pane) { opacity: .2; }
+    body[data-tech="t5"] .leaflet-tile-pane { filter: grayscale(.85) opacity(.75); }
+    body[data-tech="t6"] :is(.leaflet-sendas-pane, .leaflet-barrios-pane) { opacity: .2; }
+    body[data-tech="t7"] .leaflet-tooltip { display: none; }
+    body[data-tech="r1"] :is(.leaflet-sendas-pane, .leaflet-barrios-pane, .leaflet-nodos-pane) { opacity: .12; }
+    body[data-tech="r1"] :is(.leaflet-hitos-pane, .leaflet-bordes-pane) { opacity: .3; }
+    .leaflet-tile-pane { transition: filter .4s; }
+
+    /* Waypoints numerados de la ruta */
+    .wp { display: flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; border: 2px solid #fff; border-radius: 50%; font-weight: 800; font-size: 12px; box-shadow: 0 1px 4px rgba(32,36,42,.4); }
+
+    /* Tarjetas de tramo en el panel de detalle */
+    .leg-card { display: block; width: 100%; text-align: left; margin: 0 0 7px; padding: 8px 10px; border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; font: inherit; color: inherit; }
+    .leg-card:hover { box-shadow: 0 2px 8px rgba(32,36,42,.1); }
+    .leg-card.active { border-left-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+    .leg-card b.head { font-size: .76rem; }
+    .leg-card .meta { float: right; color: var(--muted); font-size: .7rem; font-variant-numeric: tabular-nums; }
+    .leg-card .pcd { display: none; margin-top: 6px; font-size: .72rem; line-height: 1.5; color: var(--ink); }
+    .leg-card .pcd b { color: var(--accent); }
+    .leg-card.active .pcd { display: block; }
+    .route-actions { display: flex; gap: 6px; margin: 8px 0 4px; }
+    .route-actions button { flex: 1; border: 1px solid var(--line); border-radius: 6px; background: #fff; padding: 5px 8px; font-size: .7rem; font-weight: 700; cursor: pointer; color: var(--ink); }
+    .route-actions button:hover { box-shadow: 0 1px 5px rgba(32,36,42,.12); }
+
+    /* Etiquetas: tooltips permanentes sin caja */
+    .leaflet-tooltip.lbl { background: transparent; border: none; box-shadow: none; font-weight: 700; font-size: 11px; color: var(--ink); text-shadow: 0 1px 3px rgba(255,255,255,.95), 0 -1px 3px rgba(255,255,255,.95), 1px 0 3px rgba(255,255,255,.95), -1px 0 3px rgba(255,255,255,.95); }
+    .leaflet-tooltip.lbl::before { display: none; }
+    .lbl.lbl-hito { color: var(--hito); }
+    .lbl.lbl-senda { color: var(--senda); }
+    .lbl.lbl-borde { color: var(--borde); font-style: italic; }
+    .lbl.lbl-nodo { color: var(--nodo); }
+    .lbl.lbl-barrio { color: var(--barrio); text-transform: uppercase; letter-spacing: .08em; font-size: 10px; }
+    .lbl.lbl-accent { color: var(--accent); font-size: 12px; }
+
+    /* Ancla que late (técnica 2 y 6) */
+    .anchor-pulse { position: relative; }
+    .anchor-pulse::after { content: ""; position: absolute; inset: 0; border: 2px solid var(--accent); border-radius: 50%; animation: pulse 2s ease-out infinite; }
+    @keyframes pulse { from { transform: scale(.4); opacity: .95; } to { transform: scale(2.4); opacity: 0; } }
+
+    /* Brújula (técnica 2) */
+    .compass-ctl { background: rgba(255,255,255,.92); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 12px; font-size: .7rem; line-height: 1.45; max-width: 210px; color: var(--ink); box-shadow: 0 2px 8px rgba(32,36,42,.15); }
+    .compass-ctl b { color: var(--accent); }
+
+    /* Inventario desplegable de la técnica 1 */
+    .inv, .inv details.grupo { border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+    .inv > summary { padding: 8px 11px; font-size: .76rem; font-weight: 700; cursor: pointer; }
+    .inv details.grupo { margin: 6px 8px; }
+    .grupo > summary { padding: 7px 10px; font-size: .74rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 7px; }
+    .grupo > summary i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+    .grupo > summary small { color: var(--muted); font-weight: 600; }
+    .elem { display: block; width: 100%; text-align: left; border: none; border-top: 1px solid var(--paper-deep); background: transparent; padding: 6px 12px; font: inherit; font-size: .75rem; font-weight: 650; color: var(--ink); cursor: pointer; }
+    .elem::before { content: '◦ '; color: var(--muted); }
+    .elem:hover { background: #f6f2ea; }
+    .elem-wrap.open .elem::before { content: '● '; color: var(--accent); }
+    .ficha { display: none; padding: 0 12px 9px; font-size: .72rem; line-height: 1.5; color: var(--muted); }
+    .ficha b { color: var(--ink); }
+    .elem-wrap.open .ficha { display: block; }
+
+    /* Callejero: red de calles */
+    body[data-tech="c1"] :is(.leaflet-hitos-pane, .leaflet-nodos-pane, .leaflet-barrios-pane, .leaflet-bordes-pane) { opacity: .1; }
+    body[data-tech="c1"] .leaflet-sendas-pane { opacity: .12; }
+    .st-lbl { background: transparent; border: none; box-shadow: none; font-size: 9.5px; font-weight: 700; color: #3a4048; text-shadow: 0 1px 3px rgba(255,255,255,.95), 1px 0 3px rgba(255,255,255,.95), -1px 0 3px rgba(255,255,255,.95), 0 -1px 3px rgba(255,255,255,.95); }
+    .st-lbl::before { display: none; }
+    .st-lbl.on { color: var(--accent); font-size: 11px; }
+
+    .eje-card { display: block; width: 100%; text-align: left; margin: 0 0 6px; padding: 7px 10px; border: 1px solid var(--line); border-left: 4px solid var(--senda); border-radius: 6px; background: #fff; cursor: pointer; font: inherit; color: inherit; }
+    .eje-card:hover { box-shadow: 0 2px 8px rgba(32,36,42,.1); }
+    .eje-card.active { border-left-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+    .eje-card b { font-size: .78rem; }
+    .eje-card .hook { display: block; margin-top: 2px; color: var(--muted); font-size: .7rem; line-height: 1.35; }
+    .cx-box { margin: 4px 0 12px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 6px; background: #fff; font-size: .74rem; line-height: 1.5; }
+    .cx-box .none { color: var(--muted); }
+    .st-chip { display: inline-block; margin: 3px 4px 0 0; padding: 2px 9px; border: 1px solid var(--line); border-radius: 99px; background: #f6f2ea; font-size: .7rem; font-weight: 650; cursor: pointer; color: var(--ink); }
+    .st-chip:hover { border-color: var(--accent); color: var(--accent); }
+    .st-chip.eje { border-color: color-mix(in srgb, var(--senda) 50%, var(--line)); }
+
+    /* ---------- Panel de detalle ---------- */
+    .info-pane { grid-column: 3; grid-row: 2; overflow-y: auto; border-left: 1px solid var(--line); background: #f9f6f0; padding: 14px 18px 20px; scrollbar-width: thin; }
+    .info-pane .kicker { margin: 0; color: var(--muted); font-size: .64rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .info-pane h2 { margin: 4px 0 0; font-family: Georgia, "Times New Roman", serif; font-size: 1.25rem; line-height: 1.2; letter-spacing: -.01em; }
+    .info-pane h3 { margin: 16px 0 6px; font-size: .64rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
+    .info-pane p, .info-pane li { font-size: .8rem; line-height: 1.55; margin: 6px 0; }
+    .info-pane ul { margin: 4px 0; padding-left: 18px; }
+    .info-pane .evidence { background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--borde); border-radius: 6px; padding: 8px 11px; font-size: .74rem; color: var(--muted); }
+    .info-pane .evidence b { color: var(--ink); }
+
+    @media (max-width: 900px) {
+      body { display: block; height: auto; overflow: auto; }
+      .tech-pane, .info-pane { border: none; border-top: 1px solid var(--line); }
+      .map-pane { height: 58vh; }
+      .topbar .hint { display: none; }
+    }
+  </style>
+</head>
+<body data-tech="t1" data-off="">
+  <header class="topbar">
+    <span class="eyebrow">Orientación urbana · 01</span>
+    <h1>Aprender a orientarse: Noja (Cantabria)</h1>
+    <p class="hint">Elige una técnica a la izquierda: el mapa real resalta cómo aplicarla en Noja y el panel derecho explica la evidencia y cómo extrapolarla a otro municipio. Las fichas de la leyenda encienden y apagan capas.</p>
+  </header>
+
+  <aside class="tech-pane" aria-label="Técnicas de orientación">
+    <h2>Técnicas contrastadas</h2>
+    <div id="techList"></div>
+    <h2 style="margin-top: 18px;">Rutas preparadas</h2>
+    <div id="rutaList"></div>
+    <h2 style="margin-top: 18px;">Callejero</h2>
+    <div id="calleList"></div>
+  </aside>
+
+  <main class="map-pane">
+    <div id="map" role="application" aria-label="Mapa de Noja"></div>
+    <div class="legend" id="legend">
+      <span class="chip" data-layer="hitos" style="--c: var(--hito)"><i></i>Hitos</span>
+      <span class="chip" data-layer="sendas" style="--c: var(--senda)"><i></i>Sendas</span>
+      <span class="chip" data-layer="bordes" style="--c: var(--borde)"><i></i>Bordes</span>
+      <span class="chip" data-layer="nodos" style="--c: var(--nodo)"><i></i>Nodos</span>
+      <span class="chip" data-layer="barrios" style="--c: var(--barrio)"><i></i>Barrios</span>
+      <span class="fineprint">Cartografía y datos © OpenStreetMap</span>
+    </div>
+  </main>
+
+  <aside class="info-pane" id="infoPane" aria-live="polite"></aside>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="data/noja-geo.js"></script>
+  <script>
+    const TECHS = [
+      {
+        id: 't1',
+        title: 'Lee el pueblo con los 5 elementos de Lynch',
+        tagline: 'Hitos, sendas, bordes, nodos y barrios: el vocabulario de cualquier mapa mental.',
+        evidence: '<b>Kevin Lynch, <i>The Image of the City</i> (1960)</b>: estudiando cómo la gente recuerda sus ciudades, identificó que todos los mapas mentales se construyen con los mismos cinco elementos. Sigue siendo la base del diseño de señalética y de la investigación en <i>wayfinding</i>.',
+        noja: `<p>El mar cierra Noja por el norte y el este, las marismas por el oeste y el sur; la CA-147 es la espina y la Plaza de la Villa el nodo central. Despliega el inventario y pulsa cada elemento: verás su ficha aquí y su posición en el mapa.</p>`,
+        extrapolar: 'Al llegar a cualquier municipio, dedica 10 minutos a rellenar esta plantilla de cinco huecos: ¿cuáles son sus bordes (río, vía de tren, ronda)?, ¿su espina?, ¿sus 3 hitos?, ¿sus 2 nodos?, ¿sus barrios? Con eso ya tienes el esqueleto del mapa mental.'
+      },
+      {
+        id: 't2',
+        title: 'Ancla + brújula natural',
+        tagline: 'Un punto fijo del que sabes salir siempre, y una referencia que te da los puntos cardinales.',
+        evidence: '<b>Puntos de anclaje</b>: la investigación en cognición espacial (Couclelis et al., 1987, «anchor-point theory») muestra que organizamos el espacio alrededor de unos pocos puntos de referencia personales, no de forma uniforme. Mantener un marco de referencia fijo (alocéntrico) es lo que distingue a los buenos navegantes.',
+        noja: `<p>Noja es casi una península: <b>el agua la rodea por tres lados</b>. Mar al norte (Ris) y al este (Trengandín); marismas al oeste (Joyel) y al sur (Victoria). La única salida por tierra firme es la CA-147 hacia el suroeste. La brújula: si ves mar abierto, miras al norte o al este; si ves marisma, al oeste o al sur. Como ancla usa la <b>Plaza de la Villa</b>: céntrica, reconocible, y de ella salen las tres sendas principales.</p>`,
+        extrapolar: 'En otro municipio busca su brújula natural: la pendiente (el casco viejo suele estar arriba o junto al río), una sierra visible, el sol (al sur a mediodía), una torre que sobresale. Y elige un ancla céntrica el primer día: tu alojamiento no vale si está en las afueras; mejor la plaza mayor.'
+      },
+      {
+        id: 't3',
+        title: 'Primero rutas, luego mapa',
+        tagline: 'Domina una ruta espina y ve colgando el resto de ella hasta que emerja el mapa mental.',
+        evidence: '<b>Siegel & White (1975)</b>: el conocimiento espacial progresa por etapas — primero hitos sueltos, luego rutas que los conectan, y por último «conocimiento de mapa» (survey knowledge) que permite atajar e improvisar. No intentes memorizar el plano de golpe: se construye desde las rutas.',
+        noja: `<p>Ruta espina para Noja: la <b>CA-147 / avenida de Santander</b>, desde la entrada del pueblo hasta la Plaza de la Villa. Rama 1: la <b>avenida de Ris</b>, del cruce hasta la playa y su paseo marítimo. Rama 2: el <b>paseo de Trengandín</b>, de la iglesia hacia el sureste bordeando la playa. Cuando esas tres las hagas sin pensar, todo lo demás es rellenar los huecos entre ellas.</p>`,
+        extrapolar: 'En cualquier municipio: identifica la calle que lo cruza (casi siempre la travesía de la carretera comarcal) y camínala entera el primer día, ida y vuelta. Después añade una ruta perpendicular por día. El mapa mental aparece solo cuando dos rutas conocidas se cruzan.'
+      },
+      {
+        id: 't4',
+        title: 'Mira atrás en cada decisión',
+        tagline: 'La vuelta no se parece a la ida: memoriza también la vista en sentido contrario.',
+        evidence: '<b>Vistas dependientes del punto de mira</b>: reconocemos los lugares desde el ángulo en que los aprendimos (alignment effects, estudios clásicos de reconocimiento de escenas). Girarse en los cruces para codificar la vista de vuelta es una técnica estándar en montañismo y en entrenamiento de <i>wayfinding</i>.',
+        noja: `<p>Cada vez que gires en un punto de decisión — el cruce de la CA-147 con la avenida de Ris, la salida de la plaza, la llegada a la playa de Ris — <b>párate dos segundos y date la vuelta</b>. Pregúntate: "¿qué veré aquí cuando vuelva?". Esa esquina de vuelta no se parece en nada a la de ida.</p>`,
+        extrapolar: 'Es la técnica más barata y universal: funciona igual en un pueblo, en un bosque o en un aparcamiento. Hazla solo en los nodos (donde decides), no en cada portal: son 3-5 miradas atrás por paseo.'
+      },
+      {
+        id: 't5',
+        title: 'GPS para corregir, no para guiar',
+        tagline: 'Navega con la cabeza; consulta el móvil solo para confirmar o rescatarte.',
+        evidence: '<b>Ishikawa et al. (2008)</b> y <b>Dahmani & Bohbot (2020)</b>: quienes siguen indicaciones GPS paso a paso forman peores mapas mentales y recuerdan peor las rutas que quienes navegan con mapa o por su cuenta; el uso habitual del GPS se asocia a peor memoria espacial. El esfuerzo de decidir es justo lo que graba el mapa.',
+        noja: `<p>Noja es el sitio perfecto para practicarlo: es pequeña, el agua la encajona por tres lados, y <b>es casi imposible perderse de verdad</b>. Sal a caminar con el móvil en el bolsillo. Si dudas, primero apuesta ("creo que la plaza está por ahí"), camina, y solo después comprueba. Acertar o fallar tras apostar es lo que fija el mapa. (El mapa se apaga un poco: esta técnica se practica sin él.)</p>`,
+        extrapolar: 'En municipios mayores, mismo protocolo con red de seguridad: mira el mapa antes de salir (30 segundos, memoriza la forma general), guarda el móvil, y úsalo solo si llevas 10 minutos genuinamente perdido. Nunca con indicaciones giro a giro andando.'
+      },
+      {
+        id: 't6',
+        title: 'Bucles crecientes desde el ancla',
+        tagline: 'Explora en círculos cada vez más amplios que siempre vuelven al punto de anclaje.',
+        evidence: '<b>Práctica espaciada + exposición incremental</b>: volver al ancla en cada bucle re-testea lo aprendido (efecto test) y añade novedad en dosis pequeñas. Es la estructura de exploración que usan los estudios de aprendizaje de entornos nuevos: ampliar el perímetro conocido, no saltar a zonas inconexas.',
+        noja: `<p>Día 1: el círculo pequeño — la <b>Plaza de la Villa</b>, la iglesia y sus salidas. Día 2: hasta el cruce de la avenida de Ris y el arranque del paseo de Trengandín, y vuelta. Día 3: las playas — Ris por la avenida, Trengandín por el paseo — regresando siempre a la plaza. Cada bucle termina donde empezó: la vuelta es el examen del día anterior.</p>`,
+        extrapolar: 'Regla general: nunca explores una zona nueva que no conecte con tu perímetro ya conocido. En un municipio grande, los bucles pueden ser semanas en vez de días; la estructura es la misma.'
+      },
+      {
+        id: 't7',
+        title: 'Dibuja el pueblo de memoria',
+        tagline: 'El examen final: un croquis sin mirar. Los huecos te dicen qué explorar mañana.',
+        evidence: '<b>Sketch maps + efecto test</b>: dibujar el mapa de memoria es la herramienta clásica para medir conocimiento espacial (desde Lynch hasta hoy) y, como todo recuerdo activo (Roediger & Karpicke, 2006), también lo consolida. Lo que no sabes dibujar es exactamente lo que no sabes.',
+        noja: `<p>Tras un par de paseos, papel en blanco: mar arriba y a la derecha, marismas a la izquierda y abajo, y a colocar la CA-147, la plaza, las dos playas y los barrios. <b>Con esta vista el mapa oculta todos los nombres</b>: úsala para autoevaluarte señalando cada punto y diciendo su nombre en voz alta. Compara luego con la vista normal y anota los huecos.</p>`,
+        extrapolar: 'Hazlo el día 2 o 3 en cada municipio nuevo, no al final: el primer croquis malo es el más útil, porque convierte "me suena todo" en una lista concreta de huecos que rellenar en el siguiente paseo.'
+      }
+    ];
+
+    const RUTA_BRUSCO = {
+      id: 'r1',
+      geoKey: 'rutaBrusco',
+      title: 'Trengandín → Helgueras → Molino de las Aves → Miravalles → El Brusco → playa de vuelta',
+      short: 'Al Brusco por el molino, vuelta por la playa',
+      tagline: 'Circular de 13 km (~3 h 20). Ida por Helgueras y el Molino de las Aves, subida al cordal; la vuelta, entera por la playa (paseo o arena).',
+      evidence: '<b>Técnicas de orientación deportiva</b>: los manuales de orientación (IOF) enseñan a navegar con <b>pasamanos</b> (un rasgo lineal que sigues: costa, cordal, borde de marisma), <b>puntos de captura</b> (algo inconfundible que te avisa de que el tramo acabó — o de que te has pasado) y <b>puntos de decisión</b> preparados. Añade el <b>ensayo mental</b> (visualizar la ruta antes mejora su ejecución) y el <b>chunking</b> (Chase & Simon, 1973): 13 km no son mil pasos, son un puñado de tramos con una decisión cada uno.',
+      prep: `<ol>
+        <li><b>Trocea</b> la ruta en tramos que terminen en algo inconfundible (aquí ya está hecho).</li>
+        <li>Para cada tramo memoriza solo 3 cosas: <b>pasamanos, punto de captura, decisión final</b>.</li>
+        <li><b>Recita la cadena</b> de memoria, con el mapa cerrado: «paseo hasta la rotonda de Helgueras → por la Calle de las Helgueras al Molino de las Aves → subir a Miravalles → cordal hasta el Brusco → y la playa de vuelta (paseo o arena)».</li>
+        <li>Apunta las <b>distancias por tramo</b>: si llevas mucho más de lo esperado sin ver el punto de captura, algo falla.</li>
+        <li>En el terreno, combina con las técnicas 4 y 5: <b>mira atrás</b> en cada decisión y el <b>GPS en el bolsillo</b>, solo para rescatarte.</li></ol>`,
+      // Un tramo por leg de NOJA_GEO.rutaBrusco, en el mismo orden.
+      legs: [
+        { name: 'Paseo de Trengandín → rotonda de Helgueras',
+          pasamanos: 'el frente de mar: sigues el Paseo de Trengandín hacia el sureste, pegado a la playa, hasta el extremo sur del arenal. Todo llano.',
+          captura: 'la rotonda de Helgueras, donde el paseo se acaba contra el pie del monte y arranca el Paseo del Brusco. Es tu pivote: aquí se termina lo fácil.',
+          decision: 'en la rotonda, dejar el nivel del mar y coger el Paseo del Brusco, la vía que sale hacia el monte.' },
+        { name: 'Rotonda de Helgueras → Molino de las Aves',
+          pasamanos: 'la Calle de las Helgueras, que sale de la rotonda bordeando la marisma Victoria por su borde norte; terreno llano, el agua a tu izquierda.',
+          captura: 'el Molino de las Aves: el molino-museo con el observatorio de aves al lado, en el mismo borde del agua. Inconfundible.',
+          decision: 'en el molino, dejar el llano de la marisma y coger el camino que arranca hacia el monte.' },
+        { name: 'Molino de las Aves → Pico Miravalles (la subida)',
+          pasamanos: 'aquí empieza la subida de verdad: dejas la marisma y ganas altura de forma sostenida por pistas y sendas, rumbo sureste. Mientras subas, vas bien.',
+          captura: 'Pico Miravalles, ya sobre la línea de cumbres. Si el terreno se allana sin haber coronado, aún no has llegado.',
+          decision: 'en las bifurcaciones de la subida, quedarte siempre con la senda que sigue ganando altura.' },
+        { name: 'Pico Miravalles → Punta del Brusco',
+          pasamanos: 'la línea de cumbre del cordal, rumbo este; el mar va apareciendo a tu izquierda (al norte) según avanzas.',
+          captura: 'el mirador de la Punta del Brusco, el extremo este del monte asomado al mar sobre la playa. Si empiezas a bajar hacia la playa de Berria, te has pasado la punta.',
+          decision: 'en el Brusco, bajar del monte hacia la playa de Trengandín, la que queda a tu izquierda (oeste), no la de Berria/Santoña al este.' },
+        { name: 'Punta del Brusco → Trengandín (la playa)',
+          pasamanos: 'la costa: el mar siempre a tu derecha. Todo el arenal de Trengandín de vuelta hacia el noroeste hasta el pueblo. Puro pasamanos: imposible perderse siguiendo la orilla.',
+          captura: 'el paseo y el casco de Trengandín, donde empezaste.',
+          decision: 'aquí eliges cómo volver: por el <b>paseo</b> (asfalto, que es la línea dibujada — el trazado no pisa arena) o por la <b>playa</b>, sobre la arena mojando los pies, más relajado; con marea baja se anda mucho mejor. Las dos te dejan en el mismo sitio.' },
+      ],
+      waypoints: [
+        [[43.4805, -3.5200], '1', 'Salida y llegada: paseo de Trengandín'],
+        [[43.47245, -3.50563], '2', 'Rotonda de Helgueras'],
+        [[43.47034, -3.51471], '3', 'Molino de las Aves (arranca la subida)'],
+        [[43.46498, -3.49212], '4', 'Pico Miravalles'],
+        [[43.46839, -3.47683], '5', 'Punta del Brusco'],
+      ],
+    };
+
+    const RUTA_CINCHO = {
+      id: 'r2',
+      geoKey: 'rutaCincho',
+      title: 'Trengandín → Monte Cincho → Trengandín (subida y bajada distintas)',
+      short: 'Subir al Monte Cincho en bucle',
+      tagline: 'Bucle de 12 km: sube por el sur (Zoña) y baja por el norte (Soano). Aprende cada rama por separado.',
+      evidence: '<b>Bucle > ida y vuelta</b>: subir y bajar por sitios distintos evita el error de fiarte de reconocer «lo de la ida» al revés (recuerda la técnica 4: la vuelta no se parece a la ida). A cambio, tienes que <b>aprender dos ramas independientes</b>, no una. Mismo método de la orientación deportiva: <b>pasamanos + punto de captura + decisión</b> por tramo, más el aviso de que en un cerro la referencia fuerte es la <b>cota</b> (subes o bajas) y la <b>vista</b> (a qué lado te queda el mar).',
+      prep: `<ol>
+        <li><b>Sepáralo en dos mitades</b>: la <b>subida por el sur</b> (Trengandín → Zoña → cima) y la <b>bajada por el norte</b> (cima → Soano → Trengandín). Apréndelas como dos rutas cortas, no como una larga.</li>
+        <li><b>Ancla la cima</b>: es el punto donde cambias de rama. Desde arriba localiza Noja y el mar al noreste antes de empezar a bajar — así eliges bien la vertiente.</li>
+        <li><b>Regla de cota</b>: en la subida, si dejas de ganar altura, te has salido; en la bajada, si vuelves a subir, revisa.</li>
+        <li>Como es bucle, la vuelta <b>no</b> repite paisaje: no esperes reconocer nada de la ida. Fíate del mapa mental de la rama norte, no de la memoria de la sur.</li></ol>`,
+      legs: [
+        { name: 'Trengandín → Zoña (aproximación sur, todo llano)',
+          pasamanos: 'la Avenida de Cantabria primero (la calle de salida del pueblo) y luego la carretera del Barrio de San Pantaleón, rumbo suroeste por el interior llano. Todo el tramo es campiña y barrios; aquí no hay monte todavía.',
+          captura: 'el Barrio de Zoña, ya al pie del faldón sur del Cincho. Si te ves de vuelta junto a la marisma Victoria, has tirado demasiado al sur.',
+          bifurcaciones: 'enlazas la Avenida de Cantabria y dejas el casco por un enredo de callejas cortas (varios giros seguidos, sin pérdida real: vas hacia las afueras del suroeste). El grueso es un tramo largo por la carretera del Barrio de San Pantaleón. Atención al nudo del «Antiguo cruce de San Pantaleón»: lo tocas y cruzas la carretera El Astillero–Santoña, pero no te metas por ella; sigues por San Pantaleón hasta entrar en Barrio Zoña.' },
+        { name: 'Zoña → cima del Monte Cincho',
+          pasamanos: 'ojo: al salir de Zoña sigue un buen trecho de campiña ondulada (Barrio de San Pedro y caminos rurales); no esperes subir nada al principio. La ladera de verdad, la subida sostenida, es solo el último tramo largo hasta coronar.',
+          captura: 'la cima del Monte Cincho (249 m), con vistas abiertas a Noja y la costa. Mientras vayas en llano o falso llano, aún no estás subiendo el Cincho.',
+          bifurcaciones: 'de Zoña, giro cerrado a la derecha por Barrio Zoña y luego Barrio de San Pedro; después una sucesión de caminos rurales con una bifurcación en «Y» donde vas por la derecha. Vuelves a cruzar la traza de El Astillero–Santoña: es ahí donde arranca la subida real, un camino que gana altura de forma continua hasta la cima. Desde que empieza a subir, la regla es simple: no vuelvas a bajar.' },
+        { name: 'Cima → Soano (bajada por la vertiente norte)',
+          pasamanos: 'la vertiente norte, perdiendo altura de forma continua. El valle se abre delante y Noja con el mar te quedan al noreste.',
+          captura: 'Soano, en el fondo del valle al norte del monte (pasando antes por el Barrio de La Llama). Si el camino vuelve a ganar altura o pierdes el valle de vista, te has cruzado de vertiente.',
+          bifurcaciones: 'primero una pista de bajada larga (más de 1 km) sin desvíos que confundan; luego enlazas un tramo de la carretera de Castillo–Quejo y de ahí entras en el Barrio de La Llama. En el descenso, los giros van encadenándose a la izquierda: ante la duda, la opción que sigue perdiendo altura hacia el valle.' },
+        { name: 'Soano → Trengandín (cierre del bucle)',
+          pasamanos: 'la carretera Noja–Soano, rumbo este: te mete recta en el pueblo por los barrios de La Llama y Riegos, y al final aparece el mar de Trengandín de frente.',
+          captura: 'la arena y el Paseo de Trengandín: has cerrado el bucle por un sitio distinto del de salida.',
+          bifurcaciones: 'de Soano tomas hacia el este, enlazando el Barrio de La Llama, el de Riegos y la vía Noja–Soano (el tramo recto largo). Ya dentro de Noja, un par de giros cortos te dejan en la Avenida de Cantabria y de ahí al Paseo de Trengandín. Sin pérdida: es reentrar en el pueblo por su propia carretera.' },
+      ],
+      waypoints: [
+        [[43.4805, -3.5200], '1', 'Salida y llegada: paseo de Trengandín'],
+        [[43.46290, -3.54429], '2', 'Zoña (subida sur)'],
+        [[43.47963, -3.55583], '3', 'Cima del Monte Cincho'],
+        [[43.48126, -3.54403], '4', 'Soano (bajada norte)'],
+      ],
+    };
+
+    const RUTAS = [RUTA_BRUSCO, RUTA_CINCHO];
+
+    const CALLE = {
+      id: 'c1',
+      title: 'Callejero: nombres y cómo se enredan',
+      tagline: 'Aprende la red de calles del casco: 3 ejes, y el resto colgando de ellos. Pulsa una calle y verás con cuáles se cruza.',
+      evidence: '<b>Aprender una red = un grafo, no una lista</b>: memorizar 21 nombres sueltos es agotador; memorizar <i>3 ejes + de qué eje cuelga cada calle</i> es <b>chunking</b> (Chase & Simon, 1973). Y como los nombres de Noja son casi todos <b>imágenes</b> (viñas, sauces, trébol, pinar, panadería, molino), funciona la <b>técnica de asociación</b>: una calle que puedes ver mentalmente se recuerda mucho mejor que una abstracta.',
+      method: `<ol>
+        <li><b>Aprende primero los 3 ejes del casco</b>: la <b>Calle de las Viñas</b> (la más enredada, toca casi todo), la <b>Calle del Socaire</b> y la <b>Avenida de Cantabria</b> (la salida hacia la CA-147).</li>
+        <li><b>Cuelga cada calle menor de su eje</b>: no memorizas «Calle de la Fuente» en el vacío, sino «una de las que bajan del paseo de Trengandín hacia el mar».</li>
+        <li><b>Usa la imagen del nombre</b>: Laurel, Molino, Monte, Fuente, Leña, Viñas… casi todas se pueden dibujar. Cuélgala de un rincón real que hayas visto.</li>
+        <li><b>Recita un cruce de memoria</b>: «de las Viñas salgo a Socaire, Panadería, Cuadrillos, Leña, Molino…». Cuando puedas hacerlo con dos o tres ejes, el callejero ya está en tu cabeza.</li></ol>`,
+      // Ganchos de memoria por eje (significado picturable + su papel en la red)
+      hooks: {
+        'Calle de las Viñas': 'las cepas de viña; es el eje más conectado del casco, cruza con casi todo.',
+        'Calle del Socaire': 'estar «a socaire» = resguardado del viento; enlaza el casco con la Avenida de Cantabria.',
+        'Avenida de Cantabria': 'la avenida de salida hacia la CA-147; el eje más largo y recto.',
+        'Calle de la Panadería': 'el horno del pueblo; un racimo de callejas del casco viejo.',
+        'Calle de los Cuadrillos': 'los «cuadrillos» = las parcelas pequeñas de labranza.',
+        'Paseo de Trengandín': 'el paseo de la playa; de él cuelgan las calles que bajan al mar (Costa, Fuente, Arillo, Angarilla).',
+      },
+    };
+
+    /* ---------- Mapa Leaflet ---------- */
+    const C = { hito: '#a65c39', senda: '#4b63b3', borde: '#2f766c', nodo: '#a47825', barrio: '#6b4c8f', accent: '#a65c39' };
+    const PLAZA = [43.4799, -3.5214];
+
+    // Límites administrativos de Noja según OSM/Nominatim (relación 344841)
+    const NOJA_BOUNDS = L.latLngBounds([[43.46043, -3.54721], [43.49815, -3.47560]]);
+    const map = L.map('map', { zoomSnap: .5, maxBounds: NOJA_BOUNDS.pad(.6), maxBoundsViscosity: .5 });
+    map.fitBounds(NOJA_BOUNDS, { padding: [10, 10] });
+    const tilesLabels = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+    const tilesNoLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/light_nolabels/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19, attribution: '© OpenStreetMap · © CARTO'
+    });
+
+    // Un pane por elemento de Lynch para poder atenuarlos/apagarlos por CSS
+    ['bordes', 'barrios', 'sendas', 'nodos', 'hitos', 'streets', 'overlay-tech'].forEach((p, i) => {
+      map.createPane(p).style.zIndex = 610 + i * 10;
+    });
+
+    const lbl = (kind, dir = 'right') => ({ permanent: true, direction: dir, className: `lbl lbl-${kind}`, pane: kind === 'accent' ? 'overlay-tech' : { hito: 'hitos', senda: 'sendas', borde: 'bordes', nodo: 'nodos', barrio: 'barrios' }[kind] });
+
+    // Inventario: cada elemento con su ficha (d = qué es, o = origen, c = curiosidad).
+    // De aquí salen tanto las capas del mapa como el desplegable de la técnica 1.
+    const FICHAS = {
+      hitos: [
+        { n: 'Iglesia de San Pedro', ll: [43.48017, -3.51992],
+          d: 'El templo parroquial, junto a la Plaza de la Villa; su torre es la referencia vertical del centro.',
+          o: 'Origen medieval, reconstruida en buena parte entre los siglos XVI y XVII.',
+          c: 'Como casi todas las iglesias antiguas tiene la cabecera orientada al este: una brújula de piedra en mitad del pueblo.' },
+        { n: 'Palacio del Albaicín', ll: [43.48302, -3.51909],
+          d: 'Palacete con parque arbolado a un paso del centro.',
+          o: 'Casona de veraneo del marqués del Albaicín, de principios del siglo XX.',
+          c: 'Hoy es espacio cultural municipal y su parque es público: atajo agradable y sombra en verano.' },
+        { n: 'Isla de San Pedruco', ll: [43.49605, -3.52818], dir: 'top',
+          d: 'Islote frente a la playa de Ris, con una pequeña ermita.',
+          o: 'La ermita da nombre al islote (San Pedruco, diminutivo de San Pedro).',
+          c: 'En bajamar se puede llegar caminando por la arena; a finales de junio se sube en romería.' },
+        { n: 'Molino de Santa Olaja', ll: [43.48618, -3.54940], dir: 'left',
+          d: 'Molino de mareas restaurado en plena marisma de Joyel (término de Arnuero, pegado a Noja).',
+          o: 'Los molinos de marea molían con el llenado y vaciado de la marisma; este está documentado desde antiguo y hoy es visitable.',
+          c: 'Forma parte del Ecoparque de Trasmiera; molía cuando la marea quería, no cuando quería el molinero.' },
+        { n: 'Punta de la Mesa', ll: [43.49147, -3.51337], dir: 'top',
+          d: 'Saliente rocoso que separa las dos bahías, Ris y Trengandín.',
+          o: 'Su plataforma de abrasión plana — la «mesa» — le da nombre.',
+          c: 'El mejor mirador para entender de un vistazo la forma de Noja: dos playas y el pueblo en medio.' },
+        { n: 'El Brusco', ll: [43.46793, -3.47710], dir: 'top',
+          d: 'Monte costero (~100 m) que cierra Trengandín por el este y separa Noja de Berria (Santoña).',
+          o: 'Paso histórico a pie entre Noja y Santoña por encima del arenal.',
+          c: 'Su ola es una de las más conocidas del surf cántabro; en temporal rompe espectacular.' },
+      ],
+      sendas: [
+        { n: 'CA-147 / avenida de Santander', ll: [43.467, -3.5335], t: 'CA-147 — la espina, entra desde Beranga',
+          d: 'La carretera que une Noja con Beranga (y la autovía); dentro del pueblo se llama avenida de Santander.',
+          o: 'La travesía clásica: el pueblo creció a sus lados.',
+          c: 'Es la única salida por tierra firme — todo lo demás es mar o marisma.' },
+        { n: 'Avenida de Ris (CA-451)', ll: [43.4851, -3.5308], t: 'Avenida de Ris',
+          d: 'Conecta el centro con la playa de Ris, rumbo norte.',
+          c: 'En verano concentra todo el flujo hacia la playa: si hay riada de gente con toallas, va o viene de Ris.' },
+        { n: 'Paseo de Trengandín', ll: [43.4752, -3.5152], t: 'Paseo de Trengandín',
+          d: 'Paseo peatonal que bordea la playa desde la iglesia hacia el sureste.',
+          c: 'Pasamanos perfecto: imposible perderse mientras lo sigas; es el arranque de la ruta preparada.' },
+        { n: 'Paseo marítimo de Ris', ll: [43.4915, -3.5351], t: 'Paseo marítimo de Ris',
+          d: 'El frente urbano de la playa de Ris, mirando a San Pedruco.',
+          c: 'Rematado en las calas del oeste (Cuarezo, los Barcos), ya camino del cabo de Quejo.' },
+      ],
+      bordes: [
+        { n: 'Playa de Ris', ll: [43.4935, -3.528], t: 'Playa de Ris — borde norte',
+          d: 'El arenal norte, unos 2 km con el islote de San Pedruco delante.',
+          c: 'En bajamar conecta a pie con las calas vecinas; en pleamar queda partida en tramos.' },
+        { n: 'Playa de Trengandín', ll: [43.4768, -3.5125], t: 'Playa de Trengandín — borde este',
+          d: 'El arenal este, largo y abierto hasta El Brusco.',
+          c: 'Citada entre las playas más largas de Cantabria; la bajamar descubre las «mesas» de roca que dan nombre a la punta.' },
+        { n: 'Marisma de Joyel', ll: [43.484, -3.548], r: 600, t: 'Marisma de Joyel — borde oeste',
+          d: 'La marisma occidental, con el molino de Santa Olaja en el borde.',
+          o: 'Parte del Parque Natural de las Marismas de Santoña, Victoria y Joyel.',
+          c: 'La marea la llena y la vacía dos veces al día; de ese vaivén vivía el molino.' },
+        { n: 'Marisma Victoria', ll: [43.4725, -3.504], r: 550, t: 'Marisma Victoria — borde sur',
+          d: 'La marisma sur, con el Molino de las Aves como museo-observatorio.',
+          o: 'También dentro del Parque Natural de las Marismas de Santoña, Victoria y Joyel.',
+          c: 'Parada de aves migratorias: en invierno se ven espátulas, garzas y anátidas desde el observatorio.' },
+      ],
+      nodos: [
+        { n: 'Plaza de la Villa', ll: PLAZA, dir: 'bottom', t: 'Plaza de la Villa — el ancla',
+          d: 'El centro social del pueblo, junto a la iglesia: el ancla de todas las técnicas.',
+          c: 'Noja pasa de unos 2.500 vecinos en invierno a decenas de miles en verano — la plaza es donde más se nota.' },
+        { n: 'Cruce CA-147 · Av. de Ris', ll: [43.4797, -3.5285], dir: 'bottom', t: 'cruce CA-147 · Av. de Ris',
+          d: 'Donde la espina suelta la rama hacia la playa de Ris.',
+          c: 'El punto donde más fácil es equivocarse al volver: el sitio perfecto para practicar la técnica 4 (mirar atrás).' },
+        { n: 'Llegada a Ris', ll: [43.4903, -3.5289], dir: 'left', t: 'llegada a Ris',
+          d: 'El final de la avenida en el frente de playa; de aquí sale el paseo marítimo.' },
+        { n: 'Arranque del paseo de Trengandín', ll: [43.4805, -3.5200], t: 'arranque del paseo de Trengandín',
+          d: 'La esquina junto a la iglesia donde empieza el paseo costero del este.' },
+      ],
+      barrios: [
+        { n: 'Tregandín', ll: [43.4795, -3.5233], d: 'Entre la plaza y su playa, a la que da nombre (con las dos grafías: Tregandín y Trengandín).' },
+        { n: 'Pedroso', ll: [43.4835, -3.5197], d: 'Al norte del centro, con el palacio del Albaicín al lado.' },
+        { n: 'El Arco', ll: [43.4800, -3.5291], d: 'Al oeste del centro, sobre la travesía de la CA-147.' },
+        { n: 'Fonegra', ll: [43.4749, -3.5223], d: 'Al sur del centro, camino de la marisma Victoria.' },
+        { n: 'Cabanzo', ll: [43.4754, -3.5297], d: 'Al suroeste, hacia la salida del pueblo.' },
+        { n: 'Palacio', ll: [43.4839, -3.5342], d: 'Al oeste, camino de Soano e Isla.' },
+        { n: 'Ris', ll: [43.4885, -3.5292], d: 'La zona de veraneo junto a la playa norte; casi todo segunda residencia.' },
+        { n: 'Helgueras', ll: [43.4713, -3.5081], d: 'Al sureste, entre la marisma Victoria y el arenal de Trengandín.',
+          c: 'Noja fue históricamente un rosario de barrios rurales dispersos; el turismo los fue cosiendo en un solo casco.' },
+      ],
+    };
+
+    // BORDES: playas reales (polígonos OSM) + marismas
+    const gBordes = L.layerGroup([], { pane: 'bordes' });
+    [...NOJA_GEO.playaRis, ...NOJA_GEO.playaTregandin].forEach(s =>
+      gBordes.addLayer(L.polygon(s, { pane: 'bordes', color: C.borde, weight: 2, dashArray: '6 4', fillColor: '#e8d9a8', fillOpacity: .5 })));
+    FICHAS.bordes.forEach(f => gBordes.addLayer(
+      (f.r ? L.circle(f.ll, { pane: 'bordes', radius: f.r, color: C.borde, weight: 2, dashArray: '4 6', fillColor: C.borde, fillOpacity: .12 })
+           : L.marker(f.ll, { opacity: 0, pane: 'bordes' }))
+        .bindTooltip(f.t, lbl('borde', 'center'))));
+
+    // SENDAS: geometría real de OSM (multisegmento, sin coser)
+    const road = (segs, opts) => segs.map(s => L.polyline(s, { pane: 'sendas', color: C.senda, ...opts }));
+    const gSendas = L.layerGroup([
+      ...road(NOJA_GEO.ca147, { weight: 5 }),
+      ...road(NOJA_GEO.avris, { weight: 4 }),
+      ...road(NOJA_GEO.paseoTrengandin, { weight: 3, dashArray: '1 6' }),
+      ...road(NOJA_GEO.paseoMaritimo, { weight: 3, dashArray: '1 6' }),
+      ...FICHAS.sendas.map(f => L.marker(f.ll, { opacity: 0, pane: 'sendas' }).bindTooltip(f.t, lbl('senda', f.dir))),
+    ], { pane: 'sendas' });
+
+    // HITOS
+    const gHitos = L.layerGroup(FICHAS.hitos.map(f =>
+      L.circleMarker(f.ll, { pane: 'hitos', radius: 6, color: '#fff', weight: 2, fillColor: C.hito, fillOpacity: 1 })
+        .bindTooltip(f.n, lbl('hito', f.dir))));
+
+    // NODOS
+    const gNodos = L.layerGroup(FICHAS.nodos.map(f =>
+      L.circleMarker(f.ll, { pane: 'nodos', radius: 7, color: C.nodo, weight: 3, fillColor: '#fff', fillOpacity: 1 })
+        .bindTooltip(f.t, lbl('nodo', f.dir))));
+
+    // BARRIOS: áreas contiguas (Voronoi de los centros recortado al término municipal)
+    const gBarrios = L.layerGroup(NOJA_GEO.barrios.flatMap(b => [
+      L.polygon(b.poly, { pane: 'barrios', color: C.barrio, weight: 1.5, dashArray: '4 4', fillColor: C.barrio, fillOpacity: .12 }),
+      L.marker(b.mid, { opacity: 0, pane: 'barrios' }).bindTooltip(b.n, lbl('barrio', 'center')),
+    ]));
+
+    const LYNCH = { hitos: gHitos, sendas: gSendas, bordes: gBordes, nodos: gNodos, barrios: gBarrios };
+    Object.values(LYNCH).forEach(g => g.addTo(map));
+
+    /* ---------- Overlays por técnica ---------- */
+    const pulse = ll => L.marker(ll, { pane: 'overlay-tech', icon: L.divIcon({ className: 'anchor-pulse', iconSize: [26, 26] }) });
+
+    const ovAnchor = L.layerGroup([pulse(PLAZA)]);
+    const ovRoute = L.layerGroup([
+      ...NOJA_GEO.ca147.map(s => L.polyline(s, { pane: 'overlay-tech', color: C.accent, weight: 9, opacity: .45 })),
+      ...NOJA_GEO.avris.map(s => L.polyline(s, { pane: 'overlay-tech', color: C.accent, weight: 7, opacity: .4 })),
+      ...NOJA_GEO.paseoTrengandin.map(s => L.polyline(s, { pane: 'overlay-tech', color: C.accent, weight: 7, opacity: .4 })),
+      L.marker([43.469, -3.534], { opacity: 0 }).bindTooltip('1º la espina', lbl('accent')),
+      L.marker([43.486, -3.531], { opacity: 0 }).bindTooltip('2º rama a Ris', lbl('accent', 'left')),
+      L.marker([43.4745, -3.5145], { opacity: 0 }).bindTooltip('3º rama a Trengandín', lbl('accent')),
+    ]);
+    const ovGlance = L.layerGroup(
+      [[43.4797, -3.5285], PLAZA, [43.4903, -3.5289]].map((ll, i) =>
+        L.circleMarker(ll, { pane: 'overlay-tech', radius: 9, color: C.accent, weight: 3, fillOpacity: 0 })
+          .bindTooltip(i === 0 ? 'date la vuelta aquí' : '…y aquí', lbl('accent', i === 2 ? 'left' : 'right')))
+    );
+    const ovLoops = L.layerGroup([
+      ...[[250, 'día 1'], [600, 'día 2'], [1250, 'día 3+']].map(([r, txt]) =>
+        L.circle(PLAZA, { pane: 'overlay-tech', radius: r, color: C.accent, weight: 2, dashArray: '6 6', fillOpacity: 0 })
+          .bindTooltip(txt, { ...lbl('accent'), direction: 'top' })),
+      pulse(PLAZA),
+    ]);
+
+    // Rutas preparadas: por cada ruta, una polilínea por tramo + sus waypoints.
+    const routeArt = {};  // id → { legLines, ov, bounds }
+    RUTAS.forEach(r => {
+      const legLines = NOJA_GEO[r.geoKey].map(leg =>
+        L.polyline(leg.pts, { pane: 'overlay-tech', color: C.accent, weight: 5, opacity: .85 }));
+      const ov = L.layerGroup([
+        ...legLines,
+        ...r.waypoints.map(([ll, n, name]) =>
+          L.marker(ll, { pane: 'overlay-tech', icon: L.divIcon({ className: 'wp', html: n, iconSize: [22, 22] }) })
+            .bindTooltip(name, { direction: 'top', className: 'lbl lbl-accent' })),
+      ]);
+      routeArt[r.id] = { legLines, ov, bounds: L.latLngBounds(NOJA_GEO[r.geoKey].flatMap(l => l.pts)) };
+    });
+
+    function focusLeg(id, i) {
+      const { legLines, bounds } = routeArt[id];
+      legLines.forEach((line, j) => line.setStyle(i === -1 || i === j ? { opacity: .9, weight: 6 } : { opacity: .2, weight: 4 }));
+      map.fitBounds(i === -1 ? bounds : legLines[i].getBounds(), { padding: [30, 30] });
+      document.querySelectorAll('.leg-card').forEach((c, j) => c.classList.toggle('active', i === j));
+    }
+
+    // Callejero: una polilínea por calle (todas sus lines) + etiqueta; clic = selección.
+    const STREETS = NOJA_GEO.streets;
+    const stByName = {};
+    const ovCalles = L.layerGroup(STREETS.flatMap(s => {
+      const layers = s.lines.map(line => L.polyline(line, { pane: 'streets', color: '#7a828c', weight: s.main ? 4 : 2.5, opacity: .9 }));
+      const tip = L.marker(s.mid, { opacity: 0, pane: 'streets' }).bindTooltip(s.n.replace(/^Calle (de |del |de la |de los |de las |la )?/, ''), { permanent: true, direction: 'center', className: 'st-lbl' });
+      stByName[s.n] = { lines: layers, tip };
+      layers.forEach(l => l.on('click', () => selectStreet(s.n)));
+      return [...layers, tip];
+    }));
+    const callesBounds = L.latLngBounds(STREETS.flatMap(s => s.lines.flat()));
+
+    let curStreet = null;
+    function selectStreet(name) {
+      curStreet = name;
+      const s = STREETS.find(x => x.n === name);
+      const near = new Set([name, ...s.connects]);
+      STREETS.forEach(o => {
+        const sel = o.n === name, adj = s.connects.includes(o.n);
+        stByName[o.n].lines.forEach(l => l.setStyle({
+          color: sel ? C.accent : adj ? '#c98a5e' : '#b9bec6',
+          weight: sel ? 6 : adj ? 4 : 2,
+          opacity: sel || adj ? 1 : .5,
+        }));
+        stByName[o.n].tip.getTooltip().getElement()?.classList.toggle('on', near.has(o.n));
+      });
+      const detalle = document.getElementById('calleDetalle');
+      if (detalle) detalle.innerHTML = calleDetalle(s);
+      document.querySelectorAll('.eje-card').forEach(c => c.classList.toggle('active', c.dataset.street === name));
+    }
+
+    const compassCtl = L.control({ position: 'topright' });
+    compassCtl.onAdd = () => {
+      const d = L.DomUtil.create('div', 'compass-ctl');
+      d.innerHTML = '<b>Brújula de Noja</b><br>Mar abierto = miras al <b>N</b> (Ris) o al <b>E</b> (Trengandín).<br>Marisma = miras al <b>O</b> (Joyel) o al <b>S</b> (Victoria).<br>Tierra firme solo al <b>SO</b> (CA-147).';
+      return d;
+    };
+
+    const OVERLAYS = { t2: [ovAnchor], t3: [ovRoute], t4: [ovGlance], t6: [ovLoops, ovAnchor], c1: [ovCalles] };
+    RUTAS.forEach(r => OVERLAYS[r.id] = [routeArt[r.id].ov]);
+
+    /* ---------- Interfaz ---------- */
+    const body = document.body;
+    const techList = document.getElementById('techList');
+    const infoPane = document.getElementById('infoPane');
+
+    const card = (parent, t, num) => {
+      const btn = document.createElement('button');
+      btn.className = 'tech';
+      btn.dataset.id = t.id;
+      btn.innerHTML = `<span class="num">${num}</span><b>${t.title}</b><small>${t.tagline}</small>`;
+      btn.addEventListener('click', () => select(t.id));
+      parent.appendChild(btn);
+    };
+    TECHS.forEach((t, i) => card(techList, t, `${i + 1}.`));
+    RUTAS.forEach(r => card(document.getElementById('rutaList'), { ...r, title: r.short }, '→'));
+    card(document.getElementById('calleList'), CALLE, '⌗');
+
+    function select(id) {
+      body.dataset.tech = id;
+      document.querySelectorAll('.tech').forEach(b => b.classList.toggle('active', b.dataset.id === id));
+
+      Object.values(OVERLAYS).flat().forEach(g => map.removeLayer(g));
+      (OVERLAYS[id] || []).forEach(g => g.addTo(map));
+      if (id === 't2') compassCtl.addTo(map); else compassCtl.remove();
+      // Modo examen: teselas sin nombres (los tooltips los oculta el CSS)
+      if (id === 't7') { tilesNoLabels.addTo(map); tilesLabels.remove(); }
+      else if (!map.hasLayer(tilesLabels)) { tilesLabels.addTo(map); tilesNoLabels.remove(); }
+
+      const ruta = RUTAS.find(r => r.id === id);
+      infoPane.innerHTML = ruta ? rutaInfo(ruta) : id === 'c1' ? calleInfo() : techInfo(TECHS.find(t => t.id === id));
+      if (ruta) {
+        document.querySelectorAll('.leg-card').forEach((c, i) => c.addEventListener('click', () => focusLeg(id, i)));
+        document.getElementById('legAll').addEventListener('click', () => focusLeg(id, -1));
+        focusLeg(id, -1);
+      } else if (id === 'c1') {
+        curStreet = null;
+        STREETS.forEach(o => {
+          o.lines && stByName[o.n].lines.forEach(l => l.setStyle({ color: '#7a828c', weight: o.main ? 4 : 2.5, opacity: .9 }));
+          stByName[o.n].tip.getTooltip().getElement()?.classList.remove('on');
+        });
+        map.fitBounds(callesBounds, { padding: [16, 16] });
+      } else {
+        map.fitBounds(NOJA_BOUNDS, { padding: [10, 10] });
+      }
+      infoPane.scrollTop = 0;
+    }
+
+    const techInfo = t => `
+        <p class="kicker">Técnica ${TECHS.indexOf(t) + 1} de ${TECHS.length}</p>
+        <h2>${t.title}</h2>
+        <h3>Por qué funciona</h3>
+        <p class="evidence">${t.evidence}</p>
+        <h3>Cómo practicarla en Noja</h3>
+        ${t.noja}
+        ${t.id === 't1' ? inventario() : ''}
+        <h3>Cómo llevarla a otro municipio</h3>
+        <p>${t.extrapolar}</p>`;
+
+    const GRUPOS = {
+      hitos: ['Hitos', 'hito', 'referencias que se ven o se recuerdan'],
+      sendas: ['Sendas', 'senda', 'las líneas por las que te mueves'],
+      bordes: ['Bordes', 'borde', 'los límites que encajonan el pueblo'],
+      nodos: ['Nodos', 'nodo', 'los puntos donde decides'],
+      barrios: ['Barrios', 'barrio', 'zonas con carácter propio'],
+    };
+
+    const inventario = () => `
+      <details class="inv" open>
+        <summary>El inventario de Noja, elemento a elemento</summary>
+        ${Object.entries(GRUPOS).map(([k, [titulo, color, def]]) => `
+          <details class="grupo">
+            <summary><i style="background: var(--${color})"></i>${titulo} <small>· ${def}</small></summary>
+            ${FICHAS[k].map((f, i) => `
+              <div class="elem-wrap">
+                <button class="elem" data-g="${k}" data-i="${i}">${f.n}</button>
+                <div class="ficha">
+                  <b>Qué es:</b> ${f.d}
+                  ${f.o ? `<br><b>Origen:</b> ${f.o}` : ''}
+                  ${f.c ? `<br><b>Curiosidad:</b> ${f.c}` : ''}
+                </div>
+              </div>`).join('')}
+          </details>`).join('')}
+      </details>`;
+
+    const shortSt = n => n.replace(/^Calle (de |del |de la |de los |de las |la )?/, '');
+
+    function calleInfo() {
+      const ejes = STREETS.filter(s => s.main);
+      return `
+        <p class="kicker">Callejero · ${STREETS.length} calles · ${ejes.length} ejes</p>
+        <h2>${CALLE.title}</h2>
+        <h3>Por qué funciona</h3>
+        <p class="evidence">${CALLE.evidence}</p>
+        <h3>Cómo aprender el callejero</h3>
+        ${CALLE.method}
+        <h3>Los ejes — pulsa uno (o una calle del mapa)</h3>
+        ${ejes.map(s => `
+          <button class="eje-card" data-street="${s.n}">
+            <b>${s.n}</b>
+            ${CALLE.hooks[s.n] ? `<span class="hook">${CALLE.hooks[s.n]}</span>` : ''}
+          </button>`).join('')}
+        <div class="cx-box" id="calleDetalle"><span class="none">Pulsa un eje o una calle del mapa para ver con cuáles se cruza.</span></div>
+        <h3>Cómo llevarlo a otro municipio</h3>
+        <p>El método es la plantilla: quédate con 2-3 ejes, cuelga de ellos las calles menores y aprovecha los nombres que puedas dibujar. En un callejero en cuadrícula (ensanche) es aún más fácil — ejes numerados o alfabéticos — y en un casco medieval enrevesado, más necesario.</p>`;
+    }
+
+    function calleDetalle(s) {
+      const chips = s.connects.map(n => {
+        const eje = STREETS.find(x => x.n === n)?.main;
+        return `<span class="st-chip${eje ? ' eje' : ''}" data-street="${n}">${shortSt(n)}</span>`;
+      }).join('');
+      return `
+        <b>${s.n}</b>${s.main ? ' · eje' : ''}
+        ${CALLE.hooks[s.n] ? `<br><span style="color:var(--muted)">${CALLE.hooks[s.n]}</span>` : ''}
+        <br><b style="font-size:.7rem">Se cruza con ${s.connects.length}:</b><br>${chips || '<span class="none">—</span>'}`;
+    }
+
+    // Callejero: clic en eje-card o chip selecciona esa calle (y la enfoca)
+    infoPane.addEventListener('click', e => {
+      const el = e.target.closest('[data-street]');
+      if (!el) return;
+      selectStreet(el.dataset.street);
+      map.panInside(L.latLng(STREETS.find(s => s.n === el.dataset.street).mid), { padding: [40, 40] });
+    });
+
+    // Clic en un elemento del inventario: despliega su ficha y lo enfoca en el mapa
+    const hlElem = L.marker([0, 0], { pane: 'overlay-tech', icon: L.divIcon({ className: 'anchor-pulse', iconSize: [26, 26] }) });
+    infoPane.addEventListener('click', e => {
+      const btn = e.target.closest('.elem');
+      if (!btn) return;
+      const f = FICHAS[btn.dataset.g][+btn.dataset.i];
+      if (btn.parentElement.classList.toggle('open')) {
+        hlElem.setLatLng(f.ll).addTo(map);
+        map.flyTo(f.ll, Math.max(map.getZoom(), 15));
+      } else {
+        map.removeLayer(hlElem);
+      }
+    });
+
+    function rutaInfo(r) {
+      const dists = NOJA_GEO[r.geoKey].map(l => l.dist);
+      const total = dists.reduce((a, b) => a + b, 0);
+      const fmt = km => km.toFixed(km < 10 ? 2 : 1).replace('.', ',');
+      return `
+        <p class="kicker">Ruta preparada · bucle · ${fmt(total)} km (~${Math.round(total / 4 * 60)} min andando)</p>
+        <h2>${r.title}</h2>
+        <h3>Por qué funciona prepararla así</h3>
+        <p class="evidence">${r.evidence}</p>
+        <h3>Cómo prepararla la víspera</h3>
+        ${r.prep}
+        <h3>Los ${r.legs.length} tramos — pulsa para enfocar</h3>
+        <div class="route-actions"><button id="legAll">Ver ruta completa</button></div>
+        ${r.legs.map((l, i) => `
+          <button class="leg-card">
+            <span class="meta">${fmt(dists[i])} km</span>
+            <b class="head">${i + 1} · ${l.name}</b>
+            <span class="pcd">
+              <b>Pasamanos:</b> ${l.pasamanos}<br>
+              <b>Punto de captura:</b> ${l.captura}<br>
+              ${l.bifurcaciones ? `<b>Bifurcaciones:</b> ${l.bifurcaciones}` : `<b>Decisión:</b> ${l.decision}`}
+            </span>
+          </button>`).join('')}
+        <h3>Cómo llevarlo a otra ruta</h3>
+        <p>El método es la plantilla, no esta ruta: trocea en tramos con final inconfundible, memoriza pasamanos + captura + decisión por tramo, recita la cadena con el mapa cerrado y sal con el GPS de rescate en el bolsillo. Funciona igual para un recado en una ciudad nueva que para una travesía de montaña.</p>`;
+    }
+
+    // Leyenda: apagar/encender capas de Lynch (vía CSS sobre los panes)
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        chip.classList.toggle('off');
+        body.dataset.off = [...document.querySelectorAll('.chip.off')].map(c => c.dataset.layer).join(' ');
+      });
+    });
+
+    select('t1');
+  </script>
+</body>
+</html>
