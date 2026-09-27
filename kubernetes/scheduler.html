@@ -3,620 +3,315 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Scheduler · Taints · Capacidad · KEDA</title>
+<title>Planificador de nodos · Kubernetes</title>
 <style>
-  :root{
-    --bg:#f3ecd9;
-    --bg2:#ebe2c8;
-    --card:#eef3ff;
-    --card-border:#c8d3ea;
-    --ink:#1a2233;
-    --muted:#5b6577;
-    --muted2:#8893a8;
-    --accent:#3956d3;
-    --accent-2:#7c4dff;
-    --line:#cdd5e5;
-    --chip:#dfe6f5;
-    --chip-ink:#2a3550;
-    --warn:#c0392b;
-    --ok:#2e8b57;
-    --node-bg:#f6f9ff;
-    --node-border:#c2cde3;
-  }
+  :root{--bg:#f1f4f8;--card-border:#c8d3ea;--ink:#1a2233;--muted:#5b6577;--muted2:#8893a8;--accent:#3956d3}
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%}
-  body{
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    color:var(--ink);
-    background:
-      radial-gradient(1200px 800px at 20% 0%, #f6efdc 0%, transparent 60%),
-      radial-gradient(900px 700px at 100% 100%, #efe6cc 0%, transparent 55%),
-      var(--bg);
-    -webkit-font-smoothing:antialiased;
-    overflow:hidden;
+  html,body{margin:0;height:100%;font-family:system-ui,-apple-system,sans-serif;color:var(--ink)}
+  body{background:var(--bg);overflow:hidden}
+  [hidden]{display:none!important}
+  .app{height:100vh;height:100dvh;padding:8px 12px 6px;display:grid;grid-template-rows:auto minmax(0,1fr);gap:6px}
+  .sr-heading{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .top{display:flex;align-items:center;gap:8px}
+  .planning-summary{display:flex;flex:1;flex-wrap:wrap;align-items:center;border:1px solid var(--card-border);border-radius:6px;background:#fff}
+  .plan-kpi{display:flex;align-items:center;flex-wrap:wrap;padding:5px 10px;gap:5px 7px;border-right:1px solid #e5eaf3}
+  .plan-kpi:last-child{border-right:0}
+  .plan-kpi>span,.plan-kpi small{font-size:10px;color:var(--muted)}
+  .plan-kpi strong{font-size:16px;font-variant-numeric:tabular-nums}
+  .plan-kpi:first-child strong{color:var(--accent)}
+  .coverage-state{display:flex;gap:6px;align-items:center}
+  .coverage-state:has(small[hidden]):has(button[hidden]){display:none}
+  .uncovered,.coverage-state small{color:#a06900}
+  .cost-period select{font:inherit;font-size:11px;border:1px solid var(--card-border);border-radius:5px;padding:3px;background:#fff;color:var(--ink)}
+  .section{background:#f6f8fd;border:1px solid var(--card-border);border-radius:9px;padding:7px 9px 8px}
+  .section.flex{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  .section-head{margin-bottom:5px;flex:none}
+  .actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .section-body{display:flex;flex-direction:column;flex:1;min-height:0}
+  .btn,.ghost-btn{font:inherit;font-size:11px;border:1px solid var(--card-border);border-radius:5px;background:#fff;padding:4px 8px;color:var(--ink);cursor:pointer}
+  .btn{padding:7px 12px;font-size:12px}
+  .btn:hover,.ghost-btn:hover{background:#e9effb;border-color:#9bafce}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.danger{color:#a52222}
+  button:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .hbar-fill{position:relative;width:100%;display:flex;flex-direction:column;gap:0;pointer-events:none}
+  .hbar-replica{background:var(--replica-color)}
+  .tools-menu{position:relative}
+  .tools-menu>summary{list-style:none;cursor:pointer}
+  .tools-menu>summary::-webkit-details-marker{display:none}
+  .tools-content{position:absolute;right:0;top:calc(100% + 6px);width:min(290px,85vw);padding:12px;background:#fff;border:1px solid var(--card-border);border-radius:8px;z-index:10;box-shadow:0 8px 24px #23365926}
+  .timeline-help{font-size:12px;line-height:1.5;color:var(--muted);margin:0 0 8px}
+  .legend-item{display:inline-flex;gap:5px;align-items:center}
+  .overlay{position:fixed;inset:0;background:#14223866;display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+  .modal{position:relative;background:#f8faff;border:1px solid var(--card-border);border-radius:12px;width:min(560px,96vw);max-height:90dvh;overflow:auto;padding:22px}
+  .modal h2{font-size:18px;margin:0 30px 18px 0}
+  .modal-x{position:absolute;right:12px;top:12px;background:none;border:0;cursor:pointer;color:var(--muted);font-size:18px}
+  .resource-form{display:flex;flex-direction:column;gap:14px}
+  .config-field{display:grid;grid-template-columns:minmax(0,1fr) minmax(100px,45%);align-items:center;gap:12px;font-size:12px}
+  .config-field input,.config-rule input,.config-rule select{width:100%;min-width:0;padding:7px;border:1px solid var(--card-border);border-radius:5px;background:#fff;font:inherit;color:var(--ink)}
+  .config-field input[type=color]{padding:2px;height:32px}
+  .config-check{display:flex;align-items:center;gap:7px;font-size:12px}
+  .config-restrictions{border-top:1px solid var(--card-border);padding-top:12px;font-size:12px}
+  .config-restrictions summary{cursor:pointer;margin-bottom:8px}
+  .config-rules{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+  .config-rule{display:grid;grid-template-columns:1fr 1fr 1.3fr auto;gap:5px}
+  .config-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:12px;border-top:1px solid var(--card-border)}
+  .config-actions .danger{margin-right:auto}
+  .plan-chart{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:14px}
+  .plan-day{padding:7px 3px;background:#eaf1fa;text-align:center;border-radius:5px;font-size:10px}
+  .plan-day p{margin:5px 0 0}.plan-day.warning{background:#fff0ce;color:#8d5700}
+  .report-wrap{overflow:auto}.report{width:100%;border-collapse:collapse;font-size:12px}
+  .report th,.report td{padding:8px;text-align:left;border-bottom:1px solid var(--card-border)}
+  #nodesTimeline{overflow:hidden;gap:8px}
+  .timeline-toolbar{flex-shrink:0;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
+  .timeline-toolbar label{display:flex;gap:6px;align-items:center}
+  .timeline-toolbar select{border:1px solid var(--card-border);background:#fff;border-radius:6px;padding:5px 8px;color:var(--ink);font:inherit}
+  .timeline-day-nav{display:flex;align-items:center;gap:8px}
+  .timeline-legend{display:flex;align-items:center;gap:6px;margin:0;font-size:10.5px;color:var(--muted);line-height:1.5}
+  .timeline-scroll{overflow:auto;min-height:0;flex:1;border:1px solid var(--card-border);border-radius:9px;background:#fff}
+  .timeline-canvas{display:grid;min-height:100%;align-content:start;grid-template-rows:var(--timeline-rows,1fr);--timeline-label:176px;min-width:calc(var(--timeline-label) + var(--timeline-count) * var(--timeline-slot-min));width:100%}
+  .timeline-axis,.timeline-row{display:grid;grid-template-columns:var(--timeline-label) minmax(0,1fr)}
+  .timeline-axis{position:sticky;top:0;z-index:4;background:#f0f4fc;border-bottom:1px solid var(--card-border)}
+  .timeline-axis-label{position:sticky;left:0;background:#f0f4fc;padding:12px;font-size:11px;font-weight:650;z-index:5;display:flex;align-items:center}
+  .timeline-ticks{display:grid;min-width:0}
+  .timeline-day{border:0;border-left:1px solid var(--card-border);background:transparent;padding:7px 4px;cursor:pointer;color:var(--ink);font-size:11px}
+  .timeline-day:hover{background:#dfe8fa}
+  .timeline-day:has(.timeline-week-hours){padding-left:0;padding-right:0}
+  .timeline-day .timeline-week-hours{display:grid;grid-template-columns:repeat(24,minmax(0,1fr))}
+  .timeline-week-hours i{font-style:normal;text-align:center}
+  .timeline-day span{display:flex;justify-content:space-between;font-size:9px;color:var(--muted2);padding-top:5px;pointer-events:none}
+  .timeline-hour-tick{padding:12px 0;font-size:10px;color:var(--muted);text-align:center}
+  .timeline-row{border-bottom:1px solid #dce4f2;min-height:120px}
+  .timeline-node{position:sticky;left:0;z-index:2;background:#fff;padding:6px 8px;border-right:1px solid var(--card-border);display:flex;flex-direction:column;gap:3px;align-items:flex-start}
+  .timeline-node strong{font-size:12px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .timeline-node-cost{font-size:12px;font-weight:650;color:var(--accent);font-variant-numeric:tabular-nums}
+  .timeline-node-meta{font-size:10px;color:var(--muted);line-height:1.4}
+  .timeline-node .ghost-btn{font-size:10px;padding:2px 6px}
+  .timeline-track{display:grid;grid-template-columns:repeat(var(--timeline-count),minmax(0,1fr));align-items:end;min-width:0;padding-top:10px;background:#fbfcff}
+  .timeline-slot{position:relative;display:flex;align-items:flex-end;height:112px;min-width:0;padding:0;border:0;background:transparent;cursor:pointer;border-bottom:1px solid #cdd5e6}
+  .timeline-slot.day-start{border-left:1px solid #cdd5e6}
+  .timeline-slot.weekend{background:#f0f3f8}
+  .timeline-bar{width:100%;background:var(--timeline-color);border-top:1px solid #0002;pointer-events:none}
+  .timeline-slot:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;z-index:1;background:#e6edff}
+  .timeline-demand .timeline-node{background:#f4f7ff}
+  .timeline-demand .name-input{width:100%;min-width:0;font-size:12px;font-weight:700}
+  .timeline-demand .timeline-track{padding-top:0;align-items:stretch}
+  .demand-cell{display:flex;flex-direction:column;min-width:0;min-height:0;border-right:1px solid #e5eaf3}
+  .demand-cell.day-start{border-left:1px solid #b4c1d9}
+  .demand-cell.weekend{background:#f0f3f8}
+  .demand-count{flex-shrink:0;width:100%;min-width:0;padding:2px 0;border:0;border-bottom:1px solid #dce4f2;
+    background:transparent;color:var(--ink);font:700 10px system-ui;text-align:center;appearance:textfield}
+  .demand-count::-webkit-inner-spin-button,.demand-count::-webkit-outer-spin-button{appearance:none;margin:0}
+  .demand-count:focus{outline:2px solid var(--accent);outline-offset:-2px;background:#fff}
+  .demand-plot{flex:1;min-height:72px;display:flex;align-items:flex-end;padding:0 2px;touch-action:none;cursor:ns-resize}
+  .demand-plot .hbar-fill{pointer-events:none}
+  .demand-setting{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
+  .demand-setting input[type="number"]{width:42px;border:1px solid var(--card-border);border-radius:4px;padding:1px 3px}
+  .timeline-supply .timeline-track{padding-top:0;align-items:stretch}
+  .timeline-supply .timeline-slot{height:100%;min-height:0;display:flex;flex-direction:column;align-items:stretch;border-right:1px solid #e5eaf3}
+  .node-pod-count{flex-shrink:0;padding:2px 0;border-bottom:1px solid #dce4f2;font:700 10px system-ui;color:var(--ink);text-align:center;pointer-events:none}
+  .node-pod-plot{flex:1;min-height:72px;display:flex;align-items:flex-end;padding:0 2px;pointer-events:none}
+  .replica-pending{background:repeating-linear-gradient(135deg,#f5bc36 0 3px,#ffe19a 3px 5px);box-shadow:inset 0 0 0 1px #b97a00}
+  .replica-blocked{background:repeating-linear-gradient(135deg,#dc4848 0 3px,#ffabab 3px 5px);box-shadow:inset 0 0 0 1px #a52222}
+  .has-pending .demand-count{color:#a52222;background:#fff1d8}
+  .pending-key,.blocked-key{width:12px;height:8px;display:inline-block;border-radius:1px}
+  /* Pods are colored pieces; node groups are neutral enclosures. */
+  .resource-icon{display:inline-flex;width:18px;height:18px;flex:none;align-items:center;justify-content:center}
+  .resource-icon svg{width:100%;height:100%;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .resource-kind{display:flex;align-items:center;gap:6px;font-size:9px;font-weight:750;letter-spacing:.35px;text-transform:uppercase}
+  .timeline-demand .resource-kind{color:var(--workload-color)}
+  .timeline-demand .timeline-node{border-left:3px solid var(--workload-color);background:#f5f8ff}
+  .timeline-demand .demand-plot{background:linear-gradient(to top,#e8eefb55,transparent)}
+  .timeline-canvas .hbar-replica{border-radius:2px;outline:1px solid #ffffff70;outline-offset:-1px}
+  .timeline-section-band{display:grid;grid-template-columns:var(--timeline-label) minmax(0,1fr);border-bottom:1px solid #c9d4e5}
+  .timeline-section-band>strong{position:sticky;left:0;z-index:3;display:flex;align-items:center;gap:7px;padding:9px 12px;font-size:11px;background:inherit}
+  .timeline-section-band>span{padding:10px 12px;font-size:10px;align-self:center}
+  .timeline-section-band.pods-band{background:#e9f0ff;color:#334e91;border-top:1px solid #d4dff3}
+  .timeline-section-band.nodes-band{background:#334155;color:#fff;border-top:6px solid #f7f9fc}
+  .timeline-section-band.nodes-band>span{color:#d7e1ef}
+  .timeline-supply .timeline-node{background:#edf1f5;border-left:3px solid #64748b}
+  .timeline-supply .resource-kind{color:#475569}
+  .timeline-supply .timeline-track{background:#e3e9f0;box-shadow:inset 0 2px #94a3b8,inset 0 -2px #94a3b8}
+  .timeline-supply .node-pod-count{background:#e3e9f0;color:#334155}
+  .timeline-supply .node-pod-plot{background:#f8fafc;box-shadow:inset 1px 0 #c4cfdb,inset -1px 0 #c4cfdb,inset 0 -2px #94a3b8}
+  .timeline-supply .timeline-slot.weekend .node-pod-plot{background:#eef2f6}
+  .timeline-supply .timeline-slot.is-off .node-pod-plot{background:repeating-linear-gradient(135deg,#e7ecf2 0 4px,#f1f4f8 4px 8px);opacity:.6}
+  .timeline-supply .timeline-slot.is-off .node-pod-count{color:#8290a3}
+  .timeline-detail{flex-shrink:0;margin:0;padding:9px 10px;background:#edf2fa;border-radius:6px;min-height:42px;font-size:11px;line-height:1.5;color:var(--ink)}
+  .timeline-empty{padding:28px;font-size:12px;color:var(--muted);text-align:center}
+  @media(max-width:720px){
+    #nodesTimeline{overflow:visible}
+    .timeline-scroll{flex:none;height:70vh;height:70dvh;max-height:none}
+    .timeline-canvas{--timeline-label:156px}
+    .timeline-legend{align-items:flex-start}
   }
-  .app{
-    height:100vh;
-    display:grid;
-    grid-template-rows:auto auto 1fr auto;
-    padding:14px 18px 8px;
-    gap:8px;
+
+
+
+  #nodesTimeline{gap:4px}
+  #timelineControls{margin-left:auto;gap:6px}
+  .timeline-toolbar select{padding:3px 6px}
+  .timeline-legend-menu .timeline-legend{display:grid;gap:8px}
+  .timeline-section-band>strong{padding:4px 9px;font-size:10px}
+  .timeline-section-band>span{padding:4px 9px;font-size:9px}
+  .timeline-section-band.nodes-band{border-top-width:3px}
+  .timeline-day{padding-top:4px;padding-bottom:4px}
+  .timeline-axis-label{padding:6px 9px;font-size:10px}
+  .timeline-hour-tick{padding:7px 0}
+  .service-identity{display:flex;gap:6px;align-items:center;width:100%;min-width:0}
+  .service-color{width:14px;height:14px;flex:none;border:1px solid #0002;border-radius:3px}
+  .timeline-node-meta{font-size:11px}
+  .timeline-node .ghost-btn{font-size:10px;padding:2px 5px}
+  .resource-kind{font-size:10px}
+  .timeline-detail{background:transparent;padding:4px 0;min-height:20px;color:var(--muted)}
+  .timeline-detail:empty{display:none}
+  .timeline-demand .demand-cell,.timeline-supply .timeline-slot{justify-content:flex-end}
+  .timeline-canvas .demand-plot,.timeline-canvas .node-pod-plot{flex:none;min-height:0;height:var(--plot-height);margin-top:auto}
+  .timeline-canvas .hbar-fill{flex:none;gap:0}
+  .timeline-canvas .cpu-pod{position:relative;display:block;flex:none;width:100%;min-height:0;outline:1px solid #ffffffc0;outline-offset:-1px;border-radius:2px;box-shadow:inset 0 0 0 1px #17203340}
+  .cpu-pod::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(to top,transparent 0,transparent calc(var(--cpu-unit) - 1px),#ffffff59 calc(var(--cpu-unit) - 1px),#ffffff59 var(--cpu-unit))}
+  .timeline-canvas .demand-count,.timeline-canvas .node-pod-count{border-bottom:0;border-top:1px solid #b7c9e5}
+  .timeline-supply .node-pod-plot{display:flex;flex-direction:column-reverse;align-items:stretch;gap:3px;box-shadow:none;background:transparent}
+  .timeline-supply .timeline-slot.weekend .node-pod-plot,.timeline-supply .timeline-slot.is-off .node-pod-plot{background:transparent;opacity:1}
+  .timeline-instance{display:flex;flex-direction:column-reverse;position:relative;flex:none;width:100%;outline:1px solid #71839a;outline-offset:-1px;border-radius:2px;background:repeating-linear-gradient(to top,#e9eef5 0,#e9eef5 calc(var(--cpu-unit) - 1px),#cdd8e5 calc(var(--cpu-unit) - 1px),#cdd8e5 var(--cpu-unit))}
+  .timeline-instance.instance-off{outline:1px dashed #a8b5c6;outline-offset:-1px;background:repeating-linear-gradient(135deg,#f4f6f9 0 3px,#e6ebf1 3px 5px)}
+  .timeline-canvas .cpu-pod.replica-pending{box-shadow:inset 0 0 0 1px #b97a00}
+  .timeline-canvas .cpu-pod.replica-blocked{box-shadow:inset 0 0 0 1px #a52222}
+  @media(max-width:720px){
+    .app{padding:6px;gap:5px}.plan-kpi{padding:4px 7px}
+    #nodesTimeline{overflow:hidden}.timeline-scroll{flex:1;height:auto;max-height:none}
+    #timelineControls{margin-left:0;flex-wrap:wrap}.config-rule{grid-template-columns:1fr 1fr}
+    .config-field{grid-template-columns:1fr}.plan-chart{grid-template-columns:repeat(4,1fr)}
   }
-  /* Header */
-  header.top{
-    display:flex;align-items:center;justify-content:space-between;gap:12px;
+
+  .timeline-number{display:grid;grid-template-columns:minmax(0,1fr) 64px;align-items:center;gap:4px;width:100%;font-size:10px;color:var(--muted)}
+  .timeline-number input{width:100%;min-width:0;padding:2px 3px;border:1px solid var(--card-border);border-radius:4px;background:#fff;color:var(--ink);font:inherit;font-variant-numeric:tabular-nums}
+  .timeline-name{width:100%;min-width:0;padding:3px 4px;border:1px solid transparent;border-radius:4px;background:transparent;color:var(--ink);font:inherit;font-size:12px;font-weight:700}
+  .timeline-name:hover{border-color:var(--card-border)}
+  .timeline-name:focus{background:#fff;border-color:var(--accent)}
+  .timeline-tolerations{width:100%;font-size:10px;min-width:0}
+  .timeline-tolerations summary{cursor:pointer;color:var(--accent);padding:3px 0}
+  .tolerance-list{display:grid;gap:4px;margin:4px 0}
+  .tolerance-chip{display:flex;align-items:center;gap:3px;background:#e7eefb;border-radius:4px;padding:3px 4px;overflow-wrap:anywhere}
+  .tolerance-chip span{flex:1;min-width:0}
+  .tolerance-chip button{border:0;background:transparent;cursor:pointer;color:var(--ink);padding:2px}
+  .timeline-tolerations select,.timeline-tolerations input{width:100%;min-width:0;box-sizing:border-box;font:inherit;padding:4px;border:1px solid var(--card-border);border-radius:4px;background:white}
+  .tolerance-custom{margin-top:5px}
+  .tolerance-custom[open]{display:grid;gap:4px}
+  .tolerance-help{color:var(--muted);margin:4px 0;line-height:1.4}
+
+  /* A quiet canvas keeps the workload colors and capacity warnings prominent. */
+  .section{background:#fff;padding:6px;border-radius:8px}
+  .planning-summary{background:#fff;border-radius:8px}
+  .plan-kpi{padding:5px 12px}
+  .plan-kpi strong{font-size:15px}
+  .section-head{margin-bottom:6px}
+  .timeline-scroll{border-radius:6px;scrollbar-gutter:stable}
+  .timeline-node{gap:4px;padding:7px 9px;box-shadow:3px 0 5px #20304a08}
+  .timeline-demand .timeline-node{background:#f7f9ff}
+  .timeline-supply .timeline-node{background:#f3f5f8}
+  .timeline-supply .timeline-track{background:#f0f3f7;box-shadow:none}
+  .timeline-supply .node-pod-count{background:#e8edf4}
+  .timeline-number input{min-height:24px;text-align:right}
+  .timeline-name{border-color:#d7dfea;background:#ffffffa6;min-height:26px}
+  .timeline-name::placeholder{color:var(--muted)}
+  .timeline-node>.ghost-btn{margin-top:2px;color:var(--muted)}
+  .timeline-section-band.nodes-band{background:#46556b}
+  .timeline-section-band>strong{font-size:11px}
+  .timeline-section-band>span{font-size:10px}
+  .timeline-day{font-weight:650}
+  .timeline-week-hours{font-weight:400}
+  .timeline-week-hours i:nth-child(3n + 1){color:#506078}
+  .timeline-node-meta,.timeline-number{font-size:11px}
+  .timeline-tolerations{border-top:1px solid #dce4f2;padding-top:2px;font-size:11px}
+  .tolerance-chip button{min-width:24px;min-height:24px}
+  .tolerance-custom .btn{width:100%;font-size:11px;padding:5px}
+  .node-restrictions{width:100%;display:flex;flex-wrap:wrap;gap:3px}
+  .node-restriction{max-width:100%;font-size:10px;line-height:1.4;border:1px solid #cbd5e1;border-radius:4px;background:#fff;padding:2px 5px;overflow-wrap:anywhere}
+  .node-restrictions:empty{display:none}
+  .timeline-detail{font-size:11px;line-height:1.4}
+  .timeline-scroll:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .timeline-slot.day-start{border-left-color:#a8b6cc}
+  .timeline-tolerations summary:hover{color:#253eae}
+  @media(max-width:720px){
+    .planning-summary{gap:0}.plan-kpi{padding:4px 7px}
+    .plan-kpi strong{font-size:13px}
+    .timeline-toolbar{gap:6px}
+    .timeline-node{padding:6px;gap:3px}
+    .timeline-number{grid-template-columns:minmax(0,1fr) 58px;font-size:10px}
   }
-  header.top h1{
-    font-size:18px;font-weight:700;letter-spacing:.2px;margin:0;
-  }
-  header.top h1 .sep{color:var(--muted2);margin:0 6px;font-weight:400}
-  .toolbar{display:flex;gap:8px;align-items:center}
-  .btn{
-    background:#fff;border:1px solid var(--card-border);color:var(--ink);
-    padding:6px 12px;border-radius:6px;font-size:12.5px;cursor:pointer;
-    transition:background .12s, border-color .12s, color .12s;
-  }
-  .btn:hover{background:#f4f7ff;border-color:#9fb1d4}
-  .btn:disabled{opacity:.45;cursor:not-allowed;background:#fff;border-color:var(--card-border)}
-  .btn.toggle.on{background:#e8f5ec;border-color:#7cb88f;color:#2e7d4f}
-  .btn.toggle.off{background:#fdecec;border-color:#d49a9a;color:#9c2a2a}
-  .btn.danger{color:#7a1f1f}
-  .subtitle{
-    text-align:center;color:var(--muted);font-size:13px;line-height:1.35;
-    padding:0 12px;
-  }
-  .subtitle b{color:var(--ink)}
-  .subtitle .em{font-style:italic;color:#5b3df0}
-  /* Main grid: left fits pod defs, center fits the queue, nodes take the rest */
-  main.grid{
-    display:grid;
-    grid-template-columns: 336px 216px minmax(360px,1fr);
-    gap:14px;
-    min-height:0;
-  }
-  .col{display:flex;flex-direction:column;gap:14px;min-height:0;overflow:hidden}
-  *::-webkit-scrollbar{width:8px;height:8px}
-  *::-webkit-scrollbar-thumb{background:#d2d8e5;border-radius:4px}
-  *::-webkit-scrollbar-track{background:transparent}
-  /* Section */
-  .section{
-    background:var(--card);
-    border:1px solid var(--card-border);
-    border-radius:10px;
-    padding:10px 12px 12px;
-    position:relative;
-  }
-  .section.flex{flex:1 1 0;display:flex;flex-direction:column;min-height:0;overflow:hidden}
-  .section-head{
-    display:flex;align-items:center;justify-content:space-between;
-    user-select:none;cursor:pointer;margin-bottom:8px;
-  }
-  .section-head .title{
-    display:flex;align-items:center;gap:6px;
-    font-weight:600;font-size:12px;letter-spacing:.6px;color:var(--ink);
-    text-transform:uppercase;
-  }
-  .section-head .title .caret{
-    display:inline-block;transform:translateY(-1px);
-    color:var(--muted2);transition:transform .15s;
-  }
-  .section.collapsed .section-head .caret{transform:rotate(-90deg)}
-  .section.collapsed .section-body{display:none}
-  .section-head .actions{display:flex;gap:6px;align-items:center}
-  .section-head .actions .strat{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px}
-  .section-head .actions .strat select{font-size:11px;font-weight:600;padding:2px 6px;border:1px solid var(--card-border);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;text-transform:none;letter-spacing:0}
-  /* Center column is narrow (216px): let the Scheduler header wrap so the
-     scoring control drops to its own full-width line and isn't clipped. */
-  #schedulerSection .section-head{flex-wrap:wrap;row-gap:6px}
-  #schedulerSection .section-head .actions{flex:1 1 100%}
-  #schedulerSection .section-head .actions .strat{flex:1 1 auto;flex-direction:column;align-items:stretch;gap:3px}
-  #schedulerSection .section-head .actions .strat select{width:100%;min-width:0}
-  .ghost-btn{
-    background:#fff;border:1px dashed var(--card-border);color:var(--muted);
-    padding:3px 10px;border-radius:6px;font-size:12px;cursor:pointer;
-  }
-  .ghost-btn:hover{color:var(--ink);border-color:#9fb1d4}
-  .section-body{display:flex;flex-direction:column;gap:10px;min-height:0}
-  .section.flex .section-body{flex:1;min-height:0;overflow:auto}
-  /* KEDA day selector (compact segmented control) */
-  .keda-wrap{display:flex;flex-direction:column;gap:8px}
-  .day-selector{display:flex;align-items:stretch;gap:6px}
-  .day-arrow{
-    background:#fff;border:1px solid var(--card-border);border-radius:7px;
-    width:26px;cursor:pointer;color:var(--muted);font-size:12px;flex:0 0 auto;
-  }
-  .day-arrow:hover{background:#eef2ff;color:var(--ink)}
-  .seg{
-    flex:1;display:grid;grid-template-columns:repeat(7,1fr);gap:3px;
-    background:#e7edfa;border:1px solid var(--card-border);border-radius:8px;padding:3px;
-  }
-  .seg .day{
-    text-align:center;font-size:11px;color:var(--muted);
-    padding:6px 0;border-radius:5px;cursor:pointer;user-select:none;
-    transition:background .12s,color .12s,transform .08s;
-  }
-  .seg .day:hover{background:#fff;color:var(--ink)}
-  .seg .day.weekend{color:#b06a2a}
-  .seg .day.active{
-    background:var(--accent);color:#fff;font-weight:700;
-    box-shadow:0 1px 5px rgba(57,86,211,.32);
-  }
-  .seg .day.weekend.active{background:#d8821a;box-shadow:0 1px 5px rgba(216,130,26,.32);color:#fff}
-  .day-current{text-align:center;font-size:13px;color:var(--ink);font-weight:600;line-height:1.35}
-  .day-current .sub{display:block;font-weight:400;color:var(--muted);font-size:11px;margin-top:1px}
-  .help{
-    color:var(--muted);font-size:11.5px;text-align:center;line-height:1.4;padding:0 4px;
-  }
-  /* Pod type card */
-  .pod-card,.node-card{
-    background:#fff;border:1px solid var(--card-border);border-radius:8px;padding:10px;
-    display:flex;flex-direction:column;gap:8px;position:relative;
-  }
-  .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  .row .label{font-size:12px;color:var(--ink)}
-  .row .small{font-size:11px;color:var(--muted)}
-  .badge-color{
-    width:18px;height:18px;border-radius:4px;flex:0 0 auto;border:1px solid rgba(0,0,0,.08);
-    cursor:pointer;
-  }
-  .name-input,.text-input{
-    background:transparent;border:none;border-bottom:1px dashed transparent;
-    color:var(--ink);font-size:13px;font-weight:600;padding:1px 2px;outline:none;width:auto;
-  }
-  .name-input:hover,.text-input:hover{border-bottom-color:var(--card-border)}
-  .name-input:focus,.text-input:focus{border-bottom-color:var(--accent)}
-  .close-x{
-    margin-left:auto;background:none;border:none;color:var(--muted2);cursor:pointer;
-    font-size:14px;line-height:1;padding:2px 4px;border-radius:4px;
-  }
-  .close-x:hover{color:#9c2a2a;background:#fbe9e9}
-  .num{
-    display:inline-flex;align-items:center;gap:0;
-    border:1px solid var(--card-border);border-radius:5px;background:#fff;height:22px;overflow:hidden;
-  }
-  .num button{background:#fff;border:none;width:22px;height:22px;cursor:pointer;color:var(--muted);font-size:13px}
-  .num button:hover{background:#eef2ff;color:var(--ink)}
-  .num span{min-width:22px;text-align:center;font-size:12.5px;color:var(--ink);font-weight:600}
-  .pill{
-    background:var(--chip);color:var(--chip-ink);font-size:10.5px;border-radius:4px;padding:1px 6px;
-  }
-  .check{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink);cursor:pointer;user-select:none}
-  .check input{accent-color:var(--accent)}
-  .days-grid{
-    display:grid;grid-template-columns:repeat(7,1fr);gap:4px;
-  }
-  .days-grid .day-cell{display:flex;flex-direction:column;align-items:center;gap:2px}
-  .days-grid .day-cell .lbl{font-size:10px;color:var(--muted)}
-  .days-grid .day-cell .lbl.today{color:var(--accent);font-weight:700}
-  .days-grid input{
-    width:100%;min-width:0;max-width:38px;text-align:center;font-size:11.5px;
-    border:1px solid var(--card-border);border-radius:4px;padding:2px;outline:none;background:#fff;color:var(--ink);
-  }
-  .days-grid input:focus{border-color:var(--accent)}
-  .days-grid input.today{border-color:var(--accent);background:#eef2ff}
-  .small-head{font-size:11px;color:var(--muted);margin-top:4px}
-  .tolerations,.taints{display:flex;flex-direction:column;gap:4px}
-  .kv-row{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-  .kv-row input{
-    background:#fff;border:1px solid var(--card-border);border-radius:4px;
-    padding:2px 6px;font-size:11px;color:var(--ink);outline:none;width:80px;
-  }
-  .kv-row input:focus{border-color:var(--accent)}
-  .kv-row select{
-    background:#fff;border:1px solid var(--card-border);border-radius:4px;
-    padding:2px 6px;font-size:11px;color:var(--ink);outline:none;
-  }
-  .kv-row .x{
-    background:none;border:none;color:var(--muted2);cursor:pointer;font-size:13px;padding:0 4px;
-  }
-  .kv-row .x:hover{color:#9c2a2a}
-  /* Scheduler queue — pods are full-width bars stacked single-file (fila india);
-     each bar's height = request × CPU_UNIT so bigger requests are taller. */
-  .queue{display:flex;flex-direction:column;gap:6px;align-items:stretch;padding:6px 4px}
-  .queue-empty{color:var(--muted);font-size:12px;padding:12px;text-align:center}
-  .pod{
-    width:100%;flex:0 0 auto;   /* never shrink: height (request×CPU_UNIT) is exact for tiling */
-    background:var(--accent);color:#fff;border-radius:6px;
-    display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:8px;
-    padding:0 10px;overflow:hidden;
-    border:1px solid rgba(255,255,255,.22);   /* thin separator; box-sizing keeps tiling exact */
-    cursor:grab;user-select:none;font-size:12.5px;font-weight:600;
-    box-shadow:0 1px 2px rgba(0,0,0,.08);
-    transition:box-shadow .12s, opacity .15s;
-  }
-  .pod:active{cursor:grabbing}
-  .pod:hover{box-shadow:0 6px 16px rgba(0,0,0,.22)}
-  .pod .pod-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto;min-width:0}
-  .pod .req{font-size:11px;opacity:.85;font-weight:500;white-space:nowrap;flex:0 0 auto}
-  .pod.dragging{opacity:.35}
-  /* Pod that the scheduler cannot place on any node (Pending / Unschedulable) */
-  .pod.unschedulable{outline:2px dashed #e0a300;outline-offset:2px;cursor:help}
-  .pod.unschedulable::after{
-    content:"!";position:absolute;top:-7px;right:-7px;width:16px;height:16px;
-    background:#e0a300;color:#fff;border-radius:50%;font-size:11px;font-weight:800;
-    display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.3);
-  }
-  .pod{position:relative}
-  /* Pod phase indicator (left dot/spinner) mirroring kubectl phases:
-     Pending = hollow ring · ContainerCreating = spinner+stripes · Running = solid. */
-  .pod .status{width:11px;height:11px;flex:0 0 auto;border-radius:50%;box-sizing:border-box}
-  .pod.pending .status{background:transparent;box-shadow:inset 0 0 0 2px rgba(255,255,255,.6);animation:podpulse 1.4s ease-in-out infinite}
-  .pod.unschedulable .status{background:#ffe08a;box-shadow:none}
-  .pod.running .status{background:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.22)}
-  .pod.creating .status{
-    width:13px;height:13px;background:transparent;
-    border:2px solid rgba(255,255,255,.35);border-top-color:#fff;
-    animation:spin .7s linear infinite;
-  }
-  .pod.creating{   /* faint diagonal stripes over the type colour = "still starting" */
-    background-image:repeating-linear-gradient(45deg,
-      rgba(255,255,255,0) 0 9px, rgba(255,255,255,.16) 9px 18px);
-  }
-  .pod.creating .req{font-style:italic;opacity:.95}
-  /* Pod being scaled away: Terminating (SIGTERM, draining during the grace period).
-     Dimmed + greyed + dark diagonal stripes = "shutting down"; not interactive. */
-  .pod.terminating{
-    opacity:.5;filter:grayscale(.45);pointer-events:none;
-    background-image:repeating-linear-gradient(45deg,
-      rgba(0,0,0,0) 0 9px, rgba(0,0,0,.16) 9px 18px);
-    transition:opacity .3s ease, filter .3s ease;
-  }
-  .pod.terminating .status{
-    width:13px;height:13px;background:transparent;
-    border:2px solid rgba(255,255,255,.3);border-top-color:#fff;
-    animation:spin .7s linear infinite;
-  }
-  .pod.terminating .req{font-style:italic;opacity:.95}
-  /* Top-level layer where pods physically fly between columns — never clipped */
-  #flyLayer{position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:visible}
-  .pod-fly{position:fixed;z-index:9999;box-shadow:0 12px 28px rgba(0,0,0,.32);pointer-events:none;margin:0}
-  /* Nodes flow left→right and wrap onto the next line, filling the cluster panel's
-     width instead of wasting the space to the right. Each card has a fixed width so
-     pods read as full-width bars; taller (scaled-out) cards top-align in their row. */
-  #nodesList{flex-direction:row;flex-wrap:wrap;gap:12px;align-items:flex-start;align-content:flex-start}
-  .node-card{padding:10px 12px 12px;display:flex;flex-direction:column;gap:8px;
-    width:340px;flex:0 0 auto;transition:opacity .45s ease, background .45s ease, filter .45s ease}
-  .node-card.inactive{opacity:.62;background:#f4f4f4;filter:grayscale(.5)}
-  .node-card.drop-target{outline:2px dashed var(--accent);outline-offset:-4px;background:#f1f5ff}
-  .node-card.invalid-drop{outline:2px dashed #d04848;outline-offset:-4px;background:#fdf0f0}
-  .node-head{display:flex;align-items:center;gap:8px}
-  .node-head .name{font-weight:700;font-size:14px}
-  .usage{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ok)}
-  .usage.warn{color:#a06900}
-  .usage.full{color:var(--warn)}
-  .usage.cooldown{color:#a06900}
-  .usage.prov{color:#b9842b}
-  .usage.off{color:#8a93a6}
-  .usage .dot{
-    width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;
-    border-bottom:6px solid currentColor;display:inline-block;
-  }
-  /* Node body = one or more instance "bins" stacked DOWN (node scale-out).
-     Each bin is EXACTLY capacity×CPU_UNIT tall (height set inline by JS) and pods
-     stack gap-free, so a capacity-6 bin with 3 request-2 pods (3×60px) tiles the
-     180px box with no leftover space — the node IS the grid. */
-  .node-instances{display:flex;flex-direction:column;gap:8px}
-  .node-instance{
-    display:flex;flex-direction:column;justify-content:flex-start;gap:0;
-    background:#fbfcff;border-radius:6px;box-shadow:inset 0 0 0 1px #e7ecf5;
-    overflow:hidden;position:relative;transition:height .35s ease;
-  }
-  .node-instance .ilabel{
-    position:absolute;top:3px;right:6px;font-size:9.5px;font-weight:700;
-    color:#aab3c6;letter-spacing:.3px;pointer-events:none;z-index:2;
-  }
-  /* An instance the autoscaler just provisioned: still booting / NotReady for a few
-     seconds (striped amber box + spinner badge); its pods stay ContainerCreating. */
-  .node-instance.provisioning{
-    background:repeating-linear-gradient(45deg,#fff7e6,#fff7e6 9px,#fdeccd 9px,#fdeccd 18px);
-    box-shadow:inset 0 0 0 1px #f0d49a;
-  }
-  .node-instance .iboot{
-    position:absolute;top:3px;left:6px;display:flex;align-items:center;gap:4px;z-index:3;
-    font-size:9.5px;font-weight:800;color:#b9842b;letter-spacing:.3px;pointer-events:none;
-  }
-  .node-instance .iboot .spin{
-    width:9px;height:9px;border:2px solid rgba(185,132,43,.35);border-top-color:#b9842b;
-    border-radius:50%;display:inline-block;animation:spin .7s linear infinite;
-  }
-  /* Powered-off placeholder shown when a node has scaled to zero */
-  .node-off{display:none;align-items:center;justify-content:center;gap:8px;
-    flex:1;min-height:50px;border:1.5px dashed #cdd5e6;border-radius:6px;color:#8a93a6;
-    font-size:12px;font-weight:600;text-align:center;
-    background:repeating-linear-gradient(45deg,#fafafa,#fafafa 9px,#f1f2f5 9px,#f1f2f5 18px)}
-  .node-off .pwr{font-size:15px}
-  .node-card.inactive .node-instances{display:none}
-  .node-card.inactive .node-off{display:flex}
-  /* Footer */
-  footer.bottom{
-    text-align:center;color:var(--muted);font-size:11.5px;padding:4px 4px 0;
-  }
-  /* Add node placeholder */
-  .add-placeholder{
-    display:flex;align-items:center;justify-content:center;
-    width:100%;max-width:480px;min-height:54px;border:1.5px dashed #c2cde3;color:var(--muted);
-    border-radius:8px;cursor:pointer;font-size:12.5px;background:transparent;
-  }
-  .add-placeholder:hover{border-color:var(--accent);color:var(--accent);background:#eef2ff}
-  /* Fullscreen */
-  body.fs{padding:0}
-  /* Anim — only brand-new pods animate in; nothing else flashes on re-render */
-  @keyframes podin{from{opacity:0;transform:scale(.8)} to{opacity:1;transform:none}}
-  .pod.pod-enter{animation:podin .22s cubic-bezier(.22,.7,.18,1)}
-  /* Spinner shared by ContainerCreating pods and NotReady node instances */
-  @keyframes spin{to{transform:rotate(360deg)}}
-  @keyframes podpulse{0%,100%{opacity:.35}50%{opacity:1}}
-  /* ---- Sim / play controls (KEDA section) ---- */
-  .sim{display:flex;flex-direction:column;gap:8px}
-  .sim-clock{
-    text-align:center;font-size:21px;font-weight:800;letter-spacing:.4px;color:var(--ink);
-    font-variant-numeric:tabular-nums;
-  }
-  .sim-clock .slot{color:var(--accent)}
-  .sim-clock.wknd .slot{color:#d8821a}
-  .sim-clock.settling .slot{animation:clockpulse 1s ease-in-out infinite}
-  .sim-clock.settling::after{content:'⏳ reajustando…';display:block;font-size:10.5px;font-weight:600;color:var(--muted2);letter-spacing:0;margin-top:-1px}
-  @keyframes clockpulse{0%,100%{opacity:1}50%{opacity:.4}}
-  .sim-row{display:flex;align-items:center;gap:6px}
-  .play-btn{
-    background:var(--accent);border:1px solid var(--accent);color:#fff;border-radius:7px;
-    width:36px;height:30px;cursor:pointer;font-size:13px;flex:0 0 auto;
-    display:flex;align-items:center;justify-content:center;transition:background .12s;
-  }
-  .play-btn:hover{background:#2c46bb}
-  .play-btn.playing{background:#d8821a;border-color:#d8821a}
-  .play-btn.playing:hover{background:#bd7016}
-  .sim-speed{
-    background:#fff;border:1px solid var(--card-border);border-radius:6px;font-size:12px;
-    padding:5px 4px;color:var(--ink);cursor:pointer;flex:0 0 auto;
-  }
-  .scrub-wrap{display:flex;flex-direction:column;gap:3px}
-  .scrub{
-    -webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:4px;
-    background:#dfe6f5;outline:none;cursor:pointer;margin:0;
-  }
-  .scrub::-webkit-slider-thumb{
-    -webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--accent);
-    border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:pointer;
-  }
-  .scrub::-moz-range-thumb{
-    width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid #fff;cursor:pointer;
-  }
-  .scrub-axis{display:grid;grid-template-columns:repeat(7,1fr);font-size:9px;color:var(--muted2);text-align:center}
-  .scrub-axis span.wknd{color:#c08a4a;font-weight:600}
-  /* KEDA integration info icon (header) with hover tooltip */
-  .info-ic{cursor:help;font-size:13px;line-height:1;opacity:.7;position:relative;user-select:none}
-  .info-ic:hover{opacity:1}
-  .info-ic:hover::after{
-    content:attr(data-tip);position:absolute;top:170%;right:-4px;width:228px;z-index:40;
-    background:var(--ink);color:#fff;font-size:11px;line-height:1.45;font-weight:400;
-    padding:8px 10px;border-radius:7px;box-shadow:0 8px 20px rgba(0,0,0,.28);
-    white-space:normal;text-align:left;pointer-events:none;text-transform:none;letter-spacing:0;
-  }
-  .info-ic:hover::before{
-    content:"";position:absolute;top:125%;right:5px;border:5px solid transparent;border-bottom-color:var(--ink);z-index:40;
-  }
-  /* Per-card collapse (pod & node cards): expanded = full controls, collapsed = status only */
-  .card-toggle{
-    background:none;border:none;cursor:pointer;color:var(--muted2);font-size:10px;
-    padding:0 3px 0 0;flex:0 0 auto;line-height:1;
-  }
-  .card-toggle:hover{color:var(--ink)}
-  .card-mini{display:none}
-  .pod-card.collapsed .card-mini{
-    display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--muted);
-  }
-  .pod-card.collapsed .card-mini .mini-n{font-weight:800;color:var(--ink)}
-  .pod-card.collapsed .detail,.node-card.collapsed .detail{display:none}
-  .pod-card.collapsed,.node-card.collapsed{gap:6px}
-  /* ---- Hourly KEDA editor (per pod card) ---- */
-  .hourly{display:flex;flex-direction:column;gap:5px}
-  .hourly-head{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;color:var(--muted)}
-  .hourly-head b{color:var(--ink);font-weight:700}
-  .hourly-bars{
-    display:grid;grid-template-columns:repeat(24,1fr);gap:1px;height:58px;align-items:end;
-    background:#f4f7ff;border:1px solid var(--card-border);border-radius:6px;padding:3px;
-    touch-action:none;user-select:none;cursor:ns-resize;
-  }
-  .hbar{position:relative;height:100%;display:flex;align-items:flex-end;border-radius:2px}
-  .hbar.night{background:rgba(40,55,90,.06)}
-  .hbar.now{box-shadow:inset 0 0 0 1px var(--accent);background:rgba(57,86,211,.12)}
-  .hbar-fill{width:100%;border-radius:2px 2px 0 0;min-height:0;transition:height .08s}
-  .hourly-qf{display:flex;gap:4px;flex-wrap:wrap}
-  .mini{
-    background:#fff;border:1px solid var(--card-border);color:var(--muted);
-    padding:2px 7px;border-radius:5px;font-size:10.5px;cursor:pointer;
-  }
-  .mini:hover{color:var(--ink);border-color:#9fb1d4;background:#f4f7ff}
-  .hourly-tip{font-size:10.5px;color:var(--muted);min-height:13px;text-align:center}
-  /* node price row */
-  .price-in{
-    width:60px;text-align:right;font-size:12px;border:1px solid var(--card-border);border-radius:5px;
-    padding:3px 6px;background:#fff;color:var(--ink);outline:none;
-  }
-  .price-in:focus{border-color:var(--accent)}
-  /* ---- Modal overlay (cost report + scenarios) ---- */
-  .overlay{
-    position:fixed;inset:0;background:rgba(20,26,40,.45);
-    display:flex;align-items:center;justify-content:center;z-index:50;padding:24px;
-  }
-  .overlay[hidden]{display:none}
-  .modal{
-    position:relative;background:var(--bg);border:1px solid var(--card-border);border-radius:12px;
-    box-shadow:0 18px 50px rgba(0,0,0,.3);width:min(700px,96vw);max-height:88vh;overflow:auto;padding:18px 20px;
-  }
-  .modal h2{margin:0 0 4px;font-size:17px}
-  .modal .modal-sub{color:var(--muted);font-size:12px;margin-bottom:14px}
-  .modal-x{position:absolute;top:12px;right:14px;background:none;border:none;font-size:18px;color:var(--muted2);cursor:pointer;line-height:1}
-  .modal-x:hover{color:var(--ink)}
-  .kpi-row{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 14px}
-  .kpi{flex:1 1 120px;background:#fff;border:1px solid var(--card-border);border-radius:9px;padding:10px 12px}
-  .kpi .k-label{font-size:11px;color:var(--muted)}
-  .kpi .k-val{font-size:20px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
-  .kpi .k-val.accent{color:var(--accent)}
-  table.report{width:100%;border-collapse:collapse;font-size:12.5px}
-  table.report th,table.report td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
-  table.report th{color:var(--muted);font-weight:600;font-size:11px;white-space:nowrap}
-  table.report td:first-child{font-weight:600}
-  table.report td.r-num,table.report th.r-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-  table.report tr:nth-child(even) td{background:rgba(57,86,211,.04)}
-  table.report tr.total td{font-weight:800;border-top:2px solid var(--card-border);background:transparent}
-  table.report tr.best td{background:#e8f5ec}
-  .daybars{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:8px;align-items:end;height:96px}
-  .daybars .db{display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;justify-content:flex-end}
-  .daybars .db .bar{width:68%;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px}
-  .daybars .db.wknd .bar{background:#d8821a}
-  .daybars .db .lbl{font-size:10px;color:var(--muted)}
-  .daybars .db .amt{font-size:9.5px;color:var(--muted2)}
-  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
-  .scn-list{display:flex;flex-direction:column;gap:8px;margin:8px 0}
-  .scn-empty{color:var(--muted);font-size:12.5px;text-align:center;padding:18px}
-  .scn-item{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--card-border);border-radius:8px;padding:8px 10px}
-  .scn-item .scn-name{font-weight:700;font-size:13px}
-  .scn-item .scn-meta{font-size:11px;color:var(--muted)}
-  .scn-item .spacer{flex:1}
-  .field{display:flex;gap:6px;align-items:center}
-  .field input{flex:1;background:#fff;border:1px solid var(--card-border);border-radius:6px;padding:6px 8px;font-size:13px;color:var(--ink);outline:none}
-  .field input:focus{border-color:var(--accent)}
+  .timeline-tolerations{display:flex;flex-wrap:wrap;align-items:center;gap:3px 5px}
+  .tolerance-label{font-size:10px;color:var(--muted)}
+  .tolerance-list{display:flex;flex-wrap:wrap;gap:3px;margin:0;min-width:0}
+  button.tolerance-chip,.tolerance-add{font:inherit;font-size:10px;line-height:1.3;min-height:22px;border:1px dashed #bdc9db;border-radius:4px;background:transparent;color:var(--muted);padding:2px 5px;cursor:pointer;max-width:100%;overflow-wrap:anywhere}
+  button.tolerance-chip.is-active{background:#e5ecff;border:1px solid #b8c8f2;color:#304ba7}
+  button.tolerance-chip:hover,.tolerance-add:hover{background:#dce6ff;border-color:var(--accent)}
+  .tolerance-add{min-width:22px}
 </style>
 </head>
 <body>
 <div class="app">
-
-  <header class="top">
-    <h1>Scheduler <span class="sep">·</span> Taints <span class="sep">·</span> Capacidad <span class="sep">·</span> KEDA</h1>
-    <div class="toolbar">
-      <button class="btn toggle off" id="autoBtn">Auto-scheduler: OFF</button>
-      <button class="btn" id="scheduleAllBtn">Programar todos</button>
-      <button class="btn" id="emptyBtn">Vaciar nodos</button>
-      <button class="btn" id="costBtn">💶 Informe de coste</button>
-      <button class="btn" id="scnBtn">💾 Escenarios</button>
-      <button class="btn danger" id="resetBtn">Reset</button>
-    </div>
-  </header>
-
-  <div class="subtitle" id="subtitle"></div>
-
-  <main class="grid">
-    <!-- LEFT COLUMN -->
-    <div class="col">
-      <section class="section" id="kedaSection">
-        <header class="section-head">
-          <div class="title"><span class="caret">▼</span>Reloj · KEDA · Simulación</div>
-          <div class="actions"><span class="info-ic" data-tip="KEDA escala las réplicas de cada Pod según su curva horaria. ▶ simula la semana hora a hora; el reloj fija el día y la hora que editas en las curvas de abajo.">🔌</span></div>
-        </header>
-        <div class="section-body">
-          <div class="sim">
-            <div class="sim-clock" id="simClock">Lun 09:00</div>
-            <div class="sim-row">
-              <button class="play-btn" id="playBtn" title="reproducir / pausar la semana">▶</button>
-              <select class="sim-speed" id="simSpeed" title="velocidad de simulación"></select>
-              <button class="day-arrow" id="prevDay" title="día anterior">◄</button>
-              <div class="seg" id="daySeg"></div>
-              <button class="day-arrow" id="nextDay" title="día siguiente">►</button>
-            </div>
-            <div class="scrub-wrap">
-              <input type="range" class="scrub" id="weekScrub" min="0" max="167" step="1" value="9" />
-              <div class="scrub-axis" id="scrubAxis"></div>
-            </div>
-            <div class="day-current" id="dayCurrent"></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section flex" id="podsSection">
-        <header class="section-head">
-          <div class="title"><span class="caret">▼</span>Definición de pods</div>
-          <div class="actions">
-            <button class="ghost-btn" id="collapsePodsBtn" title="colapsar / expandir todas las tarjetas">todo ▾</button>
-            <button class="ghost-btn" id="addPodTypeBtn">+ tipo</button>
-          </div>
-        </header>
-        <div class="section-body" id="podTypesList"></div>
-      </section>
-    </div>
-
-    <!-- CENTER COLUMN -->
-    <div class="col">
-      <section class="section flex" id="schedulerSection">
-        <header class="section-head">
-          <div class="title"><span class="caret">▼</span>Scheduler</div>
-          <div class="actions">
-            <label class="strat" title="NodeResourcesFit scoringStrategy del kube-scheduler: cómo puntúa los nodos factibles.">scoring
-              <select id="scoringStrategy">
-                <option value="MostAllocated">Empaquetar (MostAllocated)</option>
-                <option value="LeastAllocated">Repartir (LeastAllocated)</option>
+<header class="top"><h1 class="sr-heading">Planificador de capacidad</h1>
+  <section class="planning-summary" aria-label="Resultado de la configuración actual">
+    <div class="plan-kpi"><span id="clusterCostLabel">Coste mensual</span><strong id="clusterCost">—</strong>            <label class="cost-period"><span class="sr-heading">Periodo del coste</span>
+              <select id="nodeCostPeriod" aria-label="Periodo del coste de los nodos">
+                <option value="hour">Hora</option>
+                <option value="day">Día</option>
+                <option value="week">Semana</option>
+                <option value="month">Mes</option>
               </select>
-            </label>
+            </label></div>
+    <div class="plan-kpi"><span title="Réplicas que pueden alojarse durante toda la semana">Cobertura semanal</span><strong id="planCoverage">—</strong><div class="coverage-state"><small id="planCoverageNote" hidden></small><button class="ghost-btn" id="coverageDetailsBtn" hidden>Ver pendientes</button></div></div>
+    <div class="plan-kpi"><span>Pico de demanda</span><strong id="peakDemand">—</strong><small id="peakDemandNote"></small></div>
+  </section>
+</header>
+<main id="nodesSection" class="section flex">
+<header class="section-head"><div class="actions">
+<button class="ghost-btn" id="addTimelinePodBtn">+ Servicio</button>
+<button class="ghost-btn" id="addNodeBtn">+ Nodo</button>
+          <div class="timeline-toolbar" id="timelineControls">
+            <label><select id="timelineScope" aria-label="Periodo de la línea temporal"><option value="week">Semana</option><option value="day">Día</option></select></label>
+            <div class="timeline-day-nav" id="timelineDayNav" hidden><button class="ghost-btn" id="timelinePrevDay" aria-label="Ver día anterior">←</button><strong id="timelineDayLabel"></strong><button class="ghost-btn" id="timelineNextDay" aria-label="Ver día siguiente">→</button></div>
+            <details class="timeline-legend-menu tools-menu"><summary class="ghost-btn">Ayuda</summary><div class="tools-content"><p class="timeline-help">Edita nombres y valores en la columna izquierda. Activa las tolerancias con un clic. Escribe las réplicas al pie de las barras o arrástralas. Haz clic en un día para ampliarlo. Cada marco representa un nodo; las marcas interiores de un pod indican unidades de CPU. Las flechas ← → recorren las horas.</p><div class="timeline-legend"><span class="legend-item">1 pieza = 1 pod · altura según CPU</span><span class="legend-item"><i class="pending-key replica-pending" aria-hidden="true"></i>Pending · falta capacidad</span><span class="legend-item"><i class="blocked-key replica-blocked" aria-hidden="true"></i>Pending · ningún nodo compatible</span></div></div></details>
           </div>
-        </header>
-        <div class="section-body">
-          <div class="queue" id="queue"></div>
+</div></header>
+        <div class="section-body" id="nodesTimeline">
+          <div class="timeline-scroll" id="timelineScroll" tabindex="0" aria-label="Demanda editable y capacidad prevista de la semana; desplazamiento horizontal disponible">
+            <div id="timelineCanvas" class="timeline-canvas"></div>
+          </div>
+          <p class="timeline-detail" id="timelineDetail" role="status"></p>
         </div>
-      </section>
-    </div>
-
-    <!-- RIGHT COLUMN -->
-    <div class="col">
-      <section class="section flex" id="nodesSection">
-        <header class="section-head">
-          <div class="title"><span class="caret">▼</span>Nodos del clúster</div>
-          <div class="actions">
-            <button class="ghost-btn" id="collapseNodesBtn" title="colapsar / expandir todas las tarjetas">todo ▾</button>
-            <button class="ghost-btn" id="addNodeBtn">+ Node</button>
-          </div>
-        </header>
-        <div class="section-body" id="nodesList"></div>
-      </section>
-    </div>
-  </main>
-
-  <footer class="bottom">
-    Pinta la curva KEDA por hora · ▶ simula la semana (ajusta la velocidad) · 💶 informe de coste semanal/mensual · 💾 guarda y compara escenarios · click o arrastra un Pod para programarlo · F pantalla completa
-  </footer>
+</main>
 </div>
-
 <script>
 (() => {
 "use strict";
 
-// ---------- Constants ----------
 const DAYS_FULL = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+
 const DAYS_SHORT = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
-const SCALE_TO_ZERO_MS = 10000;
-// Vertical pixels per CPU unit. A pod's height = request × CPU_UNIT and a node's
-// body height = capacity × CPU_UNIT, so stacked pod bars fill the node exactly in
-// proportion to how much CPU they request (bigger request → consumes more node).
-const CPU_UNIT = 30;
-// Default scale-out ceiling: how many node instances the autoscaler may add.
+
+const TIMELINE_CPU_UNIT = 6;
+
+const TIMELINE_INSTANCE_GAP = 3;
+
 const DEFAULT_MAX_REPLICAS = 3;
-// Lifecycle timings (compressed from real-world minutes to a few seconds):
-//   POD_START_MS  — a freshly-bound Pod sits in ContainerCreating (pulling image,
-//                   starting the container) before it reports Running.
-//   NODE_BOOT_MS  — a freshly-provisioned Node instance is NotReady (booting,
-//                   joining the cluster) before Pods on it can actually run.
-//   POD_TERMINATE_MS — a Pod scaled away isn't deleted instantly: it goes
-//                   Terminating (SIGTERM + grace period) before the object is removed.
-const POD_START_MS = 2500;
-const NODE_BOOT_MS = 4500;
-const POD_TERMINATE_MS = 3000;
+
 const COLORS = ['#3956d3','#7c4dff','#27a36b','#d8821a','#c0397f','#1e90b8','#7a5fbf','#b85c5c'];
 
-// ---------- Time / cost model ----------
 const HOURS_PER_DAY = 24;
-const HOURS_PER_WEEK = 7 * 24;                 // 168 hourly slots in a week
-const WEEKS_PER_MONTH = 52 / 12;               // ≈4.3333 — average weeks in a month
-const CURRENCY = '€';
-// Wall-clock ms per simulated hour for each play speed (lower = faster fast-forward).
-const SIM_SPEEDS = [
-  { label:'0.5×', ms:1200 },
-  { label:'1×',   ms:600  },
-  { label:'2×',   ms:300  },
-  { label:'4×',   ms:150  },
-];
-const SCENARIOS_KEY = 'k8s_sched_scenarios_v1';
 
-// Derive a realistic diurnal curve from a per-day peak: busy 08:00–20:00, low at night.
+const HOURS_PER_WEEK = 7 * 24;
+
+const WEEKS_PER_MONTH = 52 / 12;
+
+const CURRENCY = '€';
+
+const NODE_COST_PERIODS = {
+  hour: { unit: 'h' }, day: { unit: 'día' },
+  week: { unit: 'semana' }, month: { unit: 'mes' },
+};
+
 function buildHourly(byDay){
   return byDay.map(peak => {
     const floor = Math.max(0, Math.round(peak / 3));
@@ -626,14 +321,12 @@ function buildHourly(byDay){
   });
 }
 
-// ---------- Initial state ----------
 function initialState(){
   return {
     day: 0,
     hour: 9,                 // start mid-morning so the diurnal KEDA curve is visible
-    playing: false,
-    simHrMs: 600,            // wall-clock ms per simulated hour while playing (1× speed)
-    autoScheduler: false,
+    nodeCostPeriod: 'month',
+    timelineScope: 'week',
     // kube-scheduler NodeResourcesFit scoringStrategy: 'MostAllocated' bin-packs
     // (cost-efficient, pairs with scale-to-zero); 'LeastAllocated' spreads (upstream default).
     scoringStrategy: 'MostAllocated',
@@ -650,11 +343,8 @@ function initialState(){
     ],
     // pods: {id, typeId, index, location:null|nodeId}
     pods: [],
-    // For scale-to-zero tracking
-    nodeIdleSince: {},
     nodeInactive: {},
-    // Node-instance readiness: nodeId -> [readyAtMs per running instance index].
-    // A timestamp in the future means that instance is still booting (NotReady).
+    // Reserved instances in the hourly capacity calculation.
     nodeReadyAt: {},
   };
 }
@@ -663,8 +353,8 @@ let S = initialState();
 
 function uid(prefix='id'){ return prefix + '_' + Math.random().toString(36).slice(2,9); }
 
-// ---------- Helpers ----------
 function getType(typeId){ return S.podTypes.find(t => t.id === typeId); }
+
 function getNode(nodeId){ return S.nodes.find(n => n.id === nodeId); }
 
 function desiredReplicas(t, day=S.day, hour=S.hour){
@@ -673,15 +363,16 @@ function desiredReplicas(t, day=S.day, hour=S.hour){
   if(t.hourly && t.hourly[day]) return t.hourly[day][hour] | 0;
   return t.replicasByDay ? (t.replicasByDay[day] | 0) : 0;   // back-compat for older data
 }
-// Ensure a pod type has a full hourly[7][24] curve (migrate legacy per-day data in place).
+
 function ensureHourly(t){
   if(!t.hourly || t.hourly.length !== 7 || !Array.isArray(t.hourly[0]) || t.hourly[0].length !== 24){
     t.hourly = buildHourly(t.replicasByDay || [0,0,0,0,0,0,0]);
   }
   return t.hourly;
 }
-// Hourly clock helpers
+
 function fmtClock(day, hour){ return `${DAYS_SHORT[day]} ${String(hour).padStart(2,'0')}:00`; }
+
 function weekSlot(day=S.day, hour=S.hour){ return day * 24 + hour; }
 
 function usage(nodeId){
@@ -695,25 +386,19 @@ function usage(nodeId){
   return used;
 }
 
-// ----- Node scale-out (a node group = up to maxReplicas instances of `capacity`) -----
 function maxReplicas(n){ return Math.max(1, n.maxReplicas || DEFAULT_MAX_REPLICAS); }
+
 function groupCapacity(n){ return n.capacity * maxReplicas(n); }
-// How many node instances are currently provisioned. This is the cluster-autoscaler's
-// decision, made AUTHORITATIVE in S.nodeReadyAt — each entry is one instance, Ready or
-// still booting. A powered-on node always shows ≥1; a scaled-to-zero node shows 0.
+
 function activeInstanceCount(n){
   if(S.nodeInactive[n.id]) return 0;
   return Math.max(1, (S.nodeReadyAt[n.id] || []).length);
 }
-// Can `pod` be bound RIGHT NOW to an instance of node n that has finished booting
-// (Ready)? Mirrors the renderer's bin-packing: the Pod must fit either an occupied
-// Ready bin or a still-empty Ready instance. Booting (NotReady) instances are
-// deliberately excluded — kube-scheduler never binds to a node that hasn't joined the
-// cluster, so such Pods stay Pending until their instance becomes Ready.
-function fitsInReadyInstances(pod, n, now = Date.now()){
+
+function fitsInReadyInstances(pod, n){
   const req = getType(pod.typeId).request;
   if(req > n.capacity) return false;                 // bigger than a single instance — never fits
-  const ready = readyInstanceCount(n, now);
+  const ready = readyInstanceCount(n);
   const bins  = packNode(n);                         // occupied instances (index-aligned to nodeReadyAt)
   for(let k = 0; k < bins.length && k < ready; k++){
     if(bins[k].used + req <= n.capacity) return true;   // room left in an occupied, Ready instance
@@ -721,8 +406,6 @@ function fitsInReadyInstances(pod, n, now = Date.now()){
   return bins.length < ready;                        // a Ready instance with no Pods yet is wide open
 }
 
-// k8s matching: empty key => operator Exists (matches any taint of the given/any effect).
-// Otherwise key must equal; empty value => Exists on that key; empty effect => matches all effects.
 function tolerationMatchesTaint(tol, taint){
   if(tol.key === '') return (tol.effect === '' || tol.effect === taint.effect);
   return tol.key === taint.key &&
@@ -730,7 +413,6 @@ function tolerationMatchesTaint(tol, taint){
     (tol.effect === '' || tol.effect === taint.effect);
 }
 
-// Used for SCHEDULING decisions: NoSchedule + NoExecute block; PreferNoSchedule is soft (ignored here).
 function tolerates(pod, node){
   const t = getType(pod.typeId);
   if(!t) return false;
@@ -741,28 +423,13 @@ function tolerates(pod, node){
   return true;
 }
 
-// Evict running pods only for NoExecute taints they don't tolerate (NoSchedule never evicts).
-function evictForTaints(node){
-  for(const p of S.pods){
-    if(p.location !== node.id) continue;
-    const t = getType(p.typeId);
-    const violates = node.taints.some(tnt =>
-      tnt.effect === 'NoExecute' &&
-      !t.tolerations.some(tol => tolerationMatchesTaint(tol, tnt))
-    );
-    if(violates) p.location = null;
-  }
-}
-
-// Enforce capacity everywhere: evict the most-recently placed pods until usage
-// fits within the whole node GROUP (capacity × maxReplicas instances).
 function enforceNodeCapacity(){
   for(const n of S.nodes){
-    let guard = 0;
-    while(usage(n.id) > groupCapacity(n) && guard++ < 999){
-      const here = S.pods.filter(p => p.location === n.id);
-      if(here.length === 0) break;
-      here[here.length - 1].location = null;
+    for(const p of S.pods){
+      if(p.location===n.id && getType(p.typeId).request>n.capacity)p.location=null;
+    }
+    for(const bin of packNode(n).slice(maxReplicas(n))){
+      for(const p of bin.pods)p.location=null;
     }
   }
 }
@@ -775,33 +442,13 @@ function nodeFits(pod, node){
   return usage(node.id) + t.request <= groupCapacity(node);  // room within maxReplicas instances
 }
 
-// ===================================================================
-//  Node selection = the real Kubernetes pipeline, split into the two
-//  independent components a managed cluster actually runs:
-//
-//    1) kube-scheduler  — binds a Pod to an EXISTING (running) Node. For each
-//       Pod it runs Filter plugins (predicates: is the Node feasible?), then
-//       Score plugins (priorities: 0–100 each, weighted), and picks the highest.
-//       It never invents Nodes; if nothing is feasible the Pod stays Pending.
-//
-//    2) cluster-autoscaler — watches for Pending Pods. When the scheduler can
-//       place none, it provisions a NEW node instance in the node group its
-//       "expander" judges best (least-waste here), after which the Pod binds.
-// ===================================================================
-const MAX_NODE_SCORE = 100;          // kube-scheduler framework MaxNodeScore
+const MAX_NODE_SCORE = 100;
 
-// ---- Filter plugins (predicates). A Node is feasible only if ALL pass. ----
-//   TaintToleration  : NoSchedule / NoExecute taints must be tolerated (hard).
-//   NodeResourcesFit : the Pod's CPU request must fit the Node's RUNNING allocatable.
 function passesFilters(pod, n){
   if(S.nodeInactive[n.id]) return false;                  // scaled-to-zero: not a running target
   return tolerates(pod, n) && fitsInReadyInstances(pod, n);   // bind only to Ready (booted) capacity
 }
 
-// ---- Score plugins (priorities). Each returns 0..MAX_NODE_SCORE. ----
-// NodeResourcesFit scoring mirrors kube-scheduler's configurable scoringStrategy:
-//   MostAllocated  → fuller Node scores higher  (bin-packing; pairs with scale-to-zero)
-//   LeastAllocated → emptier Node scores higher  (spread; the upstream default)
 function scoreNodeResources(pod, n){
   const req   = getType(pod.typeId).request;
   const alloc = Math.max(1, readyInstanceCount(n) * n.capacity);    // Ready (bindable) allocatable CPU
@@ -809,8 +456,7 @@ function scoreNodeResources(pod, n){
   const least = S.scoringStrategy === 'LeastAllocated';
   return Math.round((least ? (1 - frac) : frac) * MAX_NODE_SCORE);
 }
-// TaintToleration scoring: penalise PreferNoSchedule taints the Pod does NOT tolerate
-// (a soft "repel" — the Node stays feasible but loses points).
+
 function scoreTaintToleration(pod, n){
   const t = getType(pod.typeId);
   let intolerable = 0;
@@ -820,27 +466,16 @@ function scoreTaintToleration(pod, n){
   }
   return Math.max(0, MAX_NODE_SCORE - intolerable * 50);
 }
-// Default-profile plugin weights (NodeResourcesFit:1, TaintToleration:3).
+
 const SCORE_PLUGINS = [
   { weight:1, fn:scoreNodeResources },
   { weight:3, fn:scoreTaintToleration },
 ];
+
 function nodeScore(pod, n){
   return SCORE_PLUGINS.reduce((s, p) => s + p.weight * p.fn(pod, n), 0);
 }
 
-// A node group can host a brand-new instance for this Pod (the autoscaler's test):
-// tolerated, the Pod fits inside one instance, and the group is below máx réplicas.
-function canScaleOutFor(pod, n){
-  const req = getType(pod.typeId).request;
-  return tolerates(pod, n) && req <= n.capacity && usage(n.id) + req <= groupCapacity(n);
-}
-
-// One kube-scheduler cycle for one Pod → {node, phase:'scheduler', score} or null.
-// It Filters running Nodes, Scores the survivors and binds the best — but ONLY to
-// instances that are already Ready (passesFilters). It never invents capacity: if
-// nothing Ready fits, the Pod stays Pending and the cluster-autoscaler
-// (reconcileAutoscaler) provisions a new instance, after which the Pod binds.
 function scheduleDecision(pod){
   if(!getType(pod.typeId)) return null;
   const feasible = S.nodes.filter(n => passesFilters(pod, n));
@@ -853,148 +488,44 @@ function scheduleDecision(pod){
   return { node: best.n, phase:'scheduler', score: best.s };
 }
 
-// Deferred MANUAL placement. A click/drag on a queued Pod records a bindIntent instead of
-// binding right away, so a Pod is NEVER dropped onto an instance that is still booting (which
-// would paint a bogus ContainerCreating on a NotReady node). The Pod waits Pending while the
-// cluster-autoscaler boots the instance; this pass then commits the bind the moment a Ready
-// instance can host it — exactly how kube-scheduler only ever binds to Ready Nodes.
-//   bindIntent === 'auto'  → any Node the scheduler would pick (best Ready fit)
-//   bindIntent === <id>    → that specific Node, once one of ITS instances is Ready
-function bindIntendedPods(now = Date.now()){
-  let progress = true, changed = false;
-  while(progress){
-    progress = false;
-    for(const p of S.pods){
-      if(p.location !== null || p.terminatingAt || !p.bindIntent) continue;
-      let target = null;
-      if(p.bindIntent === 'auto'){
-        target = findBestNode(p);                          // best Ready instance, or null
-      } else {
-        const n = getNode(p.bindIntent);                   // a specific Node was requested
-        if(n && passesFilters(p, n)) target = n;           // bind only once one of ITS instances is Ready
-      }
-      if(!target) continue;                                // nothing Ready yet → keep waiting Pending
-      p.location = target.id; p.bindIntent = null;
-      delete S.nodeIdleSince[target.id]; S.nodeInactive[target.id] = false;
-      progress = true; changed = true;
-    }
-  }
-  return changed;
-}
-
 function findBestNode(pod){
   const d = scheduleDecision(pod);
   return d ? d.node : null;
 }
 
-// A node is "needed" if it runs pods OR a pending pod could be placed on it.
-// The autoscaler only scales a node to zero when it has no demand at all.
 function nodeHasDemand(node){
   if(usage(node.id) > 0) return true;
-  return S.pods.some(p => p.location === null && !p.terminatingAt && nodeFits(p, node));
+  return S.pods.some(p => p.location === null && nodeFits(p, node));
 }
 
-// ---------- Pod generation from KEDA ----------
 function syncPodsToReplicas(){
-  const now = Date.now();
-  // Per type, keep the count of LIVE (non-terminating) pods == desiredReplicas.
-  // Scaling DOWN never deletes instantly: like a real Deployment/ReplicaSet the
-  // surplus pods enter Terminating (SIGTERM + grace period) and are reaped a few
-  // seconds later by reapTerminatedPods(). Scaling UP first revives still-terminating
-  // pods (demand returned before they died) to keep numbering stable, then adds new.
+  // Preserve placements between hourly slots; remove surplus pending pods first.
+  const removed=new Set();
   for(const t of S.podTypes){
-    const want = desiredReplicas(t);
-    const all = S.pods.filter(p => p.typeId === t.id);
-    const alive = all.filter(p => !p.terminatingAt).sort((a,b)=>a.index-b.index);
-    if(alive.length < want){
-      let need = want - alive.length;
-      const used = new Set(all.map(p => p.index));   // don't collide with terminating pods' indices
-      // 1) revive the lowest-indexed terminating pods — their demand came back
-      for(const p of all.filter(p => p.terminatingAt).sort((a,b)=>a.index-b.index)){
-        if(need <= 0) break;
-        p.terminatingAt = 0; need--;
+    const want=desiredReplicas(t),pods=S.pods.filter(p=>p.typeId===t.id);
+    if(pods.length<want){
+      const used=new Set(pods.map(p=>p.index));let index=1;
+      for(let count=pods.length;count<want;count++){
+        while(used.has(index))index++;
+        S.pods.push({id:uid('p'),typeId:t.id,index,location:null});used.add(index++);
       }
-      // 2) add brand-new pods for whatever demand is still unmet.
-      //    boundTo/boundAt drive the lifecycle: when location first matches a node,
-      //    boundAt stamps the ContainerCreating start (see syncPodLifecycle).
-      let i = 1;
-      while(need > 0){
-        while(used.has(i)) i++;
-        S.pods.push({ id: uid('p'), typeId: t.id, index: i, location: null, boundTo: null, boundAt: 0, terminatingAt: 0, bindIntent: null });
-        used.add(i); i++; need--;
-      }
-    } else if(alive.length > want){
-      // Mark the surplus Terminating (don't remove yet): prefer not-yet-running
-      // (queued) pods first, then the highest-indexed running ones.
-      const surplus = alive.length - want;
-      const order = alive.slice().sort((a,b)=>{
-        const aq = a.location===null ? 0 : 1;
-        const bq = b.location===null ? 0 : 1;
-        if(aq!==bq) return aq-bq;
-        return b.index - a.index;
-      });
-      for(let k=0;k<surplus;k++) order[k].terminatingAt = now;
+    }else{
+      const order=pods.slice().sort((a,b)=>(a.location===null?0:1)-(b.location===null?0:1)||b.index-a.index);
+      order.slice(0,pods.length-want).forEach(p=>removed.add(p.id));
     }
   }
-  // Pods whose type no longer exists go immediately (type deleted ~ kubectl delete).
-  S.pods = S.pods.filter(p => getType(p.typeId));
+  S.pods=S.pods.filter(p=>getType(p.typeId)&&!removed.has(p.id));
 }
 
-// Reap pods whose graceful-termination window has elapsed: the container has been
-// killed and the Pod object is removed. Returns true if anything was removed, so the
-// control loop knows it needs a structural relayout.
-function reapTerminatedPods(now){
-  const before = S.pods.length;
-  S.pods = S.pods.filter(p => !(p.terminatingAt && (now - p.terminatingAt) >= POD_TERMINATE_MS));
-  return S.pods.length !== before;
-}
-
-// ---------- Lifecycle: Pod phases + Node-instance readiness ----------
-// Pods don't snap to Running and nodes don't snap to Ready — both take a few
-// seconds, exactly like a real cluster (image pull + container start; node boot
-// + kubelet registration). We track timestamps and let the control loop tick the
-// transitions; nothing here mutates scheduling, only how state is reported.
-
-// Mark existing nodes as already-Ready (provisioned before the sim started) so the
-// initial cluster doesn't flash NotReady on load. Nodes added later DO boot.
-function seedNodeReadiness(){
-  const past = Date.now() - 1;
-  for(const n of S.nodes) S.nodeReadyAt[n.id] = [past];
-}
-
-// ---- cluster-autoscaler ----
-// Decide how many instances each node group should run and step S.nodeReadyAt toward
-// it: new instances start a NODE_BOOT_MS timer (NotReady → booting), surplus EMPTY
-// instances are released, and a scaled-to-zero node drops to none. This NEVER binds
-// Pods — kube-scheduler does that, and only to Ready instances — so a freshly
-// scaled-out instance appears empty and booting while its candidate Pods wait Pending.
-//
-// It ALWAYS simulates scale-UP for queued Pods (the autoscaler runs independently of
-// kube-scheduler — it reacts to Pending Pods whether you schedule by hand or let the
-// auto-scheduler do it): it bin-packs them onto projected capacity exactly as the
-// renderer/scheduler will, provisioning extra instances (up to máx réplicas) where the
-// running ones are full. A Pod pinned to a specific Node by a manual drag must scale THAT
-// Node, so those are planned first and only onto their target; the rest use free
-// first-fit-decreasing bin-packing. Returns true if the instance topology changed.
-function reconcileAutoscaler(now){
+function reconcileAutoscaler(){
   const planned = {};                       // node.id -> simulated bins [{used}]
   for(const n of S.nodes){
     planned[n.id] = S.nodeInactive[n.id] ? [] : packNode(n).map(b => ({ used: b.used }));
   }
-  const pending = S.pods.filter(p => p.location === null && !p.terminatingAt && getType(p.typeId));
+  const pending = S.pods.filter(p => p.location === null && getType(p.typeId));
   const canHost = (p, n) => !S.nodeInactive[n.id] && tolerates(p, n) && getType(p.typeId).request <= n.capacity;
-  // (1) Pods pinned to a Node by a manual drag → grow that Node specifically.
-  for(const p of pending.filter(p => p.bindIntent && p.bindIntent !== 'auto')){
-    const n = getNode(p.bindIntent);
-    if(!n || !canHost(p, n)) continue;
-    const req = getType(p.typeId).request;
-    const bin = planned[n.id].find(b => b.used + req <= n.capacity);
-    if(bin) bin.used += req;
-    else if(planned[n.id].length < maxReplicas(n)) planned[n.id].push({ used: req });
-  }
-  // (2) everything else → free FFD: tightest existing instance, else least-wasteful new one.
-  for(const p of pending.filter(p => !p.bindIntent || p.bindIntent === 'auto')
-                        .sort((a, b) => getType(b.typeId).request - getType(a.typeId).request)){
+  // Allocate the smallest additional capacity needed for the remaining demand.
+  for(const p of pending.sort((a,b)=>getType(b.typeId).request-getType(a.typeId).request)){
     const req = getType(p.typeId).request;
     const eligible = S.nodes.filter(n => canHost(p, n));
     let host = null, binIdx = -1, bestWaste = Infinity;
@@ -1022,169 +553,17 @@ function reconcileAutoscaler(now){
       continue;
     }
     const want = Math.min(maxReplicas(n), Math.max(1, planned[n.id].length));
-    while(arr.length < want){ arr.push(now + NODE_BOOT_MS); changed = true; }   // scale out → booting
+    while(arr.length < want){ arr.push(0); changed = true; }   // reserve another instance
     while(arr.length > want){ arr.pop(); changed = true; }                      // release empty instance
   }
   return changed;
 }
 
-// Render-time safety net: guarantee every OCCUPIED bin has a readiness slot, so a Pod
-// bound between control-loop ticks (e.g. a manual drag) shows its instance's boot state
-// immediately. Grow-only — scale-IN is reconcileAutoscaler's job, so we never undo a
-// pending scale-out (a booting instance provisioned for queued Pods) here.
-function ensureInstanceReadiness(now){
-  for(const n of S.nodes){
-    if(S.nodeInactive[n.id]) continue;
-    const need = Math.max(1, packNode(n).length);
-    let arr = S.nodeReadyAt[n.id] || (S.nodeReadyAt[n.id] = []);
-    while(arr.length < need) arr.push(now + NODE_BOOT_MS);
-  }
-}
-function readyInstanceCount(n, now = Date.now()){
-  const arr = S.nodeReadyAt[n.id] || [];
-  let c = 0; for(const t of arr) if(t <= now) c++; return c;
-}
-function instanceReady(n, k, now = Date.now()){
-  const arr = S.nodeReadyAt[n.id] || [];
-  return arr[k] !== undefined && arr[k] <= now;
-}
+function readyInstanceCount(n){return (S.nodeReadyAt[n.id]||[]).length;}
 
-// Detect when a Pod becomes bound to (or moves between) nodes so we can stamp the
-// moment its container starts being created. Leaving a node resets it to Pending.
-function syncPodLifecycle(now){
-  for(const p of S.pods){
-    if(p.location === null){
-      if(p.boundTo){ p.boundTo = null; p.boundAt = 0; }
-    } else if(p.location !== p.boundTo){
-      p.boundTo = p.location;
-      p.boundAt = now;        // (re)start ContainerCreating on this node
-    }
-  }
-}
-
-// Are any pods still ContainerCreating or any node instances still booting? While
-// true the control loop must keep re-rendering so the transitions show live.
-function hasPendingTransitions(now){
-  for(const n of S.nodes){
-    for(const t of (S.nodeReadyAt[n.id] || [])) if(t > now) return true;
-  }
-  for(const p of S.pods){
-    if(p.terminatingAt && (now - p.terminatingAt) < POD_TERMINATE_MS) return true;
-    if(p.location !== null && (now - (p.boundAt || 0)) < POD_START_MS) return true;
-  }
-  return false;
-}
-
-// Lightweight per-tick update: advance Pod phases (ContainerCreating→Running) and
-// Node-instance readiness (NotReady→Ready) on the EXISTING DOM. Pods do NOT move
-// between containers when only their phase changes, so this must NOT rebuild bins
-// or run the FLIP machinery (doing that every tick churns clones and hides chips).
-function refreshPhases(){
-  const now = Date.now();
-  syncPodLifecycle(now);
-  ensureInstanceReadiness(now);
-  // queued pods → Pending / Unschedulable
-  for(const p of S.pods){
-    if(p.location !== null) continue;
-    const el = podEls.get(p.id);
-    if(el) refreshPodEl(el, p, p.terminatingAt ? 'Terminating' : (unschedulableInfo(p) ? 'Unschedulable' : 'Pending'), now);
-  }
-  // scheduled pods → ContainerCreating / Running, by their live instance bin
-  for(const n of S.nodes){
-    const ref = nodeRefs.get(n.id);
-    if(!ref) continue;
-    const bins = ref.instancesEl.children;
-    for(let k = 0; k < bins.length; k++){
-      const bin = bins[k];
-      const ready = instanceReady(n, k, now);
-      bin.classList.toggle('provisioning', !ready);
-      let boot = bin.querySelector('.iboot');
-      if(!ready && !boot){
-        boot = document.createElement('span');
-        boot.className = 'iboot';
-        boot.innerHTML = `<span class="spin"></span>NotReady`;
-        bin.insertBefore(boot, bin.firstChild);
-      } else if(ready && boot){
-        boot.remove();
-      }
-      for(const el of bin.querySelectorAll('.pod[data-pod-id]')){
-        const p = S.pods.find(x => x.id === el.dataset.podId);
-        if(!p) continue;
-        const started = (now - (p.boundAt || now)) >= POD_START_MS;
-        refreshPodEl(el, p, p.terminatingAt ? 'Terminating' : ((ready && started) ? 'Running' : 'ContainerCreating'), now);
-      }
-    }
-  }
-  updateUsages();
-}
-
-// ---------- Control loop (scale-to-zero + auto scheduler) ----------
-let scaleTimer = null;
-let wasTransitioning = false;
-function pumpControlLoop(){
-  if(window._dragPodId) return;   // don't move things while the user is dragging
-  const now = Date.now();
-  let dirty = false;
-
-  // Graceful termination: drop pods whose grace period elapsed first, so the usage /
-  // instance sizing below already reflects the smaller replica count. Structural change.
-  if(reapTerminatedPods(now)) dirty = true;
-
-  // Scale-to-zero: a node with NO demand (empty AND no pending pod fits its group) for
-  // SCALE_TO_ZERO_MS goes inactive — like a cluster autoscaler scaling a node down.
-  for(const n of S.nodes){
-    if(!nodeHasDemand(n)){
-      if(!S.nodeIdleSince[n.id]) S.nodeIdleSince[n.id] = now;
-      const nowInactive = (now - S.nodeIdleSince[n.id]) >= SCALE_TO_ZERO_MS;
-      if(!!S.nodeInactive[n.id] !== nowInactive){
-        S.nodeInactive[n.id] = nowInactive;
-        dirty = true;
-      }
-    } else {
-      if(S.nodeIdleSince[n.id]){ delete S.nodeIdleSince[n.id]; dirty = true; }
-      if(S.nodeInactive[n.id]){ delete S.nodeInactive[n.id]; dirty = true; }
-    }
-  }
-
-  // kube-scheduler: bind pending Pods to instances that are ALREADY Ready. With the
-  // auto-scheduler OFF the user plays scheduler by hand, but a click/drag only records a
-  // bindIntent — bindIntendedPods() commits it the moment a Ready instance can host it, so
-  // a Pod never lands on an instance that is still booting.
-  if(S.autoScheduler){
-    const before = S.pods.filter(p => p.location === null && !p.terminatingAt).length;
-    scheduleAllFit();
-    if(S.pods.filter(p => p.location === null && !p.terminatingAt).length !== before) dirty = true;
-  } else if(bindIntendedPods(now)){
-    dirty = true;
-  }
-  // cluster-autoscaler runs INDEPENDENTLY of the scheduler (as in a real cluster): it always
-  // reacts to Pending Pods — booting new instances where the running ones are full (up to máx
-  // réplicas) or releasing empty ones. Pods that triggered a scale-out keep waiting Pending
-  // until their new instance finishes booting (Ready), then get bound.
-  if(reconcileAutoscaler(now)) dirty = true;
-  // Lifecycle bookkeeping: stamp newly-bound pods so their ContainerCreating clock starts.
-  syncPodLifecycle(now);
-  // Keep re-rendering while anything is mid-transition (ContainerCreating / NotReady)
-  // and for ONE extra tick after it settles, so the final Running/Ready frame paints.
-  const transitioning = hasPendingTransitions(now);
-
-  // Structural changes (pods placed/evicted, nodes powering on/off) need the full
-  // FLIP relayout; pure phase/readiness ticks use the lightweight in-place refresh.
-  if(dirty) placePods();                                   // move chips + refresh phases/usages
-  else if(transitioning || wasTransitioning) refreshPhases();   // tick phases without churn
-  else updateUsages();     // otherwise still tick the "escalando a 0 en Ns…" countdown live
-  wasTransitioning = transitioning;
-}
-
-function startScaleTimer(){
-  if(scaleTimer) clearInterval(scaleTimer);
-  scaleTimer = setInterval(pumpControlLoop, 500);
-}
-
-// ---------- Auto-scheduler ----------
 function scheduleAllFit(){
-  // try to schedule all queued pods (terminating pods are draining — never place them)
-  const queued = S.pods.filter(p => p.location === null && !p.terminatingAt);
+  // Place the remaining demand into the reserved capacity.
+  const queued = S.pods.filter(p => p.location === null);
   let progress = true;
   while(progress){
     progress = false;
@@ -1192,33 +571,16 @@ function scheduleAllFit(){
       if(p.location !== null) continue;
       const n = findBestNode(p);
       if(n){
-        p.location = n.id; p.bindIntent = null;
+        p.location = n.id;
         progress = true;
       }
     }
   }
 }
 
-function autoIfEnabled(){
-  if(S.autoScheduler) scheduleAllFit();
-}
-
-// A toleration edit can both free a pod for a tainted node and force a NoExecute
-// eviction elsewhere — re-evaluate both, then do a structural refresh.
-function tolerationsChanged(){
-  S.nodes.forEach(n => evictForTaints(n));
-  autoIfEnabled();
-  reconcile();
-}
-
-// ---------- Render ----------
 const $ = sel => document.querySelector(sel);
-const $$ = sel => Array.from(document.querySelectorAll(sel));
 
-// Persistent DOM so pods can be MOVED (and FLIP-animated) instead of recreated.
-const podEls = new Map();   // pod.id  -> .pod element (created once, reused)
-const nodeRefs = new Map(); // node.id -> { card, usageEl, instancesEl }
-let queuePlaceholder = null;
+const $$ = sel => Array.from(document.querySelectorAll(sel));
 
 function queueSort(a, b){
   const ta = getType(a.typeId).name, tb = getType(b.typeId).name;
@@ -1226,57 +588,6 @@ function queueSort(a, b){
   return a.index - b.index;
 }
 
-// Get (or lazily create) the persistent chip for a pod.
-function getPodEl(pod){
-  let el = podEls.get(pod.id);
-  if(!el){
-    el = makePodEl(pod);
-    el.classList.add('pod-enter');                 // gentle entrance, only on first creation
-    el.addEventListener('animationend', () => el.classList.remove('pod-enter'), { once:true });
-    podEls.set(pod.id, el);
-  }
-  return el;
-}
-
-// Refresh a chip's label/colour/phase in place (cheap, no reflow churn).
-// phase ∈ {Pending, Unschedulable, ContainerCreating, Running} — drives the status
-// dot/spinner + styling via CSS classes, mirroring `kubectl get pods` states.
-function refreshPodEl(el, pod, phase, now){
-  const t = getType(pod.typeId);
-  const label = `${escapeHtml(t.name)}-${pod.index}`;
-  if(el._label !== label){ el.querySelector('.pod-name').textContent = label; el._label = label; }
-  if(el._color !== t.color){ el.style.backgroundColor = t.color; el._color = t.color; }
-  // Height encodes the CPU request: a req-4 pod is twice as tall as a req-2 one.
-  const h = Math.max(1, t.request) * CPU_UNIT;
-  if(el._h !== h){ el.style.height = h + 'px'; el._h = h; }
-
-  // The right-hand caption shows the live phase for scheduled pods, else the request.
-  let cap;
-  if(phase === 'Running')                 cap = 'Running';
-  else if(phase === 'ContainerCreating')  cap = 'ContainerCreating';
-  else if(phase === 'Terminating')        cap = 'Terminating';
-  else                                    cap = 'Pending';   // queued / Unschedulable — kubectl STATUS is Pending
-  if(el._cap !== cap){ el.querySelector('.req').textContent = cap; el._cap = cap; }
-
-  if(el._phase !== phase){
-    el.classList.toggle('creating', phase === 'ContainerCreating');
-    el.classList.toggle('running',  phase === 'Running');
-    el.classList.toggle('pending',  phase === 'Pending');
-    el.classList.toggle('unschedulable', phase === 'Unschedulable');
-    el.classList.toggle('terminating', phase === 'Terminating');
-    el._phase = phase;
-  }
-  if(phase === 'Running')                 el.title = `${label} · Running · click para devolver a la cola · arrastra a otro nodo`;
-  else if(phase === 'ContainerCreating')  el.title = `${label} · ContainerCreating · arrancando contenedor…`;
-  else if(phase === 'Terminating')        el.title = `${label} · Terminating · SIGTERM enviado, drenando durante el grace period…`;
-  else if(phase === 'Unschedulable')      el.title = unschedulableInfo(pod) || `${label} · Pending`;
-  else                                    el.title = `${label} · Pending · click para auto-programar · arrastra a un nodo`;
-}
-
-// Pack a node's located pods into instance bins (node scale-out) of `capacity`
-// CPU each. First-fit: fill the running instance before opening a new one below.
-// Each instance is a single vertical column; pods stack gap-free so the bin tiles
-// exactly (e.g. capacity 6 = three request-2 pods filling 180px with no leftover).
 function packNode(n){
   const cap = n.capacity;
   const pods = S.pods.filter(p => p.location === n.id).sort(queueSort);
@@ -1291,1342 +602,747 @@ function packNode(n){
   return instances;
 }
 
-// Move every pod chip into its correct container with a FLIP glide.
-// Pass pre-captured rects when the caller already measured (e.g. reconcile()).
-function placePods(firstRects){
-  if(!firstRects) firstRects = capturePodRects();
-  const now = Date.now();
-  syncPodLifecycle(now);     // stamp newly-bound pods before we compute their phase
-  ensureInstanceReadiness(now);   // every rendered (occupied) instance has a boot state
+const PAINT_SCALE = 8;
 
-  // drop chips whose pod no longer exists
-  const live = new Set(S.pods.map(p => p.id));
-  for(const [id, el] of podEls){
-    if(!live.has(id)){ el.remove(); podEls.delete(id); }
-  }
+function commitHourly(){reconcile();}
 
-  // queued pods (sorted) go into #queue
-  const q = $('#queue');
-  if(queuePlaceholder && queuePlaceholder.parentNode) queuePlaceholder.remove();
-  const queued = S.pods.filter(p => p.location === null).sort(queueSort);
-  for(const p of queued){
-    const el = getPodEl(p);
-    // queued pods are Pending (yellow ! badge if nothing can host them); a queued pod
-    // that was just scaled away shows Terminating until it's reaped.
-    refreshPodEl(el, p, p.terminatingAt ? 'Terminating' : (unschedulableInfo(p) ? 'Unschedulable' : 'Pending'), now);
-    q.appendChild(el);                 // appendChild MOVES the node if already in the DOM
-  }
-  if(queued.length === 0){
-    if(!queuePlaceholder){
-      queuePlaceholder = document.createElement('div');
-      queuePlaceholder.className = 'queue-empty';
-      queuePlaceholder.textContent = 'Cola vacía. Todos los Pods deseados están programados o no hay réplicas para hoy.';
-    }
-    q.appendChild(queuePlaceholder);
-  }
+function setDay(day){S.day=((day%7)+7)%7;reconcile();}
 
-  // scheduled pods go into their node's instance bins (one bin per running instance).
-  // Each bin is EXACTLY capacity×CPU_UNIT tall and pods stack gap-free inside it, so a
-  // full instance tiles the box with no leftover space — the node body IS a grid.
-  for(const n of S.nodes){
-    const ref = nodeRefs.get(n.id);
-    if(!ref) continue;
-    let instances = packNode(n);
-    const inactive = !!S.nodeInactive[n.id] && usage(n.id) === 0 && !nodeHasDemand(n);
-    // Show every PROVISIONED instance, not just the occupied ones: a powered-on node
-    // keeps ≥1 open instance, and any instance the autoscaler is booting for queued
-    // Pods appears here empty + NotReady while those Pods wait in the queue.
-    if(!inactive){
-      const provisioned = activeInstanceCount(n);
-      while(instances.length < provisioned) instances.push({ used:0, pods:[] });
-    }
-    // Rebuild the bin scaffolding, but keep the persistent chips ATTACHED throughout:
-    // append each new (empty) bin to the live container FIRST, then move chips from
-    // their old in-document bin into the new one. Moving a node between two in-document
-    // parents doesn't restart its CSS animation, so the entrance effect only fires for
-    // genuinely new chips. Old (now-empty) scaffolding is removed afterwards.
-    const oldBins = Array.from(ref.instancesEl.children);
-    const multi = instances.length > 1;
-    const binH = n.capacity * CPU_UNIT;
-    instances.forEach((inst, k) => {
-      const bin = document.createElement('div');
-      bin.className = 'node-instance';
-      bin.style.height = binH + 'px';                // exact capacity×CPU_UNIT box
-      ref.instancesEl.appendChild(bin);              // attach before moving chips in
-      // A just-provisioned instance is NotReady for a few seconds: striped amber box
-      // with a spinner badge; the pods inside it stay ContainerCreating until it's up.
-      const ready = instanceReady(n, k, now);
-      bin.classList.toggle('provisioning', !ready);
-      if(!ready){
-        const boot = document.createElement('span');
-        boot.className = 'iboot';
-        boot.innerHTML = `<span class="spin"></span>NotReady`;
-        bin.appendChild(boot);
-      }
-      if(multi){
-        const lab = document.createElement('span');
-        lab.className = 'ilabel';
-        lab.textContent = `#${k + 1}`;
-        bin.appendChild(lab);
-      }
-      for(const p of inst.pods){
-        // Running only once the container start delay elapsed AND its node is Ready.
-        const started = (now - (p.boundAt || now)) >= POD_START_MS;
-        const phase = p.terminatingAt ? 'Terminating' : ((ready && started) ? 'Running' : 'ContainerCreating');
-        const el = getPodEl(p); refreshPodEl(el, p, phase, now);
-        bin.appendChild(el);                         // in-document → in-document move (no anim restart)
-      }
-    });
-    oldBins.forEach(b => b.remove());                // drop the emptied-out old scaffolding
-  }
+function setTimeSlot(slot){slot=((slot%168)+168)%168;S.day=Math.floor(slot/24);S.hour=slot%24;reconcile();}
 
-  updateUsages();
-  playFlip(firstRects);
-}
-
-// In-place refresh of every node's usage line + scale-to-zero styling (no rebuild).
-// Three states, like a cluster autoscaler:
-//   active            → running/ready, shows used/capacity
-//   cooldown          → no demand, counting down before scaling to zero
-//   off (inactive)    → scaled to zero, node powered off
-function updateUsages(){
-  const now = Date.now();
-  for(const n of S.nodes){
-    const ref = nodeRefs.get(n.id);
-    if(!ref) continue;
-    const u = usage(n.id);
-    const demand = nodeHasDemand(n);
-    // demand-aware: a node powers back on the instant something needs it,
-    // without waiting for the next control-loop tick to clear the flag.
-    const inactive = !!S.nodeInactive[n.id] && u === 0 && !demand;
-    ref.card.classList.toggle('inactive', inactive);
-
-    if(inactive){
-      ref.usageEl.className = 'usage off';
-      ref.usageEl.innerHTML = `<span class="pwr">⏻</span> escalado a 0 · sin demanda · cap ${n.capacity}`;
-      continue;
-    }
-    const active = activeInstanceCount(n);
-    const ready = readyInstanceCount(n, now);
-    // Provisioning: at least one needed instance is still booting (NotReady).
-    if(ready < active){
-      const booting = active - ready;
-      ref.usageEl.className = 'usage prov';
-      ref.usageEl.innerHTML = `<span class="dot"></span> provisionando ${booting} ` +
-        `réplica${booting>1?'s':''}… · ${ready}/${active} lista${ready===1?'':'s'} (NotReady)`;
-      continue;
-    }
-    if(u === 0 && !demand){
-      const since = S.nodeIdleSince[n.id];
-      const remain = since ? Math.max(0, Math.ceil((SCALE_TO_ZERO_MS - (now - since)) / 1000))
-                           : Math.ceil(SCALE_TO_ZERO_MS / 1000);
-      ref.usageEl.className = 'usage cooldown';
-      ref.usageEl.innerHTML = `<span class="dot"></span> sin demanda · escalando a 0 en ${remain}s…`;
-      continue;
-    }
-    const prov = active * n.capacity;          // CPU currently provisioned across running instances
-    const ratio = prov ? u / prov : 0;
-    ref.usageEl.className = 'usage ' + (ratio>=1?'full':(ratio>=0.7?'warn':''));
-    const repTxt = active === 1 ? '1 réplica' : `${active} réplicas`;
-    const atMax = active >= maxReplicas(n) ? ` · máx ${maxReplicas(n)}` : '';
-    ref.usageEl.innerHTML = `<span class="dot"></span> activo · ${repTxt} · usado ${u}/${prov}${atMax}`;
-  }
-}
-
-// Why can't this queued pod be scheduled on ANY node? (kubectl-style reason)
-// Returns null when it can be placed now (possibly by scaling a node back up).
-function unschedulableInfo(pod){
-  if(S.nodes.length === 0) return 'Pending · no hay nodos en el clúster';
-  if(findBestNode(pod)) return null;                            // a Ready instance fits it now
-  if(S.nodes.some(n => canScaleOutFor(pod, n))) return null;    // autoscaler is scaling out → Pending, not Unschedulable
-  const t = getType(pod.typeId);
-  let untolerated = 0, atMax = 0, tooBig = 0;
-  for(const n of S.nodes){
-    if(!tolerates(pod, n)){ untolerated++; continue; }
-    if(t.request > n.capacity){ tooBig++; continue; }   // bigger than a single instance — never fits
-    atMax++;                                            // tolerated & fits an instance, but group at máx réplicas
-  }
-  const parts = [];
-  if(untolerated)  parts.push(`${untolerated} con taint no tolerado`);
-  if(atMax)        parts.push(`${atMax} al máximo de réplicas`);
-  if(tooBig)       parts.push(`${tooBig} con capacidad insuficiente`);
-  return `Pending · 0/${S.nodes.length} nodos disponibles: ${parts.join(', ')}`;
-}
-
-function updateAutoBtn(){
-  const autoBtn = $('#autoBtn');
-  autoBtn.classList.toggle('on', S.autoScheduler);
-  autoBtn.classList.toggle('off', !S.autoScheduler);
-  autoBtn.textContent = 'Auto-scheduler: ' + (S.autoScheduler?'ON':'OFF');
-}
-
-function buildDaySelector(){
-  const seg = $('#daySeg');
-  if(seg){
-    seg.innerHTML = '';
-    for(let i=0;i<7;i++){
-      const el = document.createElement('div');
-      el.className = 'day' + (i===S.day?' active':'') + (i>=5?' weekend':'');
-      el.textContent = DAYS_SHORT[i];
-      el.title = DAYS_FULL[i];
-      el.addEventListener('click', () => setDay(i));
-      seg.appendChild(el);
-    }
-  }
-  // clock readout
-  const clock = $('#simClock');
-  if(clock){
-    clock.classList.toggle('wknd', S.day >= 5);
-    clock.innerHTML = `${DAYS_SHORT[S.day]} <span class="slot">${String(S.hour).padStart(2,'0')}:00</span>`;
-  }
-  // week scrubber position (don't fight the user while they drag it)
-  const scrub = $('#weekScrub');
-  if(scrub && document.activeElement !== scrub) scrub.value = weekSlot();
-  // desired-replicas readout for the current (day, hour)
-  const dc = $('#dayCurrent');
-  if(dc){
-    const parts = S.podTypes.map(t => `${t.name}: ${desiredReplicas(t)}`).join('  ·  ');
-    dc.innerHTML = `<span class="sub" style="margin-top:0">réplicas deseadas ahora → ${parts || '—'}</span>`;
-  }
-}
-
-// ---------- FLIP animation: pods physically glide between queue and nodes ----------
-// The real chip already sits at its destination; we fly a CLONE in #flyLayer (a
-// fixed, top-most, non-clipping layer) from the old position to the new one, so the
-// movement is always rendered above every column/section and never hidden behind them.
-function getFlyLayer(){
-  let layer = document.getElementById('flyLayer');
-  if(!layer){
-    layer = document.createElement('div');
-    layer.id = 'flyLayer';
-    document.body.appendChild(layer);
-  }
-  return layer;
-}
-function capturePodRects(){
-  const map = new Map();
-  document.querySelectorAll('.pod[data-pod-id]').forEach(el => {
-    map.set(el.dataset.podId, el.getBoundingClientRect());
-  });
-  return map;
-}
-function playFlip(firstRects){
-  const layer = getFlyLayer();
-  document.querySelectorAll('.pod[data-pod-id]').forEach(el => {
-    const first = firstRects.get(el.dataset.podId);
-    if(!first) return;                       // brand-new pod -> CSS entrance, no flight
-    const last = el.getBoundingClientRect();
-    const dx = first.left - last.left;
-    const dy = first.top - last.top;
-    if(Math.abs(dx) < 1 && Math.abs(dy) < 1 &&
-       Math.abs(first.width - last.width) < 1) return;   // didn't really move
-
-    // If this chip is already mid-flight (destination changed quickly), drop the old
-    // clone but keep the chip hidden — the new flight below takes over its visibility.
-    if(el._flyClone){ el._flyClone.remove(); el._flyClone = null; }
-
-    // Build a floating clone that starts where the chip used to be (old pos + old size)
-    const clone = el.cloneNode(true);
-    clone.classList.add('pod-fly');
-    clone.classList.remove('pod-enter','dragging','unschedulable');
-    clone.removeAttribute('data-pod-id');
-    clone.style.left = last.left + 'px';
-    clone.style.top = last.top + 'px';
-    clone.style.width = first.width + 'px';
-    clone.style.height = first.height + 'px';
-    clone.style.transition = 'none';
-    clone.style.transform = `translate(${dx}px, ${dy}px)`;
-    layer.appendChild(clone);
-    el._flyClone = clone;
-    el.style.visibility = 'hidden';          // hide the real chip until the clone lands
-    void clone.offsetWidth;                  // force reflow so the invert sticks
-
-    // Cleanup is scheduled OUTSIDE requestAnimationFrame: rAF can be throttled or
-    // never fire (backgrounded tab / headless preview), and we must NEVER leave the
-    // real chip stuck invisible. The timer guarantees visibility is always restored.
-    let done = false;
-    const finish = () => {
-      if(done) return; done = true;
-      if(el._flyClone === clone){            // only the latest flight controls the chip
-        el._flyClone = null;
-        el.style.visibility = '';
-      }
-      clone.remove();
-    };
-    const safety = setTimeout(finish, 620);  // hard guarantee, independent of rAF
-    clone.addEventListener('transitionend', e => {
-      if(e.propertyName === 'transform'){ clearTimeout(safety); finish(); }
-    });
-
-    requestAnimationFrame(() => {
-      const t = 'transform .45s cubic-bezier(.22,.7,.18,1), width .45s ease, height .45s ease';
-      clone.style.transition = t;
-      clone.style.transform = 'translate(0,0)';
-      clone.style.width = last.width + 'px';   // morph to the destination size too
-      clone.style.height = last.height + 'px';
-    });
-  });
-}
-
-function renderSubtitle(){
-  const taintedNode = S.nodes.find(n => n.taints.some(t => t.effect !== 'PreferNoSchedule'));
-  const dayName = DAYS_FULL[S.day];
-  const sub = document.getElementById('subtitle');
-  if(taintedNode){
-    const tnt = taintedNode.taints.find(t => t.effect !== 'PreferNoSchedule');
-    sub.innerHTML = `<b>${dayName} · ${String(S.hour).padStart(2,'0')}:00</b>. KEDA fija las réplicas por hora del día (▶ simula la semana). El taint ` +
-      `<span class="em">${escapeHtml(tnt.key)}=${escapeHtml(tnt.value)}:${tnt.effect}</span> de ` +
-      `<b>${escapeHtml(taintedNode.name)}</b> repele los Pods que no lo toleran (sólo <span class="em">gpu-job</span> lo tolera). ` +
-      `Por la noche y el fin de semana la demanda baja, los nodos se quedan sin carga y escalan a 0 → menos coste.`;
-  } else {
-    sub.innerHTML = `<b>${dayName} · ${String(S.hour).padStart(2,'0')}:00</b>. KEDA fija las réplicas por hora del día (▶ simula la semana). ` +
-      `Programa los Pods en los nodos; un nodo sin demanda escala a 0 tras unos segundos.`;
-  }
-}
-
-// Per-pod-type hourly KEDA editor: a 24-bar drag-to-paint curve for the SELECTED day.
-// Bars = hours 0–23; height ∝ desired replicas; the current hour is highlighted. Quick-fills
-// copy the day's profile to the whole week / weekdays / weekend.
-const PAINT_SCALE = 8;              // bar full height = this many replicas (paintable ceiling)
-function makeHourlyEditor(t){
-  ensureHourly(t);
-  const wrap = document.createElement('div'); wrap.className = 'hourly';
-  const head = document.createElement('div'); head.className = 'hourly-head';
-  head.innerHTML = `<span>réplicas/hora · <b>${DAYS_FULL[S.day]}</b></span><span>arrastra ↕ para pintar</span>`;
-  wrap.appendChild(head);
-
-  const bars = document.createElement('div'); bars.className = 'hourly-bars';
-  let scale = Math.max(PAINT_SCALE, ...t.hourly.flat());
-  for(let h=0; h<24; h++){
-    const col = document.createElement('div');
-    col.className = 'hbar ' + (h>=8 && h<20 ? 'day' : 'night') + (h===S.hour ? ' now' : '');
-    const fill = document.createElement('div'); fill.className='hbar-fill'; fill.style.background = t.color;
-    col.appendChild(fill);
-    bars.appendChild(col);
-  }
-  const drawBar = h => {
-    const v = t.hourly[S.day][h];
-    bars.children[h].firstChild.style.height = (scale ? Math.min(100, v/scale*100) : 0) + '%';
-    bars.children[h].title = `${fmtClock(S.day,h)} → ${v} réplicas`;
-  };
-  const redraw = () => { scale = Math.max(PAINT_SCALE, ...t.hourly.flat()); for(let h=0;h<24;h++) drawBar(h); };
-  redraw();
-  wrap.appendChild(bars);
-
-  const tip = document.createElement('div'); tip.className='hourly-tip';
-  let painting = false;
-  const apply = e => {
-    const r = bars.getBoundingClientRect();
-    const h = Math.max(0, Math.min(23, Math.floor((e.clientX - r.left) / r.width * 24)));
-    const v = Math.max(0, Math.min(scale, Math.round((1 - (e.clientY - r.top) / r.height) * scale)));
-    if(t.hourly[S.day][h] !== v){ t.hourly[S.day][h] = v; drawBar(h); }
-    tip.textContent = `${fmtClock(S.day,h)} → ${t.hourly[S.day][h]} réplicas`;
-  };
-  bars.addEventListener('pointerdown', e => { painting = true; try{ bars.setPointerCapture(e.pointerId); }catch(_){} apply(e); });
-  bars.addEventListener('pointermove', e => { if(painting) apply(e); });
-  const stop = () => { if(painting){ painting = false; commitHourly(); } };
-  bars.addEventListener('pointerup', stop);
-  bars.addEventListener('pointercancel', stop);
-
-  const qf = document.createElement('div'); qf.className='hourly-qf';
-  const mk = (label, title, fn) => {
-    const b = document.createElement('button'); b.className='mini'; b.textContent = label; b.title = title;
-    b.addEventListener('click', () => { fn(); commitHourly(); });
-    return b;
-  };
-  qf.appendChild(mk('▦ semana', 'copiar el perfil de este día a los 7 días', () => { for(let d=0;d<7;d++) if(d!==S.day) t.hourly[d] = t.hourly[S.day].slice(); }));
-  qf.appendChild(mk('L–V', 'copiar a lunes–viernes', () => { for(let d=0;d<5;d++) if(d!==S.day) t.hourly[d] = t.hourly[S.day].slice(); }));
-  qf.appendChild(mk('S–D', 'copiar a sábado y domingo', () => { for(let d=5;d<7;d++) if(d!==S.day) t.hourly[d] = t.hourly[S.day].slice(); }));
-  qf.appendChild(mk('cero', 'poner a 0 todas las horas de este día', () => { t.hourly[S.day] = new Array(24).fill(0); }));
-  wrap.appendChild(qf);
-  wrap.appendChild(tip);
-  return wrap;
-}
-// A painted curve changes desired replicas → resync pods and do a structural refresh.
-function commitHourly(){
-  syncPodsToReplicas();
-  autoIfEnabled();
-  reconcile();
-}
-
-function renderPodTypes(){
-  const cont = $('#podTypesList');
-  cont.innerHTML = '';
-  for(const t of S.podTypes){
-    const card = document.createElement('div');
-    card.className = 'pod-card' + (t.collapsed ? ' collapsed' : '');
-    card.dataset.typeId = t.id;
-    const want = desiredReplicas(t);
-
-    const head = document.createElement('div');
-    head.className = 'row';
-    head.innerHTML = `
-      <button class="card-toggle" title="expandir / colapsar">${t.collapsed ? '▸' : '▾'}</button>
-      <span class="badge-color" style="background:${t.color}" title="cambiar color"></span>
-      <input class="name-input" value="${escapeAttr(t.name)}" />
-      <button class="close-x" title="eliminar tipo">✕</button>
-    `;
-    head.querySelector('.badge-color').addEventListener('click', () => cycleColor(t));
-    const nameInput = head.querySelector('.name-input');
-    nameInput.addEventListener('input', e => {           // typing: model only → keep focus, no flicker
-      t.name = e.target.value;
-      placePods();                                       // live-update chip labels without rebuilding cards
-    });
-    nameInput.addEventListener('change', e => {          // blur/enter: normalise + full refresh
-      t.name = e.target.value.trim() || 'pod';
-      reconcile();
-    });
-    head.querySelector('.close-x').addEventListener('click', () => {
-      S.podTypes = S.podTypes.filter(x => x.id !== t.id);
-      S.pods = S.pods.filter(p => p.typeId !== t.id);
-      reconcile();
-    });
-    head.querySelector('.card-toggle').addEventListener('click', () => {
-      t.collapsed = !t.collapsed;
-      card.classList.toggle('collapsed', t.collapsed);
-      head.querySelector('.card-toggle').textContent = t.collapsed ? '▸' : '▾';
-      updateCollapseAllBtns();
-    });
-    card.appendChild(head);
-
-    // collapsed-only compact status (the indispensable info)
-    const mini = document.createElement('div'); mini.className = 'card-mini';
-    mini.innerHTML = `<span class="mini-n">${want}</span> réplicas · req ${t.request} · ` +
-      `<span class="pill">${t.kedaEnabled ? 'KEDA' : 'manual'}</span>`;
-    card.appendChild(mini);
-
-    const r1 = document.createElement('div');
-    r1.className = 'row detail';
-    r1.innerHTML = `<span class="label">réplicas</span>`;
-    if(t.kedaEnabled){
-      const v = document.createElement('span'); v.className='label want'; v.style.fontWeight='700'; v.textContent = want;
-      const pill = document.createElement('span'); pill.className='pill'; pill.textContent = `auto · ${fmtClock(S.day,S.hour)}`;
-      r1.appendChild(v); r1.appendChild(pill);
-    } else {
-      const numRep = makeNum(t.replicas, 1, val => {
-        t.replicas = val; syncPodsToReplicas(); autoIfEnabled(); reconcile();
-      }, {min:0, step:1});
-      r1.appendChild(numRep);
-      const man = document.createElement('span'); man.className='small'; man.textContent='(manual)';
-      r1.appendChild(man);
-    }
-    card.appendChild(r1);
-
-    const r2 = document.createElement('div');
-    r2.className = 'row detail';
-    r2.innerHTML = `<span class="label">request</span>`;
-    const numReq = makeNum(t.request, 2, v => {
-      t.request = v; enforceNodeCapacity(); autoIfEnabled(); reconcile();
-    }, {min:2, step:2});
-    r2.appendChild(numReq);
-    const m = document.createElement('span'); m.className='small'; m.textContent='(múlt. 2)';
-    r2.appendChild(m);
-    card.appendChild(r2);
-
-    const r3 = document.createElement('label');
-    r3.className = 'check detail';
-    r3.innerHTML = `<input type="checkbox" ${t.kedaEnabled?'checked':''}/> escalado KEDA por día`;
-    r3.querySelector('input').addEventListener('change', e => {
-      t.kedaEnabled = e.target.checked;
-      syncPodsToReplicas();
-      autoIfEnabled();
-      reconcile();
-    });
-    card.appendChild(r3);
-
-    if(t.kedaEnabled){
-      const he = makeHourlyEditor(t); he.classList.add('detail'); card.appendChild(he);
-    }
-
-    const tolHead = document.createElement('div');
-    tolHead.className = 'small-head detail';
-    tolHead.textContent = 'tolerations';
-    card.appendChild(tolHead);
-
-    const tolBox = document.createElement('div'); tolBox.className='tolerations detail';
-    t.tolerations.forEach((tol, idx) => {
-      const row = document.createElement('div'); row.className='kv-row';
-      row.innerHTML = `
-        <input value="${escapeAttr(tol.key)}" placeholder="key" />
-        <input value="${escapeAttr(tol.value)}" placeholder="value" />
-        <select>
-          <option value="NoSchedule"${tol.effect==='NoSchedule'?' selected':''}>NoSchedule</option>
-          <option value="NoExecute"${tol.effect==='NoExecute'?' selected':''}>NoExecute</option>
-          <option value="PreferNoSchedule"${tol.effect==='PreferNoSchedule'?' selected':''}>PreferNoSchedule</option>
-          <option value=""${tol.effect===''?' selected':''}>(any)</option>
-        </select>
-        <button class="x" title="eliminar">✕</button>
-      `;
-      const [kIn, vIn, eSel] = row.querySelectorAll('input,select');
-      kIn.addEventListener('input', e => { tol.key = e.target.value; });      // typing: model only
-      vIn.addEventListener('input', e => { tol.value = e.target.value; });
-      kIn.addEventListener('change', () => tolerationsChanged());             // blur/enter: re-evaluate
-      vIn.addEventListener('change', () => tolerationsChanged());
-      eSel.addEventListener('change', e => { tol.effect = e.target.value; tolerationsChanged(); });
-      row.querySelector('.x').addEventListener('click', () => {
-        t.tolerations.splice(idx,1); tolerationsChanged();
-      });
-      tolBox.appendChild(row);
-    });
-    const addTol = document.createElement('button');
-    addTol.className = 'ghost-btn'; addTol.style.alignSelf='flex-start';
-    addTol.textContent = '+ toleration';
-    addTol.addEventListener('click', () => {
-      t.tolerations.push({key:'', value:'', effect:'NoSchedule'});
-      reconcile();
-    });
-    tolBox.appendChild(addTol);
-    card.appendChild(tolBox);
-
-    cont.appendChild(card);
-  }
-}
-
-function renderNodes(){
-  const cont = $('#nodesList');
-  cont.innerHTML = '';
-  nodeRefs.clear();                       // cards are recreated → rebuild the ref map
-  for(const n of S.nodes){
-    const card = document.createElement('div');
-    card.className = 'node-card' + (n.collapsed ? ' collapsed' : '');
-    card.dataset.nodeId = n.id;
-
-    // head — node name is inline-editable (like a pod type's name)
-    const head = document.createElement('div'); head.className='node-head';
-    head.innerHTML = `
-      <button class="card-toggle" title="expandir / colapsar">${n.collapsed ? '▸' : '▾'}</button>
-      <input class="name-input name" value="${escapeAttr(n.name)}" title="renombrar nodo" aria-label="nombre del nodo" spellcheck="false" />
-      <button class="close-x" title="eliminar nodo" style="margin-left:auto">✕</button>
-    `;
-    const nameInput = head.querySelector('.name-input');
-    nameInput.addEventListener('input', e => {           // typing: model only → keep focus, no flicker
-      n.name = e.target.value;
-      renderSubtitle();                                  // live-update subtitle if this is the tainted node
-    });
-    nameInput.addEventListener('change', e => {          // blur/enter: normalise + full refresh
-      n.name = e.target.value.trim() || `node-${S.nodes.indexOf(n) + 1}`;
-      reconcile();
-    });
-    head.querySelector('.close-x').addEventListener('click', () => {
-      S.pods.forEach(p => { if(p.location === n.id) p.location = null; });
-      S.nodes = S.nodes.filter(x => x.id !== n.id);
-      delete S.nodeIdleSince[n.id];
-      delete S.nodeInactive[n.id];
-      delete S.nodeReadyAt[n.id];
-      reconcile();
-    });
-    head.querySelector('.card-toggle').addEventListener('click', () => {
-      n.collapsed = !n.collapsed;
-      card.classList.toggle('collapsed', n.collapsed);
-      head.querySelector('.card-toggle').textContent = n.collapsed ? '▸' : '▾';
-      updateCollapseAllBtns();
-    });
-    card.appendChild(head);
-
-    // capacity
-    const capRow = document.createElement('div'); capRow.className='row detail';
-    capRow.innerHTML = `<span class="label">capacidad</span>`;
-    const numCap = makeNum(n.capacity, 2, v => {
-      n.capacity = Math.max(2, v);
-      enforceNodeCapacity();   // evict overflow if capacity was reduced
-      autoIfEnabled();         // place pending pods if capacity grew
-      reconcile();
-    }, {min:2, step:2});
-    capRow.appendChild(numCap);
-    const cm = document.createElement('span'); cm.className='small'; cm.textContent='(múlt. 2)';
-    capRow.appendChild(cm);
-    // max replicas (scale-out ceiling for this node group)
-    const mrLabel = document.createElement('span');
-    mrLabel.className='label'; mrLabel.textContent='máx réplicas'; mrLabel.style.marginLeft='4px';
-    capRow.appendChild(mrLabel);
-    const numMax = makeNum(maxReplicas(n), 1, v => {
-      n.maxReplicas = Math.max(1, v);
-      enforceNodeCapacity();   // a lower ceiling may evict overflow
-      autoIfEnabled();         // a higher ceiling may admit pending pods
-      reconcile();
-    }, {min:1, step:1});
-    capRow.appendChild(numMax);
-    card.appendChild(capRow);
-
-    // hourly price (drives the cost report)
-    const priceRow = document.createElement('div'); priceRow.className = 'row detail';
-    priceRow.innerHTML = `<span class="label">precio</span>`;
-    const priceIn = document.createElement('input');
-    priceIn.className = 'price-in'; priceIn.type = 'number'; priceIn.min = '0'; priceIn.step = '0.05';
-    priceIn.value = (n.pricePerHour ?? 0.10);
-    priceIn.addEventListener('change', () => {
-      n.pricePerHour = Math.max(0, +priceIn.value || 0);
-      priceIn.value = n.pricePerHour;
-    });
-    priceRow.appendChild(priceIn);
-    const pu = document.createElement('span'); pu.className = 'small'; pu.textContent = CURRENCY + '/hora';
-    priceRow.appendChild(pu);
-    card.appendChild(priceRow);
-
-    // usage (text/state filled in place by updateUsages())
-    const usageEl = document.createElement('div'); usageEl.className='usage';
-    card.appendChild(usageEl);
-
-    // taints
-    const taintHead = document.createElement('div'); taintHead.className='small-head detail'; taintHead.textContent='taints';
-    card.appendChild(taintHead);
-    const taintBox = document.createElement('div'); taintBox.className='taints detail';
-    n.taints.forEach((tnt, idx) => {
-      const row = document.createElement('div'); row.className='kv-row';
-      row.innerHTML = `
-        <input value="${escapeAttr(tnt.key)}" placeholder="key" />
-        <input value="${escapeAttr(tnt.value)}" placeholder="value" />
-        <select>
-          <option value="NoSchedule"${tnt.effect==='NoSchedule'?' selected':''}>NoSchedule</option>
-          <option value="NoExecute"${tnt.effect==='NoExecute'?' selected':''}>NoExecute</option>
-          <option value="PreferNoSchedule"${tnt.effect==='PreferNoSchedule'?' selected':''}>PreferNoSchedule</option>
-        </select>
-        <button class="x" title="eliminar">✕</button>
-      `;
-      const [kIn, vIn, eSel] = row.querySelectorAll('input,select');
-      const applyTaint = () => { evictForTaints(n); autoIfEnabled(); reconcile(); };
-      kIn.addEventListener('input', e => { tnt.key = e.target.value; });    // typing: model only
-      vIn.addEventListener('input', e => { tnt.value = e.target.value; });
-      kIn.addEventListener('change', applyTaint);                           // blur/enter: apply
-      vIn.addEventListener('change', applyTaint);
-      eSel.addEventListener('change', e => { tnt.effect = e.target.value; applyTaint(); });
-      row.querySelector('.x').addEventListener('click', () => {
-        n.taints.splice(idx,1); applyTaint();
-      });
-      taintBox.appendChild(row);
-    });
-    const addTaint = document.createElement('button');
-    addTaint.className='ghost-btn'; addTaint.style.alignSelf='flex-start'; addTaint.textContent='+ taint';
-    addTaint.addEventListener('click', () => {
-      n.taints.push({key:'', value:'', effect:'NoSchedule'});
-      reconcile();
-    });
-    taintBox.appendChild(addTaint);
-    card.appendChild(taintBox);
-
-    // Instances container — left EMPTY; placePods() builds the bins and moves the
-    // persistent chips in. Each bin is one node instance, exactly capacity×CPU_UNIT
-    // tall; extra instances stack DOWNWARD as the node group scales out.
-    const binH = n.capacity * CPU_UNIT;       // matches one instance bin exactly
-    const instancesEl = document.createElement('div'); instancesEl.className='node-instances';
-    card.appendChild(instancesEl);
-
-    // shown (via CSS) only while the node is scaled to zero — same height as one
-    // instance bin so the card doesn't jump size when it powers off.
-    const off = document.createElement('div'); off.className='node-off';
-    off.style.minHeight = binH + 'px';
-    off.innerHTML = `<span class="pwr">⏻</span> Nodo apagado · 0 réplicas`;
-    card.appendChild(off);
-
-    nodeRefs.set(n.id, { card, usageEl, instancesEl });
-
-    // drop target events on the whole card
-    card.addEventListener('dragover', e => {
-      const id = window._dragPodId;
-      if(!id) return;
-      e.preventDefault();
-      const p = S.pods.find(x => x.id === id);
-      if(!p) return;
-      const ok = nodeFits(p, n) || (p.location === n.id);
-      card.classList.add(ok?'drop-target':'invalid-drop');
-    });
-    card.addEventListener('dragleave', () => {
-      card.classList.remove('drop-target','invalid-drop');
-    });
-    card.addEventListener('drop', e => {
-      e.preventDefault();
-      card.classList.remove('drop-target','invalid-drop');
-      const id = window._dragPodId;
-      const p = S.pods.find(x => x.id === id);
-      if(!p) return;
-      if(fitsInReadyInstances(p, n) && !S.nodeInactive[n.id]){
-        p.location = n.id; p.bindIntent = null;     // a Ready instance can host it right now
-        delete S.nodeIdleSince[n.id];
-        S.nodeInactive[n.id] = false;
-        placePods();                  // glide the chip into the node, refresh usage
-      } else if(nodeFits(p, n)){
-        // fits the group but every Ready instance is full → defer: the autoscaler boots a new
-        // instance on THIS node and bindIntendedPods binds the Pod once that instance is Ready.
-        p.bindIntent = n.id;
-        delete S.nodeIdleSince[n.id];
-        S.nodeInactive[n.id] = false;
-        placePods();
-      }
-    });
-
-    cont.appendChild(card);
-  }
-
-  // add node button (under list)
-  const add = document.createElement('div');
-  add.className='add-placeholder';
-  add.textContent='+ añadir nodo';
-  add.addEventListener('click', addNode);
-  cont.appendChild(add);
-}
-
-// A pod chip is created ONCE and then moved between #queue and node pod-areas
-// (that movement is what FLIP animates). Label/colour/state refresh in place.
-function makePodEl(pod){
-  const t = getType(pod.typeId);
-  const el = document.createElement('div');
-  el.className = 'pod';
-  el.draggable = true;
-  el.dataset.podId = pod.id;
-  el.innerHTML = `<span class="status" aria-hidden="true"></span><div class="pod-name">${escapeHtml(t.name)}-${pod.index}</div><div class="req">req ${t.request}</div>`;
-  el.addEventListener('dragstart', e => {
-    window._dragPodId = pod.id;
-    el.classList.add('dragging');
-    e.dataTransfer.setData('text/plain', pod.id);
-    e.dataTransfer.effectAllowed = 'move';
-  });
-  el.addEventListener('dragend', () => {
-    window._dragPodId = null;
-    el.classList.remove('dragging');
-  });
-  el.addEventListener('click', () => {
-    if(pod.location !== null){        // scheduled → back to the queue
-      pod.location = null; pod.bindIntent = null;
-    } else {                          // queued → bind now if a Ready instance fits…
-      const ready = findBestNode(pod);
-      if(ready){
-        pod.location = ready.id; pod.bindIntent = null;
-        delete S.nodeIdleSince[ready.id]; S.nodeInactive[ready.id] = false;
-      } else if(S.nodes.some(n => canScaleOutFor(pod, n))){
-        // …otherwise stay Pending: the cluster-autoscaler boots a new instance and
-        // bindIntendedPods commits the bind once it is Ready (never onto a booting node).
-        pod.bindIntent = 'auto';
-        S.nodes.forEach(n => { if(canScaleOutFor(pod, n)){ delete S.nodeIdleSince[n.id]; S.nodeInactive[n.id] = false; } });
-      }
-    }
-    placePods();
-  });
-  return el;
-}
-
-// queue accepts drops to "unschedule"
-function setupQueueDrop(){
-  const q = $('#queue');
-  q.addEventListener('dragover', e => {
-    if(window._dragPodId){ e.preventDefault(); q.style.outline='2px dashed var(--accent)'; }
-  });
-  q.addEventListener('dragleave', () => { q.style.outline=''; });
-  q.addEventListener('drop', e => {
-    e.preventDefault(); q.style.outline='';
-    const id = window._dragPodId;
-    const p = S.pods.find(x => x.id === id);
-    if(p){ p.location = null; p.bindIntent = null; }
-    placePods();
-  });
-}
-
-function makeNum(value, step, onChange, opts={}){
-  const min = opts.min ?? 0;
-  const wrap = document.createElement('span');
-  wrap.className = 'num';
-  wrap.innerHTML = `<button>−</button><span>${value}</span><button>+</button>`;
-  const [minus, , plus] = wrap.children;
-  const span = wrap.children[1];
-  minus.addEventListener('click', () => {
-    const v = Math.max(min, value - step);
-    if(v !== value){ value = v; span.textContent = v; onChange(v); }
-  });
-  plus.addEventListener('click', () => {
-    const v = value + step;
-    value = v; span.textContent = v; onChange(v);
-  });
-  return wrap;
-}
-
-// ---------- Actions ----------
-function setDay(i){
-  stopSim();
-  S.day = ((i % 7) + 7) % 7;
-  applyTimeChange();    // day changes replica counts + highlight → structural
-}
-
-// ---------- Week clock / play (simulate the whole week hour by hour) ----------
-// Advancing the clock is STABILITY-GATED: after each hour the sim pauses while the cluster
-// reconciles (Pods scheduling/ContainerCreating, instances booting, Pods terminating, idle
-// nodes scaling to 0) and only steps to the next hour once nothing will change anymore.
-// Hours with no change fly past; the clock dwells exactly on the scaling moments. A safety
-// cap stops a stuck state from hanging the loop forever.
-let simNextTimer = null, _timeRaf = 0, _settleStart = 0;
-const MAX_SETTLE_MS = 16000;
-// One structural refresh after the clock moves: new (day,hour) → new desired replicas.
-function applyTimeChange(){
-  syncPodsToReplicas();
-  autoIfEnabled();
-  reconcile();
-}
-function scheduleTimeChange(){            // coalesce rapid scrubber input into one rebuild/frame
-  if(_timeRaf) return;
-  _timeRaf = requestAnimationFrame(() => { _timeRaf = 0; applyTimeChange(); });
-}
-function setTimeSlot(slot, throttle){
-  slot = ((slot % HOURS_PER_WEEK) + HOURS_PER_WEEK) % HOURS_PER_WEEK;
-  S.day = Math.floor(slot / 24);
-  S.hour = slot % 24;
-  if(throttle) scheduleTimeChange(); else applyTimeChange();
-}
-// Is the cluster still reacting to the latest change (so the clock should stay paused)?
-function isSettling(now){
-  if(hasPendingTransitions(now)) return true;          // ContainerCreating / NotReady / Terminating
-  for(const p of S.pods){
-    if(p.location !== null || p.terminatingAt) continue;
-    if(p.bindIntent) return true;                        // a deferred bind is pending
-    if(S.autoScheduler && !unschedulableInfo(p)) return true;   // scheduler/autoscaler will still place it
-  }
-  for(const n of S.nodes){
-    if(S.nodeIdleSince[n.id] && !S.nodeInactive[n.id]) return true;   // node mid scale-to-zero countdown
-  }
-  return false;
-}
-function setSettling(on){ const c = $('#simClock'); if(c) c.classList.toggle('settling', !!on); }
-// Step to the next hour, then wait for the cluster to settle before stepping again.
-function simAdvance(){
-  if(!S.playing) return;
-  setTimeSlot(weekSlot() + 1, false);
-  _settleStart = Date.now();
-  simSettleThenNext();
-}
-function simSettleThenNext(){
-  if(!S.playing) return;
-  const stable = !isSettling(Date.now()) || (Date.now() - _settleStart > MAX_SETTLE_MS);
-  setSettling(!stable);
-  simNextTimer = setTimeout(stable ? simAdvance : simSettleThenNext, stable ? S.simHrMs : 180);
-}
-function startSim(){
-  if(simNextTimer){ clearTimeout(simNextTimer); simNextTimer = null; }
-  if(!S.autoScheduler){ S.autoScheduler = true; updateAutoBtn(); }   // let the scheduler run the week
-  autoIfEnabled();
-  S.playing = true; updatePlayBtn();
-  _settleStart = Date.now();
-  simSettleThenNext();        // settle the current state first, then start advancing
-}
-function stopSim(){
-  if(simNextTimer){ clearTimeout(simNextTimer); simNextTimer = null; }
-  setSettling(false);
-  if(S.playing){ S.playing = false; updatePlayBtn(); }
-}
-function togglePlay(){ S.playing ? stopSim() : startSim(); }
-function updatePlayBtn(){
-  const b = $('#playBtn'); if(!b) return;
-  b.textContent = S.playing ? '⏸' : '▶';
-  b.classList.toggle('playing', S.playing);
-  b.title = S.playing ? 'pausar' : 'reproducir la semana';
-}
-
-function addNode(){
-  // unique name even after deletions
-  let i = S.nodes.length + 1;
-  const names = new Set(S.nodes.map(n => n.name));
-  while(names.has(`node-${i}`)) i++;
-  S.nodes.push({ id: uid('n'), name: `node-${i}`, capacity: 4, maxReplicas: DEFAULT_MAX_REPLICAS, taints: [], pricePerHour: 0.10 });
-  autoIfEnabled();
-  reconcile();
-}
-
-function addPodType(){
-  const idx = S.podTypes.length;
-  const color = COLORS[idx % COLORS.length];
-  S.podTypes.push({
-    id: uid('t'),
-    name: `pod-${idx+1}`,
-    color, request:2, kedaEnabled:true, replicas:1,
-    replicasByDay:[1,1,1,1,1,0,0], hourly:buildHourly([1,1,1,1,1,0,0]),
-    tolerations:[]
-  });
-  syncPodsToReplicas();
-  autoIfEnabled();
-  reconcile();
-}
-
-function cycleColor(t){
-  const i = COLORS.indexOf(t.color);
-  t.color = COLORS[(i+1) % COLORS.length];
-  reconcile();
-}
-
-function escapeAttr(s){ return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
-function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-// ---------- Wiring ----------
-// ===================================================================
-//  Cost model — analytic, deterministic over the whole week (168 hourly
-//  slots). For each (day,hour) we project the desired replicas onto node
-//  instances exactly as the cluster-autoscaler would (tight bin-packing,
-//  respecting taints/tolerations, capacity and máx réplicas). Hours with no
-//  demand provision 0 instances (scale-to-zero) → 0 €. Cost = Σ instances ×
-//  €/hour. This does NOT depend on watching the sim run.
-// ===================================================================
 function money(v){ return CURRENCY + (Math.round((v||0) * 100) / 100).toFixed(2); }
 
-// Instances each node group runs to host the desired replicas at one (day,hour) slot.
+let weekCostCache = null;
+
 function planInstancesAt(day, hour){
-  const pods = [];
-  for(const t of S.podTypes){
-    const n = desiredReplicas(t, day, hour);
-    for(let i = 0; i < n; i++) pods.push({ tid: t.id, req: t.request });
+  S.day = day; S.hour = hour;
+  syncPodsToReplicas();
+  let previous = '';
+  for(let pass = 0; pass < S.pods.length + S.nodes.length + 3; pass++){
+    for(const n of S.nodes) S.nodeInactive[n.id] = !nodeHasDemand(n);
+    scheduleAllFit();
+    reconcileAutoscaler();
+    const current = JSON.stringify([S.pods.map(p => p.location), S.nodeReadyAt, S.nodeInactive]);
+    if(current === previous) break;
+    previous = current;
   }
-  pods.sort((a, b) => b.req - a.req);                 // first-fit-decreasing
-  const bins = {};
-  S.nodes.forEach(nd => bins[nd.id] = []);
-  for(const p of pods){
-    const eligible = S.nodes.filter(nd => tolerates({ typeId: p.tid }, nd) && p.req <= nd.capacity);
-    // tightest existing instance
-    let host = null, idx = -1, waste = Infinity;
-    for(const nd of eligible){
-      bins[nd.id].forEach((b, i) => {
-        if(b.used + p.req <= nd.capacity && (nd.capacity - b.used - p.req) < waste){
-          waste = nd.capacity - b.used - p.req; host = nd; idx = i;
-        }
-      });
-    }
-    if(host){ bins[host.id][idx].used += p.req; continue; }
-    // grow least-wasteful eligible group (≤ máx réplicas)
-    const grow = eligible
-      .filter(nd => bins[nd.id].length < maxReplicas(nd))
-      .sort((a, b) => (a.capacity - p.req) - (b.capacity - p.req)
-                   || bins[a.id].length - bins[b.id].length
-                   || S.nodes.indexOf(a) - S.nodes.indexOf(b))[0];
-    if(grow) bins[grow.id].push({ used: p.req });
-    // else: unschedulable this hour → no instance added
-  }
-  const counts = {};
-  S.nodes.forEach(nd => counts[nd.id] = bins[nd.id].length);
-  return counts;
+  return Object.fromEntries(S.nodes.map(n => [n.id, activeInstanceCount(n)]));
 }
 
 function computeWeekCost(){
-  const perNode = {}, perNodeIH = {};
-  S.nodes.forEach(nd => { perNode[nd.id] = 0; perNodeIH[nd.id] = 0; });
-  const perDay = new Array(7).fill(0);
-  let instanceHours = 0;
-  for(let d = 0; d < 7; d++){
-    for(let h = 0; h < 24; h++){
-      const counts = planInstancesAt(d, h);
-      for(const nd of S.nodes){
-        const c = counts[nd.id] || 0;
-        const cost = c * (nd.pricePerHour || 0);
-        perNode[nd.id] += cost; perNodeIH[nd.id] += c;
-        perDay[d] += cost; instanceHours += c;
+  const key = JSON.stringify([S.podTypes, S.nodes, S.scoringStrategy]);
+  if(weekCostCache?.key === key) return weekCostCache.value;
+  const live = S;
+  try{
+    S = { ...live, pods: [], nodeReadyAt: {}, nodeInactive: {} };
+    // Begin the weekly projection with one available instance per group.
+    S.nodes.forEach(n => { S.nodeReadyAt[n.id] = [0]; });
+    const perNode = {}, perNodeIH = {}, perNodeDayIH = {}, perNodeHourIH = {};
+    S.nodes.forEach(n => {
+      perNode[n.id] = 0; perNodeIH[n.id] = 0;
+      perNodeDayIH[n.id] = Array(7).fill(0);
+      perNodeHourIH[n.id] = Array(HOURS_PER_WEEK).fill(0);
+    });
+    const perDay = Array(7).fill(0), pendingPerHour = [];
+    const perNodeHourPods = Object.fromEntries(S.nodes.map(n=>[n.id,Array.from({length:HOURS_PER_WEEK},()=>({}))]));
+    const perNodeHourBins = Object.fromEntries(S.nodes.map(n=>[n.id,Array.from({length:HOURS_PER_WEEK},()=>[])]));
+    const pendingByType = Object.fromEntries(S.podTypes.map(t=>[t.id,Array(HOURS_PER_WEEK).fill(0)]));
+    const pendingReasonByType = Object.fromEntries(S.podTypes.map(t=>[t.id,
+      S.nodes.some(n=>maxReplicas(n)>0 && t.request<=n.capacity && tolerates({typeId:t.id},n)) ? 'capacity' : 'blocked'
+    ]));
+    let instanceHours = 0, requestedPodHours = 0, requestedCpuHours = 0, allocatedCpuHours = 0, peakCpu = 0, peakPods = 0;
+    for(let d = 0; d < 7; d++){
+      for(let h = 0; h < 24; h++){
+        const counts = planInstancesAt(d, h);
+        pendingPerHour.push(S.pods.filter(p => p.location === null).length);
+        const slot=d*24+h;
+        for(const pod of S.pods){
+          if(pod.location===null)pendingByType[pod.typeId][slot]++;
+          else {
+            const counts=perNodeHourPods[pod.location][slot];
+            counts[pod.typeId]=(counts[pod.typeId]||0)+1;
+          }
+        }
+        const requestedCpu = S.pods.reduce((sum, p) => sum + getType(p.typeId).request, 0);
+        requestedPodHours += S.pods.length; requestedCpuHours += requestedCpu;
+        peakCpu = Math.max(peakCpu, requestedCpu); peakPods = Math.max(peakPods, S.pods.length);
+        for(const n of S.nodes){
+          const count = counts[n.id];
+          perNodeHourBins[n.id][slot]=packNode(n).map(bin=>({used:bin.used,pods:bin.pods.map(p=>({typeId:p.typeId,index:p.index}))}));
+          const cost = count * (n.pricePerHour ?? 0.10);
+          perNode[n.id] += cost; perNodeIH[n.id] += count;
+          perNodeDayIH[n.id][d] += count;
+          perNodeHourIH[n.id][d * 24 + h] = count;
+          perDay[d] += cost; instanceHours += count; allocatedCpuHours += count * n.capacity;
+        }
       }
     }
-  }
-  const total = S.nodes.reduce((a, nd) => a + perNode[nd.id], 0);
-  return { perNode, perNodeIH, perDay, total, instanceHours };
+    const total = S.nodes.reduce((sum, n) => sum + perNode[n.id], 0);
+    const value = { perNodeHourBins, perNodeHourPods, pendingByType, pendingReasonByType, perNode, perNodeIH, perNodeDayIH, perNodeHourIH, perDay, total, instanceHours, pendingPerHour, requestedPodHours, requestedCpuHours, allocatedCpuHours, peakCpu, peakPods };
+    weekCostCache = { key, value };
+    return value;
+  } finally { S = live; }
 }
 
-// ---------- Modal helper ----------
-let _overlayEl = null;
-function _escClose(e){ if(e.key === 'Escape') closeModal(); }
-function closeModal(){
-  if(_overlayEl){ _overlayEl.remove(); _overlayEl = null; document.removeEventListener('keydown', _escClose); }
+function nodeCostForPeriod(forecast, nodeId){
+  const period = S.nodeCostPeriod;
+  let instanceHours, pending, label;
+  if(period === 'day'){
+    instanceHours = forecast.perNodeDayIH[nodeId][S.day];
+    pending = forecast.pendingPerHour.slice(S.day * 24, (S.day + 1) * 24).reduce((a,b) => a+b, 0);
+    label = DAYS_FULL[S.day];
+  } else if(period === 'week' || period === 'month'){
+    const factor = period === 'month' ? WEEKS_PER_MONTH : 1;
+    instanceHours = forecast.perNodeIH[nodeId] * factor;
+    pending = forecast.pendingPerHour.reduce((a,b) => a+b, 0) * factor;
+    label = period === 'month' ? 'mes estimado' : 'semana completa';
+  } else {
+    instanceHours = forecast.perNodeHourIH[nodeId][weekSlot()];
+    pending = forecast.pendingPerHour[weekSlot()];
+    label = fmtClock(S.day, S.hour);
+  }
+  return { instanceHours, total: instanceHours * (getNode(nodeId).pricePerHour ?? 0.10), pending, label };
 }
+
+function buildNodeTimeline(forecast, scope = S.timelineScope, day = S.day){
+  const start = scope === 'day' ? day * HOURS_PER_DAY : 0;
+  const count = scope === 'day' ? HOURS_PER_DAY : HOURS_PER_WEEK;
+  const rows = S.nodes.map(node => ({ node, slots: forecast.perNodeHourIH[node.id].slice(start,start+count).map((instances,index) => ({
+    slot: start+index, instances, cpu: instances*node.capacity, cost: instances*(node.pricePerHour ?? .10),
+    pods: forecast.perNodeHourPods?.[node.id]?.[start+index] || {},
+    bins: forecast.perNodeHourBins?.[node.id]?.[start+index] || []
+  })) }));
+  const maxCpu = rows.reduce((max,row) => Math.max(max,...row.slots.map(slot=>slot.cpu)),0);
+  return { start, count, rows, maxCpu };
+}
+
+let timelineForecast = null, timelineStart = -1, timelineCount = 0, timelineCursor = -1;
+
+const timelineRows = new Map();
+
+let demandPainting = false;
+
+function timelineSlotText(node, slot, instances){
+  const cpu=instances*node.capacity, cost=instances*(node.pricePerHour ?? .10);
+  const pods=timelineForecast?.perNodeHourPods[node.id]?.[slot]||{};
+  const composition=S.podTypes.filter(t=>pods[t.id]).map(t=>`${pods[t.id]} ${t.name}`).join(', ');
+  return `${node.name} · ${fmtClock(Math.floor(slot/24),slot%24)} · ${Object.values(pods).reduce((sum,n)=>sum+n,0)} pods${composition?` (${composition})`:''} · ${instances ? `${instances} instancia${instances===1?'':'s'} · ${cpu} CPU` : 'apagado · 0 instancias · 0 CPU'} · ${money(cost)}/h`;
+}
+
+function showTimelineDetail(nodeId, slot){
+  const node = getNode(nodeId);
+  if(!node || !timelineForecast) return;
+  S.timelineFocus = { nodeId, slot };
+  const text = timelineSlotText(node,slot,timelineForecast.perNodeHourIH[nodeId][slot]);
+  if($('#timelineDetail').textContent !== text) $('#timelineDetail').textContent = text;
+}
+
+function showDemandDetail(typeId,slot,forecast=timelineForecast){
+  const t=getType(typeId);if(!t || !forecast)return;
+  S.timelineFocus={typeId,slot};
+  const pending=forecast.pendingByType[typeId]?.[slot]||0;
+  const reason=forecast.pendingReasonByType[typeId]==='blocked'?'ningún nodo compatible':'capacidad agotada';
+  const wanted=desiredReplicas(t,Math.floor(slot/24),slot%24);
+  const text=`${t.name} · ${fmtClock(Math.floor(slot/24),slot%24)} · ${wanted} solicitados · ${wanted-pending} alojados${pending?` · ${pending} Pending (${reason})`:''}`;
+  if($('#timelineDetail').textContent!==text)$('#timelineDetail').textContent=text;
+}
+
+function resourceIcon(kind){
+  const icon=document.createElement('span');icon.className='resource-icon';icon.setAttribute('aria-hidden','true');
+  icon.innerHTML=kind==='pod'
+    ? '<svg viewBox="0 0 24 24"><path d="M12 2 3 7v10l9 5 9-5V7Z M3 7l9 5 9-5 M12 12v10 M7.5 4.5l9 5"/></svg>'
+    : '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01 M7 17.5h.01 M12 6.5h5 M12 17.5h5"/></svg>';
+  return icon;
+}
+
+function resourceKind(kind,text){
+  const label=document.createElement('span');label.className='resource-kind';
+  label.append(resourceIcon(kind),document.createTextNode(text));return label;
+}
+
+function timelineSectionBand(kind,title,caption){
+  const band=document.createElement('div');band.className=`timeline-section-band ${kind==='pod'?'pods':'nodes'}-band`;
+  const heading=document.createElement('strong');heading.append(resourceIcon(kind),document.createTextNode(title));
+  band.title=caption;band.appendChild(heading);return band;
+}
+
+function makeCpuPod(t){
+  const pod=document.createElement('span');pod.className='hbar-replica cpu-pod';pod.dataset.typeId=t.id;
+  pod.style.height=`${t.request*TIMELINE_CPU_UNIT}px`;
+  pod.style.setProperty('--replica-color',t.color);
+  // Paint CPU ticks with one CSS layer, independent of the requested CPU count.
+  pod.style.setProperty('--cpu-unit',`${TIMELINE_CPU_UNIT}px`);
+  return pod;
+}
+
+function makeTimelineTolerations(t){
+  const panel=document.createElement('div');panel.className='timeline-tolerations';
+  panel.setAttribute('role','group');panel.setAttribute('aria-label','Tolerancias de '+t.name);
+  panel._signature=JSON.stringify([t.name,t.tolerations,S.nodes.map(n=>[n.name,n.taints])]);
+  const title=document.createElement('span');title.className='tolerance-label';title.textContent='Tolerancias';panel.appendChild(title);
+  const ruleText=rule=>(rule.key||'*')+'='+(rule.value||'*');
+  const fullText=rule=>ruleText(rule)+' · '+(rule.effect||'Cualquier efecto');
+  const list=document.createElement('div');list.className='tolerance-list';
+  const chip=(rule,active,action,nodes='')=>{
+    const button=document.createElement('button');button.type='button';
+    button.className='tolerance-chip'+(active?' is-active':'');
+    button.textContent=(active?'':'＋ ')+ruleText(rule)+(active?' ×':'');
+    button.title=fullText(rule)+(nodes?' · '+nodes:'');
+    button.setAttribute('aria-label',(active?'Quitar':'Añadir')+' tolerancia '+fullText(rule));
+    button.setAttribute('aria-pressed',String(active));
+    button.addEventListener('click',()=>{action();reconcile();});
+    list.appendChild(button);
+  };
+  t.tolerations.forEach((rule,index)=>chip(rule,true,()=>t.tolerations.splice(index,1)));
+  const choices=new Map();
+  S.nodes.forEach(node=>node.taints.forEach(rule=>{
+    if(t.tolerations.some(tol=>tolerationMatchesTaint(tol,rule)))return;
+    const key=JSON.stringify([rule.key,rule.value,rule.effect]);
+    if(!choices.has(key))choices.set(key,{rule,nodes:[]});
+    choices.get(key).nodes.push(node.name);
+  }));
+  choices.forEach(({rule,nodes})=>chip(rule,false,()=>t.tolerations.push({...rule}),nodes.join(', ')));
+  const custom=document.createElement('button');custom.type='button';custom.className='tolerance-add';custom.textContent='+';
+  custom.title='Tolerancia personalizada';custom.setAttribute('aria-label','Añadir tolerancia personalizada');
+  custom.addEventListener('click',()=>{
+    openResourceEditor('service',t);
+    const rules=document.querySelector('.config-restrictions');rules.open=true;
+    rules.lastElementChild.click();
+    rules.querySelector('.config-rule:last-child input')?.focus();
+  });
+  list.appendChild(custom);panel.appendChild(list);return panel;
+}
+
+function makeTimelineName(owner){
+  const input=document.createElement('input');input.type='text';input.className='timeline-name';
+  input.value=owner.name;input.dataset.field='name';input.setAttribute('aria-label','Nombre de '+owner.name);
+  const commit=()=>{
+    const value=input.value.trim();
+    input.value=value||owner.name;
+    if(!value||value===owner.name)return;
+    owner.name=value;reconcile();
+  };
+  input.addEventListener('change',commit);
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();commit();}
+    if(e.key==='Escape'){e.preventDefault();input.value=owner.name;}
+  });
+  return input;
+}
+function makeTimelineNumber(owner,key,text,{min=1,step='1',integer=true}={}){
+  const label=document.createElement('label');label.className='timeline-number';
+  const caption=document.createElement('span');caption.textContent=text;
+  const input=document.createElement('input');input.type='number';input.min=String(min);input.step=step;
+  input.value=owner[key];input.dataset.field=key;input.setAttribute('aria-label',owner.name+' · '+text);
+  const commit=()=>{
+    const value=input.valueAsNumber;
+    if(!Number.isFinite(value)||value<min||(integer&&!Number.isSafeInteger(value))){
+      input.value=owner[key];return;
+    }
+    if(value===owner[key])return;
+    owner[key]=value;reconcile();
+  };
+  input.addEventListener('change',commit);
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();commit();}
+    if(e.key==='Escape'){e.preventDefault();input.value=owner[key];}
+  });
+  label.append(caption,input);return label;
+}
+function updateTimelineContent(canvas,content){
+  // Keep native number inputs mounted while their steppers update the charts.
+  const rows=Array.from(content.children);
+  rows.forEach((row,index)=>{
+    const previous=canvas.children[index];
+    if(row._resource && previous?._resource===row._resource){
+      previous.style.cssText=row.style.cssText;
+      previous.querySelector('.timeline-track').replaceWith(row.querySelector('.timeline-track'));
+      previous.querySelectorAll('input[data-field]').forEach(input=>{
+        input.setAttribute('aria-label',Array.from(row.querySelectorAll('input[data-field]')).find(field=>field.dataset.field===input.dataset.field).getAttribute('aria-label'));
+        if(input!==document.activeElement)input.value=row._resource[input.dataset.field];
+      });
+      const oldTolerations=previous.querySelector('.timeline-tolerations'),newTolerations=row.querySelector('.timeline-tolerations');
+      if(oldTolerations && oldTolerations._signature!==newTolerations._signature){
+        oldTolerations.replaceWith(newTolerations);
+      }
+      previous.querySelector('.ghost-btn').setAttribute('aria-label',row.querySelector('.ghost-btn').getAttribute('aria-label'));
+    }else if(previous)previous.replaceWith(row);
+    else canvas.appendChild(row);
+  });
+  while(canvas.children.length>rows.length)canvas.lastElementChild.remove();
+  canvas.querySelectorAll('.timeline-supply').forEach(row=>{
+    timelineRows.set(row.dataset.nodeId,{cost:row.querySelector('.timeline-node-cost'),track:row.querySelector('.timeline-track')});
+  });
+}
+
+function makeDemandTimelineRow(t, start, count, forecast){
+  const scale=Math.max(PAINT_SCALE,...Array.from({length:168},(_,slot)=>desiredReplicas(t,Math.floor(slot/24),slot%24)));
+  ensureHourly(t);
+  const row=document.createElement('div'); row.className='timeline-row timeline-demand'; row.dataset.typeId=t.id;row._resource=t;
+  row.style.setProperty('--workload-color',t.color);
+  row.style.setProperty('--plot-height',`${scale*t.request*TIMELINE_CPU_UNIT}px`);
+  const label=document.createElement('div'); label.className='timeline-node';
+  const identity=document.createElement('div');identity.className='service-identity';
+  const color=document.createElement('span');color.className='service-color';color.style.background=t.color;
+  const name=makeTimelineName(t);identity.append(color,name);
+  const meta=makeTimelineNumber(t,'request','CPU / réplica');
+  const mode=t.kedaEnabled?document.createElement('span'):makeTimelineNumber(t,'replicas','Réplicas fijas',{min:0});
+  if(t.kedaEnabled)mode.hidden=true;
+  const edit=document.createElement('button');edit.className='ghost-btn';edit.textContent='Opciones';edit.setAttribute('aria-label','Configurar '+t.name);
+  edit.addEventListener('click',()=>openResourceEditor('service',t));
+  label.append(resourceKind('pod','Servicio'),identity,meta,mode,makeTimelineTolerations(t),edit);
+  const track=document.createElement('div');track.className='timeline-track';
+  track.setAttribute('role','group');track.setAttribute('aria-label',`Réplicas de ${t.name}`);
+
+  const valueAt=slot=>desiredReplicas(t,Math.floor(slot/24),slot%24);
+  const pendingAt=slot=>forecast.pendingByType[t.id]?.[slot]||0;
+  const reason=()=>forecast.pendingReasonByType[t.id]==='blocked'?'ningún nodo compatible':'capacidad agotada';
+  const describe=slot=>`${t.name} · ${fmtClock(Math.floor(slot/24),slot%24)} · ${valueAt(slot)} réplicas${t.kedaEnabled?'':' · fijas toda la semana'} · ${pendingAt(slot)} Pending${pendingAt(slot)?` (${reason()})`:''}`;
+  const draw=index=>{
+    const cell=track.children[index], slot=start+index, value=valueAt(slot), fill=cell.querySelector('.hbar-fill');
+    cell.querySelector('input').value=value;
+    fill.style.height=`${value*t.request*TIMELINE_CPU_UNIT}px`;
+    fill.replaceChildren();
+    for(let i=0;i<value;i++){
+      const segment=makeCpuPod(t);
+      if(i<pendingAt(slot))segment.classList.add(forecast.pendingReasonByType[t.id]==='blocked'?'replica-blocked':'replica-pending');
+      fill.appendChild(segment);
+    }
+    cell.title=describe(slot);
+    cell.querySelector('input').setAttribute('aria-label',describe(slot));
+    cell.classList.toggle('has-pending',pendingAt(slot)>0);
+  };
+  const setValue=(slot,value)=>{
+    if(t.kedaEnabled)t.hourly[Math.floor(slot/24)][slot%24]=value;
+    else t.replicas=value;
+  };
+  for(let index=0;index<count;index++){
+    const slot=start+index;
+    const cell=document.createElement('div');cell.className='demand-cell'+(slot%24===0?' day-start':'')+(Math.floor(slot/24)>=5?' weekend':'');cell.dataset.slot=slot;
+    const input=document.createElement('input');input.className='demand-count';input.type='number';input.min='0';input.step='1';
+    input.setAttribute('aria-label',`${t.name} · ${fmtClock(Math.floor(slot/24),slot%24)} · réplicas${t.kedaEnabled?'':' fijas toda la semana'}`);
+    const commitValue=()=>{
+      if(!input.checkValidity() || !Number.isSafeInteger(input.valueAsNumber)){input.value=valueAt(slot);return;}
+      if(input.valueAsNumber===valueAt(slot))return;
+      setValue(slot,input.valueAsNumber);
+      const focused=document.activeElement===input;
+      commitHourly();
+      if(focused){
+        const updated=Array.from($('#timelineCanvas').children).find(row=>row.dataset.typeId===t.id);
+        updated?.querySelectorAll('.demand-count')[index]?.focus({preventScroll:true});
+      }
+    };
+    input.addEventListener('change',commitValue);
+    input.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault();commitValue();return;}
+      if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
+      e.preventDefault();
+      const next=e.key==='Home'?0:e.key==='End'?count-1:Math.max(0,Math.min(count-1,index+(e.key==='ArrowRight'?1:-1)));
+      commitValue();
+      const currentRow=Array.from($('#timelineCanvas').children).find(row=>row.dataset.typeId===t.id);
+      currentRow?.querySelectorAll('.demand-count')[next]?.focus();
+    });
+    const plot=document.createElement('div');plot.className='demand-plot';plot.setAttribute('aria-hidden','true');
+    const fill=document.createElement('div');fill.className='hbar-fill';fill.style.setProperty('--replica-color',t.color);
+    plot.appendChild(fill);cell.append(plot,input);track.appendChild(cell);draw(index);
+    cell.addEventListener('pointerover',()=>showDemandDetail(t.id,slot,forecast));
+    input.addEventListener('focus',()=>showDemandDetail(t.id,slot,forecast));
+  }
+  track._updateForecast=next=>{forecast=next;for(let i=0;i<count;i++)draw(i);};
+  let painting=false, lastIndex=null;
+  const paint=e=>{
+    const bounds=track.getBoundingClientRect();
+    const index=Math.max(0,Math.min(count-1,Math.floor((e.clientX-bounds.left)/bounds.width*count)));
+    const plot=track.children[index].querySelector('.demand-plot').getBoundingClientRect();
+    const value=Math.max(0,Math.min(scale,Math.round((1-(e.clientY-plot.top)/plot.height)*scale)));
+    for(let i=Math.min(lastIndex??index,index);i<=Math.max(lastIndex??index,index);i++){setValue(start+i,value);}
+    forecast=computeWeekCost();
+    updateTimelineWhilePainting(forecast);
+    lastIndex=index;showDemandDetail(t.id,start+index,forecast);
+  };
+  track.addEventListener('pointerdown',e=>{
+    if(!e.target.closest('.demand-plot') || e.button!==0)return;
+    e.preventDefault();painting=true;demandPainting=true;lastIndex=null;track.setPointerCapture(e.pointerId);paint(e);
+  });
+  track.addEventListener('pointermove',e=>{if(painting)paint(e);});
+  const finish=()=>{if(painting){painting=false;demandPainting=false;commitHourly();}};
+  track.addEventListener('pointerup',finish);track.addEventListener('pointercancel',finish);track.addEventListener('lostpointercapture',finish);
+  row.append(label,track);return row;
+}
+
+function makeTimelineNodePlot(node,item){
+  const plot=document.createElement('span');plot.className='node-pod-plot';plot.setAttribute('aria-hidden','true');
+  for(let k=0;k<maxReplicas(node);k++){
+    const instance=document.createElement('span');instance.className='timeline-instance';
+    instance.classList.toggle('instance-off',k>=item.instances);
+    instance.style.height=`${node.capacity*TIMELINE_CPU_UNIT}px`;
+    instance.dataset.instance=String(k+1);
+    for(const pod of item.bins[k]?.pods||[]){
+      const t=getType(pod.typeId);instance.appendChild(makeCpuPod(t));
+    }
+    plot.appendChild(instance);
+  }
+  return plot;
+}
+
+function updateTimelineWhilePainting(forecast){
+  updatePlanningSummary(forecast);
+  const data=buildNodeTimeline(forecast);
+  for(const {node,slots} of data.rows){
+    const ref=timelineRows.get(node.id);if(!ref)continue;
+    const unit=(NODE_COST_PERIODS[S.nodeCostPeriod]||NODE_COST_PERIODS.hour).unit;
+    ref.cost.textContent=money(nodeCostForPeriod(forecast,node.id).total)+'/'+unit;
+    slots.forEach((item,index)=>{
+      const button=ref.track.children[index];
+      const signature=JSON.stringify([item.instances,item.bins]);
+      if(button._placement===signature)return;
+      button._placement=signature;
+      button.classList.toggle('is-off',item.instances===0);
+      button.title=timelineSlotText(node,item.slot,item.instances);
+      button.setAttribute('aria-label',button.title);
+      button.querySelector('.node-pod-count').textContent=Object.values(item.pods).reduce((sum,n)=>sum+n,0);
+      button.querySelector('.node-pod-plot').replaceWith(makeTimelineNodePlot(node,item));
+    });
+  }
+  // Retain the captured track and refresh pending indicators on every service.
+  document.querySelectorAll('.timeline-demand .timeline-track').forEach(track=>track._updateForecast(forecast));
+}
+
+function renderNodeTimeline(forecast){
+  if(demandPainting) return;
+
+  const start = S.timelineScope === 'day' ? S.day*24 : 0;
+  const count = S.timelineScope === 'day' ? 24 : 168;
+  $('#timelineScope').value = S.timelineScope;
+  $('#timelineDayNav').hidden = S.timelineScope !== 'day';
+  $('#timelineDayLabel').textContent = DAYS_FULL[S.day];
+  const rebuild = timelineForecast !== forecast || timelineStart !== start || timelineCount !== count;
+  const moveCursor = rebuild || timelineCursor !== weekSlot();
+  if(rebuild){
+    const data = buildNodeTimeline(forecast);
+    if(timelineStart !== start || timelineCount !== count) $('#timelineScroll').scrollLeft = 0;
+    timelineForecast=forecast; timelineStart=data.start; timelineCount=data.count;
+    timelineRows.clear();
+    const canvas=$('#timelineCanvas');const content=document.createDocumentFragment();
+    // Keep rows compact instead of stretching pods to fill unused viewport height.
+    const rowTracks=['auto'];
+    if(S.podTypes.length)rowTracks.push('auto',`repeat(${S.podTypes.length},minmax(120px,max-content))`);
+    if(data.rows.length)rowTracks.push('auto',`repeat(${data.rows.length},minmax(120px,max-content))`);
+    canvas.style.setProperty('--timeline-rows',S.podTypes.length || data.rows.length ? rowTracks.join(' ') : '1fr');
+    canvas.style.setProperty('--timeline-count',String(data.count));
+    canvas.style.setProperty('--timeline-slot-min','18px');
+    canvas.style.setProperty('--cpu-unit',`${TIMELINE_CPU_UNIT}px`);
+    if(!data.rows.length && !S.podTypes.length){
+      const empty=document.createElement('div'); empty.className='timeline-empty'; empty.textContent='Sin servicios ni nodos';content.appendChild(empty);
+    } else {
+      const axis=document.createElement('div');axis.className='timeline-axis';
+      const axisLabel=document.createElement('div');axisLabel.className='timeline-axis-label';axisLabel.textContent='';
+      const ticks=document.createElement('div');ticks.className='timeline-ticks';
+      ticks.style.gridTemplateColumns=`repeat(${data.count===168?7:24},minmax(0,1fr))`;
+      if(data.count===168){
+        DAYS_FULL.forEach((day,d)=>{
+          const button=document.createElement('button');button.className='timeline-day';button.textContent=day;
+          button.title=`Ver ${day.toLowerCase()} en detalle`;
+          const hours=document.createElement('span');hours.className='timeline-week-hours';
+          for(let h=0;h<24;h++){const hour=document.createElement('i');hour.textContent=String(h).padStart(2,'0');hours.appendChild(hour);}
+          button.appendChild(hours);
+          button.addEventListener('click',()=>{S.timelineScope='day';setDay(d);});ticks.appendChild(button);
+        });
+      } else {
+        for(let h=0;h<24;h++){
+          const tick=document.createElement('span');tick.className='timeline-hour-tick';tick.textContent=h%3===0?String(h).padStart(2,'0'):'';tick.title=`${h}:00`;ticks.appendChild(tick);
+        }
+      }
+      axis.append(axisLabel,ticks);content.appendChild(axis);
+      if(S.podTypes.length)content.appendChild(timelineSectionBand('pod','Pods','Cantidad al pie de cada barra · escribe o arrastra para editar'));
+      S.podTypes.forEach(t=>content.appendChild(makeDemandTimelineRow(t,data.start,data.count,forecast)));
+      if(data.rows.length)content.appendChild(timelineSectionBand('node','Nodos','Un marco = un nodo · marco discontinuo = inactivo'));
+      data.rows.forEach(({node,slots})=>{
+        const row=document.createElement('div');row.className='timeline-row timeline-supply';row.dataset.nodeId=node.id;row._resource=node;
+        const limit=maxReplicas(node);
+        row.style.setProperty('--plot-height',`${limit*node.capacity*TIMELINE_CPU_UNIT+Math.max(0,limit-1)*TIMELINE_INSTANCE_GAP}px`);
+        const label=document.createElement('div');label.className='timeline-node';
+        const name=makeTimelineName(node);
+        const cost=document.createElement('span');cost.className='timeline-node-cost';
+        const capacity=makeTimelineNumber(node,'capacity','CPU / nodo');
+        const maximum=makeTimelineNumber(node,'maxReplicas','Máx. nodos');
+        const price=makeTimelineNumber(node,'pricePerHour','€/nodo·h',{min:0,step:'any',integer:false});
+        const edit=document.createElement('button');edit.className='ghost-btn';edit.textContent='Opciones';edit.setAttribute('aria-label',`Editar ${node.name}`);
+        edit.addEventListener('click',()=>openResourceEditor('node',node));
+        const restrictions=document.createElement('div');restrictions.className='node-restrictions';restrictions.setAttribute('aria-label','Restricciones del nodo');
+        node.taints.forEach(rule=>{
+          const badge=document.createElement('span');badge.className='node-restriction';
+          badge.textContent=rule.key+'='+rule.value;
+          badge.title=rule.key+'='+rule.value+' · '+rule.effect+(rule.effect==='PreferNoSchedule'?' · Preferencia: evita servicios sin esta tolerancia':' · Requiere esta tolerancia en el servicio');
+          restrictions.appendChild(badge);
+        });
+        label.append(resourceKind('node','Grupo de nodos'),name,cost,capacity,maximum,price,restrictions,edit);
+        const track=document.createElement('div');track.className='timeline-track';track.setAttribute('role','group');track.setAttribute('aria-label',`Pods asignados a ${node.name}`);
+        slots.forEach(item=>{
+          const button=document.createElement('button');button.className='timeline-slot'+(item.slot%24===0?' day-start':'')+(Math.floor(item.slot/24)>=5?' weekend':'');
+          button.dataset.slot=String(item.slot);button.tabIndex=-1;
+          button._placement=JSON.stringify([item.instances,item.bins]);
+          button.classList.toggle('is-off',item.instances===0);
+          button.title=timelineSlotText(node,item.slot,item.instances);button.setAttribute('aria-label',button.title);
+          const total=Object.values(item.pods).reduce((sum,n)=>sum+n,0);
+          const number=document.createElement('span');number.className='node-pod-count';number.textContent=total;
+          const plot=makeTimelineNodePlot(node,item);
+          button.append(plot,number);track.appendChild(button);
+        });
+        track.addEventListener('pointerover',e=>{const button=e.target.closest('[data-slot]');if(button)showTimelineDetail(node.id,+button.dataset.slot);});
+        track.addEventListener('focusin',e=>{const button=e.target.closest('[data-slot]');if(button)showTimelineDetail(node.id,+button.dataset.slot);});
+        track.addEventListener('click',e=>{
+          const button=e.target.closest('[data-slot]');if(!button)return;
+          S.timelineFocus={nodeId:node.id,slot:+button.dataset.slot};setTimeSlot(+button.dataset.slot,false);
+        });
+        track.addEventListener('keydown',e=>{
+          if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
+          const current=e.target.closest('[data-slot]');if(!current)return;
+          e.preventDefault();
+          const index=+current.dataset.slot-data.start;
+          const next=e.key==='Home'?0:e.key==='End'?slots.length-1:Math.max(0,Math.min(slots.length-1,index+(e.key==='ArrowRight'?1:-1)));
+          track.children[next].focus();
+        });
+        row.append(label,track);content.appendChild(row);
+        timelineRows.set(node.id,{cost,track});
+      });
+    }
+    updateTimelineContent(canvas,content);
+  }
+  // A clock or cost-period change updates only labels and the cursor, retaining
+  // scroll position and keyboard focus instead of rebuilding hundreds of cells.
+  for(const node of S.nodes){
+    const ref=timelineRows.get(node.id);if(!ref)continue;
+    const unit=(NODE_COST_PERIODS[S.nodeCostPeriod]||NODE_COST_PERIODS.hour).unit;
+    const label=`${money(nodeCostForPeriod(forecast,node.id).total)}/${unit}`;
+    if(ref.cost.textContent!==label)ref.cost.textContent=label;
+    if(moveCursor)for(const button of ref.track.children){
+      const selected=+button.dataset.slot===weekSlot();
+      button.tabIndex=selected?0:-1;
+    }
+  }
+  if(timelineCursor!==weekSlot()){
+    timelineCursor=weekSlot();
+    const nodeId=getNode(S.timelineFocus?.nodeId)?.id||S.nodes[0]?.id;
+    if(getType(S.timelineFocus?.typeId))S.timelineFocus={typeId:S.timelineFocus.typeId,slot:weekSlot()};
+    else if(nodeId)S.timelineFocus={nodeId,slot:weekSlot()};
+  }
+  const focus=S.timelineFocus;
+  if(focus && getType(focus.typeId))showDemandDetail(focus.typeId,focus.slot,forecast);
+  else if(focus && getNode(focus.nodeId))showTimelineDetail(focus.nodeId,focus.slot);
+  else if(S.podTypes.length)showDemandDetail(S.podTypes[0].id,weekSlot(),forecast);
+  else if(S.nodes.length)showTimelineDetail(S.nodes[0].id,weekSlot());
+  else $('#timelineDetail').textContent='';
+}
+
+function coverageMetrics(c){
+  const pending = c.pendingPerHour.reduce((a,b) => a+b, 0);
+  const unmetHours = c.pendingPerHour.filter(n => n > 0).length;
+  return { pending, unmetHours, requestedPodHours: c.requestedPodHours,
+    coverage: c.requestedPodHours ? (1 - pending / c.requestedPodHours) * 100 : null };
+}
+
+function coverageText(cost){
+  if(!cost.requestedPodHours) return 'Sin demanda';
+  if(!cost.pending) return '100 %';
+  return `${Math.min(99.9, cost.coverage).toFixed(1)} %`;
+}
+
+function updatePlanningSummary(c){
+  const metrics = coverageMetrics(c);
+  let total = 0;
+  for(const n of S.nodes) total += nodeCostForPeriod(c, n.id).total;
+  const labels = { hour: `Coste · ${fmtClock(S.day,S.hour)}`, day: `Coste · ${DAYS_FULL[S.day]}`, week: 'Coste semanal', month: 'Coste mensual' };
+  $('#clusterCostLabel').textContent = labels[S.nodeCostPeriod] || labels.hour;
+  $('#clusterCost').textContent = money(total);
+  $('#planCoverage').textContent = coverageText(metrics);
+  const note = $('#planCoverageNote');
+  note.textContent = `${metrics.unmetHours} h sin cubrir`;
+  note.hidden = !metrics.pending;
+  $('#planCoverage').classList.toggle('uncovered', !!metrics.pending);
+  $('#peakDemand').textContent = `${c.peakCpu} CPU`;
+  $('#peakDemandNote').textContent = `${c.peakPods} réplicas`;
+  const review = $('#coverageDetailsBtn');
+  review.hidden = !metrics.pending;
+  review.setAttribute('aria-label', `Revisar ${metrics.unmetHours} horas sin cubrir`);
+
+}
+
+function openCoverageDetails(){
+  const c = computeWeekCost();
+  openModal(m => {
+    m.insertAdjacentHTML('beforeend', '<h2>Horas sin cubrir</h2>');
+    const chart = document.createElement('div'); chart.className = 'plan-chart';
+    for(let d=0;d<7;d++){
+      const pending = c.pendingPerHour.slice(d*24,(d+1)*24);
+      const count = pending.filter(v => v > 0).length;
+      const day = document.createElement('div'); day.className = 'plan-day' + (count ? ' warning' : '');
+      day.innerHTML = `<b>${DAYS_SHORT[d]}</b><p>${count ? count + ' h sin cubrir' : 'Cubierto'}</p>`;
+      chart.appendChild(day);
+    }
+    m.appendChild(chart);
+    const list = document.createElement('div'); list.className = 'report-wrap';
+    let rows = '<table class="report"><tr><th>Hora</th><th>Pods sin alojar</th><th></th></tr>';
+    c.pendingPerHour.forEach((pending, slot) => {
+      if(pending) rows += `<tr><td>${fmtClock(Math.floor(slot/24),slot%24)}</td><td>${pending}</td><td><button class="ghost-btn" data-inspect-slot="${slot}">Revisar</button></td></tr>`;
+    });
+    list.innerHTML = rows + '</table>'; m.appendChild(list);
+    list.querySelectorAll('[data-inspect-slot]').forEach(button => button.addEventListener('click', () => {
+      const slot=+button.dataset.inspectSlot;
+      const type=S.podTypes.find(t=>c.pendingByType[t.id][slot]>0);
+      closeModal();S.timelineScope='day';
+      if(type)S.timelineFocus={typeId:type.id,slot};
+      setTimeSlot(slot,false);
+      const row=Array.from($('#timelineCanvas').children).find(row=>row.dataset.typeId===type?.id);
+      row?.querySelectorAll('.demand-count')[slot%24]?.focus();
+    }));
+  });
+}
+
+let _overlayEl = null, modalReturnFocus = null;
+
+function _escClose(e){
+  if(e.key==='Escape'){e.preventDefault();closeModal();return;}
+  if(e.key!=='Tab' || !_overlayEl)return;
+  const focusable=Array.from(_overlayEl.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'))
+    .filter(el=>!el.disabled && el.tabIndex!==-1 && !el.closest('[hidden]') && el.getClientRects().length);
+  const first=focusable[0],last=focusable[focusable.length-1];
+  if(e.shiftKey && document.activeElement===first){e.preventDefault();last?.focus();}
+  else if(!e.shiftKey && document.activeElement===last){e.preventDefault();first?.focus();}
+}
+
+function closeModal(){
+  if(_overlayEl){ _overlayEl.remove(); _overlayEl = null; document.removeEventListener('keydown', _escClose);
+    if(modalReturnFocus?.isConnected)modalReturnFocus.focus({preventScroll:true});modalReturnFocus=null; }
+}
+
 function openModal(build){
-  closeModal();
+  closeModal();modalReturnFocus=document.activeElement;
   const ov = document.createElement('div'); ov.className = 'overlay';
   const m = document.createElement('div'); m.className = 'modal';
-  const x = document.createElement('button'); x.className = 'modal-x'; x.innerHTML = '✕'; x.title = 'cerrar (Esc)';
+  m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
+  const x = document.createElement('button'); x.className = 'modal-x'; x.innerHTML = '✕'; x.title = 'cerrar (Esc)';x.setAttribute('aria-label','Cerrar ventana');
   x.addEventListener('click', closeModal);
   m.appendChild(x);
   build(m);
   ov.appendChild(m);
   ov.addEventListener('click', e => { if(e.target === ov) closeModal(); });
   document.body.appendChild(ov);
+  const title = m.querySelector('h2');
+  if(title){ title.id = 'activeModalTitle'; m.setAttribute('aria-labelledby', title.id); }
+  (m.querySelector('input') || x).focus();
   document.addEventListener('keydown', _escClose);
   _overlayEl = ov;
 }
 
-// ---------- Cost report ----------
-function openCostReport(){
-  const c = computeWeekCost();
-  const monthly = c.total * WEEKS_PER_MONTH;
-  openModal(m => {
-    m.insertAdjacentHTML('beforeend',
-      `<h2>💶 Informe de coste</h2><div class="modal-sub">Coste de los nodos provisionados por el cluster-autoscaler durante la semana completa (168 h). Las horas sin demanda escalan a 0 → ${money(0)}.</div>`);
-    const kpis = document.createElement('div'); kpis.className = 'kpi-row';
-    kpis.innerHTML =
-      `<div class="kpi"><div class="k-label">Coste semanal</div><div class="k-val accent">${money(c.total)}</div></div>
-       <div class="kpi"><div class="k-label">Coste mensual (≈)</div><div class="k-val">${money(monthly)}</div></div>
-       <div class="kpi"><div class="k-label">Instancia·hora / sem</div><div class="k-val">${c.instanceHours}</div></div>`;
-    m.appendChild(kpis);
-
-    const tbl = document.createElement('table'); tbl.className = 'report';
-    let rows = `<tr><th>Nodo</th><th class="r-num">${CURRENCY}/h</th><th class="r-num">inst·h/sem</th><th class="r-num">${CURRENCY}/sem</th><th class="r-num">${CURRENCY}/mes</th></tr>`;
-    for(const nd of S.nodes){
-      rows += `<tr><td>${escapeHtml(nd.name)}</td><td class="r-num">${money(nd.pricePerHour)}</td><td class="r-num">${c.perNodeIH[nd.id]}</td><td class="r-num">${money(c.perNode[nd.id])}</td><td class="r-num">${money(c.perNode[nd.id] * WEEKS_PER_MONTH)}</td></tr>`;
-    }
-    rows += `<tr class="total"><td>Total</td><td class="r-num"></td><td class="r-num">${c.instanceHours}</td><td class="r-num">${money(c.total)}</td><td class="r-num">${money(monthly)}</td></tr>`;
-    tbl.innerHTML = rows;
-    m.appendChild(tbl);
-
-    const ch = document.createElement('div'); ch.className = 'small-head'; ch.style.marginTop = '14px'; ch.textContent = 'Coste por día';
-    m.appendChild(ch);
-    const chart = document.createElement('div'); chart.className = 'daybars';
-    const maxDay = Math.max(0.01, ...c.perDay);
-    for(let d = 0; d < 7; d++){
-      const db = document.createElement('div'); db.className = 'db' + (d >= 5 ? ' wknd' : '');
-      db.innerHTML = `<div class="amt">${money(c.perDay[d])}</div><div class="bar" style="height:${c.perDay[d] / maxDay * 100}%"></div><div class="lbl">${DAYS_SHORT[d]}</div>`;
-      chart.appendChild(db);
-    }
-    m.appendChild(chart);
-
-    const act = document.createElement('div'); act.className = 'modal-actions';
-    const save = document.createElement('button'); save.className = 'btn toggle on'; save.textContent = '💾 Guardar como escenario';
-    save.addEventListener('click', () => { closeModal(); saveScenarioPrompt(); });
-    const close = document.createElement('button'); close.className = 'btn'; close.textContent = 'Cerrar'; close.addEventListener('click', closeModal);
-    act.appendChild(save); act.appendChild(close);
-    m.appendChild(act);
-  });
-}
-
-// ===================================================================
-//  Scenarios — save the current config + its cost to localStorage, reload
-//  it later, and compare combinations side by side.
-// ===================================================================
-function loadScenarios(){
-  try{ return JSON.parse(localStorage.getItem(SCENARIOS_KEY)) || []; }catch(_){ return []; }
-}
-function persistScenarios(arr){
-  try{ localStorage.setItem(SCENARIOS_KEY, JSON.stringify(arr)); }catch(_){}
-}
-function snapshotConfig(){
-  return JSON.parse(JSON.stringify({
-    podTypes: S.podTypes, nodes: S.nodes,
-    scoringStrategy: S.scoringStrategy, autoScheduler: S.autoScheduler
-  }));
-}
-function applyConfig(cfg){
-  stopSim();
-  S.podTypes = JSON.parse(JSON.stringify(cfg.podTypes || []));
-  S.podTypes.forEach(t => {                              // tolerate partial / hand-edited JSON
-    if(!t.id) t.id = uid('t');
-    if(!Array.isArray(t.tolerations)) t.tolerations = [];
-    if(typeof t.request !== 'number') t.request = 2;
-    ensureHourly(t);
-  });
-  S.nodes = JSON.parse(JSON.stringify(cfg.nodes || []));
-  S.nodes.forEach(n => {
-    if(!n.id) n.id = uid('n');
-    if(!Array.isArray(n.taints)) n.taints = [];
-    if(typeof n.capacity !== 'number') n.capacity = 4;
-    if(typeof n.pricePerHour !== 'number') n.pricePerHour = 0.10;
-  });
-  S.scoringStrategy = cfg.scoringStrategy || 'MostAllocated';
-  S.autoScheduler = !!cfg.autoScheduler;
-  S.pods = []; S.nodeIdleSince = {}; S.nodeInactive = {}; S.nodeReadyAt = {};
-  seedNodeReadiness();
-  syncPodsToReplicas();
-  autoIfEnabled();
-  const sp = $('#scoringStrategy'); if(sp) sp.value = S.scoringStrategy;
-  updateAutoBtn(); updatePlayBtn();
-  fullRender();
-}
-function saveScenario(name){
-  const arr = loadScenarios();
-  const c = computeWeekCost();
-  arr.push({
-    id: uid('scn'), name: name || ('Escenario ' + (arr.length + 1)), savedAt: Date.now(),
-    config: snapshotConfig(),
-    cost: { total: c.total, monthly: c.total * WEEKS_PER_MONTH, instanceHours: c.instanceHours }
-  });
-  persistScenarios(arr);
-  return arr;
-}
-function deleteScenario(id){ persistScenarios(loadScenarios().filter(s => s.id !== id)); }
-
-// Cost of an arbitrary saved config (recomputed, not trusted) — used when importing JSON
-// that may have been hand-edited or saved by another version. computeWeekCost reads the
-// live S, so we swap the relevant fields in, compute synchronously, and restore them.
-function costForConfig(cfg){
-  const savePT = S.podTypes, saveN = S.nodes;
-  try{
-    S.podTypes = (cfg.podTypes || []).map(t => { const c = JSON.parse(JSON.stringify(t)); if(!Array.isArray(c.tolerations)) c.tolerations = []; ensureHourly(c); return c; });
-    S.nodes = (cfg.nodes || []).map(n => ({ ...n, taints: Array.isArray(n.taints) ? n.taints : [], pricePerHour: typeof n.pricePerHour === 'number' ? n.pricePerHour : 0.10 }));
-    const c = computeWeekCost();
-    return { total: c.total, monthly: c.total * WEEKS_PER_MONTH, instanceHours: c.instanceHours };
-  } finally { S.podTypes = savePT; S.nodes = saveN; }
-}
-// Export ONE saved scenario as a downloadable JSON file (re-importable: same wrapper format).
-function exportScenarioJSON(s){
-  const data = { app: 'k8s-scheduler-sim', version: 1, exportedAt: new Date().toISOString(), scenarios: [s] };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const slug = String(s.name || 'escenario').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'escenario';
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `escenario-${slug}.json`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1500);
-}
-// Import scenarios from a user-picked JSON file. Accepts our export wrapper, a bare array,
-// or a single {config} object. Validates each entry, assigns fresh ids (no collisions) and
-// recomputes its cost. Calls done(addedCount, errorMessage).
-function importScenariosJSON(file, done){
-  const reader = new FileReader();
-  reader.onerror = () => done && done(0, 'no se pudo leer el archivo');
-  reader.onload = () => {
-    let incoming = null;
-    try{
-      const data = JSON.parse(reader.result);
-      if(Array.isArray(data)) incoming = data;
-      else if(data && Array.isArray(data.scenarios)) incoming = data.scenarios;
-      else if(data && data.config) incoming = [data];
-    }catch(_){ /* fall through to error */ }
-    if(!incoming){ done && done(0, 'JSON no válido o con un formato no reconocido'); return; }
-    const arr = loadScenarios();
-    let added = 0;
-    for(const s of incoming){
-      if(!s || !s.config || !Array.isArray(s.config.nodes) || !Array.isArray(s.config.podTypes)) continue;
-      arr.push({
-        id: uid('scn'),
-        name: String(s.name || 'Importado'),
-        savedAt: typeof s.savedAt === 'number' ? s.savedAt : Date.now(),
-        config: s.config,
-        cost: costForConfig(s.config)
-      });
-      added++;
-    }
-    persistScenarios(arr);
-    done && done(added, added ? null : 'el archivo no contenía escenarios válidos');
-  };
-  reader.readAsText(file);
-}
-
-function saveScenarioPrompt(){
-  openModal(m => {
-    const def = 'Escenario ' + (loadScenarios().length + 1);
-    m.insertAdjacentHTML('beforeend',
-      `<h2>💾 Guardar escenario</h2><div class="modal-sub">Guarda la configuración actual (pods, curva KEDA por hora, nodos y precios) junto a su coste para compararla luego.</div>`);
-    const field = document.createElement('div'); field.className = 'field';
-    const inp = document.createElement('input'); inp.value = def; inp.placeholder = 'nombre del escenario';
-    field.appendChild(inp); m.appendChild(field);
-    const act = document.createElement('div'); act.className = 'modal-actions';
-    const ok = document.createElement('button'); ok.className = 'btn toggle on'; ok.textContent = 'Guardar';
-    ok.addEventListener('click', () => { saveScenario(inp.value.trim() || def); closeModal(); openScenarios(); });
-    const cancel = document.createElement('button'); cancel.className = 'btn'; cancel.textContent = 'Cancelar'; cancel.addEventListener('click', closeModal);
-    act.appendChild(cancel); act.appendChild(ok); m.appendChild(act);
-    inp.focus(); inp.select();
-    inp.addEventListener('keydown', e => { if(e.key === 'Enter') ok.click(); });
-  });
-}
-function openScenarios(){
-  const arr = loadScenarios();
-  openModal(m => {
-    m.insertAdjacentHTML('beforeend',
-      `<h2>💾 Escenarios</h2><div class="modal-sub">Guarda combinaciones de clúster y vuelve a cargarlas para comparar su coste.</div>`);
-    const top = document.createElement('div'); top.className = 'modal-actions'; top.style.justifyContent = 'flex-start'; top.style.marginTop = '0';
-    const saveCur = document.createElement('button'); saveCur.className = 'btn toggle on'; saveCur.textContent = '＋ Guardar escenario actual';
-    saveCur.addEventListener('click', () => { closeModal(); saveScenarioPrompt(); });
-    top.appendChild(saveCur);
-    if(arr.length >= 2){
-      const cmp = document.createElement('button'); cmp.className = 'btn'; cmp.textContent = '⚖ Comparar';
-      cmp.addEventListener('click', () => { closeModal(); compareScenarios(); });
-      top.appendChild(cmp);
-    }
-    // import JSON (export is per-scenario, on each item below)
-    const imp = document.createElement('button'); imp.className = 'btn'; imp.textContent = '⭱ Importar JSON';
-    imp.title = 'añadir escenarios desde un archivo JSON';
-    const fileIn = document.createElement('input'); fileIn.type = 'file'; fileIn.accept = 'application/json,.json'; fileIn.style.display = 'none';
-    fileIn.addEventListener('change', () => {
-      const f = fileIn.files && fileIn.files[0]; if(!f) return;
-      importScenariosJSON(f, (added, err) => {
-        if(err){ alert('No se pudo importar: ' + err); return; }
-        openScenarios();   // refresh the list with the imported scenarios
-      });
-    });
-    imp.addEventListener('click', () => fileIn.click());
-    top.appendChild(imp); top.appendChild(fileIn);
-    m.appendChild(top);
-    const list = document.createElement('div'); list.className = 'scn-list';
-    if(!arr.length){
-      list.innerHTML = `<div class="scn-empty">Aún no has guardado escenarios.<br>Configura el clúster y pulsa «Guardar escenario actual».</div>`;
-    }
-    arr.slice().reverse().forEach(s => {
-      const it = document.createElement('div'); it.className = 'scn-item';
-      const info = document.createElement('div');
-      info.innerHTML = `<div class="scn-name">${escapeHtml(s.name)}</div><div class="scn-meta">${money(s.cost.total)}/sem · ${money(s.cost.monthly)}/mes · ${(s.config.nodes||[]).length} nodos · ${(s.config.podTypes||[]).length} tipos</div>`;
-      it.appendChild(info);
-      const sp = document.createElement('div'); sp.className = 'spacer'; it.appendChild(sp);
-      const load = document.createElement('button'); load.className = 'btn'; load.textContent = 'Cargar';
-      load.addEventListener('click', () => { applyConfig(s.config); closeModal(); });
-      it.appendChild(load);
-      const expOne = document.createElement('button'); expOne.className = 'btn'; expOne.textContent = '⭳';
-      expOne.title = 'exportar este escenario a JSON';
-      expOne.addEventListener('click', () => exportScenarioJSON(s));
-      it.appendChild(expOne);
-      const del = document.createElement('button'); del.className = 'btn danger'; del.textContent = '✕'; del.title = 'eliminar';
-      del.addEventListener('click', () => { deleteScenario(s.id); openScenarios(); });
-      it.appendChild(del);
-      list.appendChild(it);
-    });
-    m.appendChild(list);
-  });
-}
-function compareScenarios(){
-  const arr = loadScenarios();
-  if(arr.length < 2){ openScenarios(); return; }
-  openModal(m => {
-    m.insertAdjacentHTML('beforeend',
-      `<h2>⚖ Comparar escenarios</h2><div class="modal-sub">Coste semanal y mensual de cada combinación guardada. El más barato resaltado.</div>`);
-    const minWeekly = Math.min(...arr.map(s => s.cost.total));
-    const tbl = document.createElement('table'); tbl.className = 'report';
-    let rows = `<tr><th>Escenario</th><th class="r-num">nodos</th><th class="r-num">tipos</th><th class="r-num">inst·h</th><th class="r-num">${CURRENCY}/sem</th><th class="r-num">${CURRENCY}/mes</th></tr>`;
-    arr.slice().sort((a, b) => a.cost.total - b.cost.total).forEach(s => {
-      const best = s.cost.total === minWeekly;
-      rows += `<tr class="${best ? 'best' : ''}"><td>${escapeHtml(s.name)}${best ? ' ✓' : ''}</td><td class="r-num">${(s.config.nodes||[]).length}</td><td class="r-num">${(s.config.podTypes||[]).length}</td><td class="r-num">${s.cost.instanceHours}</td><td class="r-num">${money(s.cost.total)}</td><td class="r-num">${money(s.cost.monthly)}</td></tr>`;
-    });
-    tbl.innerHTML = rows; m.appendChild(tbl);
-    const act = document.createElement('div'); act.className = 'modal-actions';
-    const back = document.createElement('button'); back.className = 'btn'; back.textContent = '← Escenarios';
-    back.addEventListener('click', () => { closeModal(); openScenarios(); });
-    act.appendChild(back); m.appendChild(act);
-  });
-}
-
-// Sync the per-section "todo ▾/▸" buttons: ▾ = all expanded (click collapses all),
-// ▸ = all collapsed (click expands all). Mixed state shows ▾ (next click collapses).
-function updateCollapseAllBtns(){
-  const set = (btn, items) => {
-    if(!btn) return;
-    const allCol = items.length > 0 && items.every(x => x.collapsed);
-    btn.textContent = 'todo ' + (allCol ? '▸' : '▾');
-    btn.title = (allCol ? 'expandir' : 'colapsar') + ' todas las tarjetas';
-  };
-  set($('#collapsePodsBtn'), S.podTypes);
-  set($('#collapseNodesBtn'), S.nodes);
-}
-
 function setupHeader(){
-  $('#autoBtn').addEventListener('click', () => {
-    S.autoScheduler = !S.autoScheduler;
-    autoIfEnabled();
-    updateAutoBtn();
-    placePods();                 // may auto-place pending pods → glide them in
-  });
-  $('#scheduleAllBtn').addEventListener('click', () => { scheduleAllFit(); placePods(); });
-  // kube-scheduler scoringStrategy: re-evaluate placements with the new priority.
-  const stratSel = $('#scoringStrategy');
-  stratSel.value = S.scoringStrategy;
-  stratSel.addEventListener('change', () => {
-    S.scoringStrategy = stratSel.value;
-    autoIfEnabled();             // if auto is on, let the new strategy re-place pending pods
-    placePods();
-  });
-  $('#emptyBtn').addEventListener('click', () => {
-    S.pods.forEach(p => p.location = null);
-    placePods();                 // every chip glides back to the queue
-  });
-  $('#resetBtn').addEventListener('click', () => {
-    stopSim();
-    S = initialState();
-    seedNodeReadiness();         // initial nodes start Ready (provisioned before the sim)
-    syncPodsToReplicas();
-    autoIfEnabled();
-    $('#scoringStrategy').value = S.scoringStrategy;   // reflect the reset default
-    const sp = $('#simSpeed'); if(sp) sp.value = S.simHrMs;
-    updatePlayBtn();
-    fullRender();                // wipe persistent chips/refs, then rebuild everything
-  });
-  $('#prevDay').addEventListener('click', () => setDay(S.day-1));
-  $('#nextDay').addEventListener('click', () => setDay(S.day+1));
-  $('#addNodeBtn').addEventListener('click', addNode);
-  $('#addPodTypeBtn').addEventListener('click', addPodType);
-
-  // play / speed / week scrubber
-  const speedSel = $('#simSpeed');
-  if(speedSel){
-    SIM_SPEEDS.forEach(s => { const o=document.createElement('option'); o.value=s.ms; o.textContent=s.label; speedSel.appendChild(o); });
-    speedSel.value = S.simHrMs;
-    speedSel.addEventListener('change', () => { S.simHrMs = +speedSel.value; });
+    $('#timelineScope').addEventListener('change',e=>{S.timelineScope=e.target.value;reconcile();});
+    $('#timelinePrevDay').addEventListener('click',()=>setDay(S.day-1));
+    $('#timelineNextDay').addEventListener('click',()=>setDay(S.day+1));
+    $('#addTimelinePodBtn').addEventListener('click',()=>openResourceEditor('service'));
+    $('#addNodeBtn').addEventListener('click',()=>openResourceEditor('node'));
+    $('#nodeCostPeriod').value=S.nodeCostPeriod;
+    $('#nodeCostPeriod').addEventListener('change',e=>{S.nodeCostPeriod=e.target.value;reconcile();});
+    $('#coverageDetailsBtn').addEventListener('click',openCoverageDetails);
+    document.addEventListener('click',e=>{$$('.tools-menu[open]').forEach(menu=>{if(!menu.contains(e.target))menu.open=false;});});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!_overlayEl)$$('.tools-menu[open]').forEach(menu=>{menu.open=false;menu.querySelector('summary').focus();});});
   }
-  $('#playBtn')?.addEventListener('click', togglePlay);
-  const scrub = $('#weekScrub');
-  if(scrub) scrub.addEventListener('input', () => { stopSim(); setTimeSlot(+scrub.value, true); });
-  const axis = $('#scrubAxis');
-  if(axis){ const L=['L','M','X','J','V','S','D']; axis.innerHTML=''; for(let d=0; d<7; d++){ const s=document.createElement('span'); s.textContent=L[d]; if(d>=5) s.className='wknd'; axis.appendChild(s); } }
-  updatePlayBtn();
 
-  // cost report + scenarios
-  $('#costBtn')?.addEventListener('click', openCostReport);
-  $('#scnBtn')?.addEventListener('click', openScenarios);
+function reconcile(){const forecast=computeWeekCost();updatePlanningSummary(forecast);renderNodeTimeline(forecast);}
 
-  // collapse / expand ALL cards in a section
-  $('#collapsePodsBtn')?.addEventListener('click', () => {
-    const all = S.podTypes.length > 0 && S.podTypes.every(t => t.collapsed);
-    S.podTypes.forEach(t => t.collapsed = !all);
-    reconcile();
-  });
-  $('#collapseNodesBtn')?.addEventListener('click', () => {
-    const all = S.nodes.length > 0 && S.nodes.every(n => n.collapsed);
-    S.nodes.forEach(n => n.collapsed = !all);
-    reconcile();
-  });
-
-  // collapsible sections
-  $$('.section-head').forEach(h => {
-    h.addEventListener('click', e => {
-      // ignore clicks on action buttons
-      if(e.target.closest('.actions')) return;
-      h.closest('.section').classList.toggle('collapsed');
+function openResourceEditor(kind, existing=null){
+  const service=kind==='service';
+  const draft=existing ? JSON.parse(JSON.stringify(existing)) : service
+    ? {id:uid('t'),name:`servicio-${S.podTypes.length+1}`,color:COLORS[S.podTypes.length%COLORS.length],request:1,kedaEnabled:true,replicas:1,hourly:buildHourly([1,1,1,1,1,0,0]),tolerations:[]}
+    : {id:uid('n'),name:`nodo-${S.nodes.length+1}`,capacity:4,maxReplicas:DEFAULT_MAX_REPLICAS,pricePerHour:.10,taints:[]};
+  openModal(modal=>{
+    const title=document.createElement('h2');title.textContent=`${existing?'Configurar':'Añadir'} ${service?'servicio':'nodo'}`;modal.appendChild(title);
+    const form=document.createElement('form');form.className='resource-form';
+    const field=(text,key,type='text',options={})=>{
+      const label=document.createElement('label');label.className='config-field';
+      const caption=document.createElement('span');caption.textContent=text;
+      const input=document.createElement('input');input.type=type;input.name=key;input.value=draft[key]??'';
+      for(const [name,value] of Object.entries(options))input.setAttribute(name,String(value));
+      label.append(caption,input);form.appendChild(label);return input;
+    };
+    const name=existing?null:field('Nombre','name','text',{required:true});
+    let cpu,color,variable,replicas,capacity,limit,price;
+    if(service){
+      color=field('Color','color','color');
+      if(!existing)cpu=field('CPU por réplica','request','number',{min:1,step:1,required:true});
+      const mode=document.createElement('label');mode.className='config-check';
+      variable=document.createElement('input');variable.type='checkbox';variable.checked=draft.kedaEnabled;
+      mode.append(variable,document.createTextNode('Réplicas variables por hora'));form.appendChild(mode);
+      if(!existing)replicas=field('Réplicas fijas durante toda la semana','replicas','number',{min:0,step:1,required:true});
+      const updateMode=()=>{if(!replicas)return;replicas.closest('label').hidden=variable.checked;replicas.disabled=variable.checked;};
+      variable.addEventListener('change',updateMode);updateMode();
+    }else if(!existing){
+      capacity=field('CPU por nodo','capacity','number',{min:1,step:1,required:true});
+      limit=field('Máximo de nodos de este tipo','maxReplicas','number',{min:1,step:1,required:true});
+      price=field('Precio por nodo · €/hora','pricePerHour','number',{min:0,step:'any',required:true});
+    }
+    const restrictions=document.createElement('details');restrictions.className='config-restrictions';
+    const summary=document.createElement('summary');summary.textContent=service?'Tolerancias':'Restricciones (taints)';restrictions.appendChild(summary);
+    const items=service?draft.tolerations:draft.taints;
+    const list=document.createElement('div');list.className='config-rules';
+    const redraw=()=>{
+      list.replaceChildren();
+      items.forEach((rule,index)=>{
+        const row=document.createElement('div');row.className='config-rule';
+        for(const key of ['key','value']){
+          const input=document.createElement('input');input.value=rule[key]||'';input.placeholder=key==='key'?'Clave':'Valor';input.setAttribute('aria-label',input.placeholder);
+          input.addEventListener('input',()=>{rule[key]=input.value;});row.appendChild(input);
+        }
+        const effect=document.createElement('select');effect.setAttribute('aria-label','Efecto');
+        const effects=service?['','NoSchedule','NoExecute','PreferNoSchedule']:['NoSchedule','NoExecute','PreferNoSchedule'];
+        for(const value of effects){const option=document.createElement('option');option.value=value;option.textContent=value||'Cualquier efecto';effect.appendChild(option);}
+        effect.value=rule.effect||'';effect.addEventListener('change',()=>{rule.effect=effect.value;});row.appendChild(effect);
+        const remove=document.createElement('button');remove.type='button';remove.className='ghost-btn';remove.textContent='×';remove.setAttribute('aria-label','Eliminar regla');
+        remove.addEventListener('click',()=>{items.splice(index,1);redraw();});row.appendChild(remove);list.appendChild(row);
+      });
+    };redraw();restrictions.appendChild(list);
+    const addRule=document.createElement('button');addRule.type='button';addRule.className='ghost-btn';addRule.textContent='+ Regla';
+    addRule.addEventListener('click',()=>{items.push({key:'',value:'',effect:'NoSchedule'});redraw();});restrictions.appendChild(addRule);
+    form.appendChild(restrictions);
+    const actions=document.createElement('div');actions.className='config-actions';
+    if(existing){
+      const remove=document.createElement('button');remove.type='button';remove.className='btn danger';remove.textContent='Eliminar';
+      remove.addEventListener('click',()=>{
+        if(service)S.podTypes=S.podTypes.filter(t=>t.id!==existing.id);else S.nodes=S.nodes.filter(n=>n.id!==existing.id);
+        closeModal();reconcile();
+      });actions.appendChild(remove);
+    }
+    const cancel=document.createElement('button');cancel.type='button';cancel.className='btn';cancel.textContent='Cancelar';cancel.addEventListener('click',closeModal);
+    const save=document.createElement('button');save.type='submit';save.className='btn primary';save.textContent='Guardar';actions.append(cancel,save);
+    form.appendChild(actions);modal.appendChild(form);
+    form.addEventListener('submit',e=>{
+      e.preventDefault();if(!form.reportValidity())return;
+      if(name){draft.name=name.value.trim();if(!draft.name){name.focus();return;}}
+      const positiveInteger=input=>Number.isSafeInteger(input.valueAsNumber)&&input.valueAsNumber>=1;
+      if(service){
+        if(cpu&&!positiveInteger(cpu))return;
+        if(replicas&&!variable.checked && (!Number.isSafeInteger(replicas.valueAsNumber)||replicas.valueAsNumber<0))return;
+        draft.color=color.value;if(cpu)draft.request=cpu.valueAsNumber;draft.kedaEnabled=variable.checked;
+        if(replicas&&!variable.checked)draft.replicas=replicas.valueAsNumber;
+      }else if(!existing){
+        if(!positiveInteger(capacity)||!positiveInteger(limit)||!Number.isFinite(price.valueAsNumber)||price.valueAsNumber<0)return;
+        draft.capacity=capacity.valueAsNumber;draft.maxReplicas=limit.valueAsNumber;draft.pricePerHour=price.valueAsNumber;
+      }
+      const collection=service?S.podTypes:S.nodes;
+      if(existing)collection[collection.findIndex(item=>item.id===existing.id)]=draft;else collection.push(draft);
+      closeModal();reconcile();
+      const selector=service?'.timeline-demand':'.timeline-supply';
+      const row=Array.from(document.querySelectorAll(selector)).find(row=>(service?row.dataset.typeId:row.dataset.nodeId)===draft.id);
+      row?.scrollIntoView({block:'nearest'});row?.querySelector('button')?.focus();
     });
   });
-
-  // fullscreen with F
-  window.addEventListener('keydown', e => {
-    if((e.key === 'f' || e.key === 'F') && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)){
-      e.preventDefault();
-      if(!document.fullscreenElement){
-        document.documentElement.requestFullscreen?.();
-        document.body.classList.add('fs');
-      } else {
-        document.exitFullscreen?.();
-        document.body.classList.remove('fs');
-      }
-    }
-  });
 }
-
-// Structural refresh: rebuild the cards (pod-type list + node shells) but REUSE
-// the persistent pod chips, gliding them into the rebuilt containers with FLIP.
-function reconcile(){
-  const firstRects = capturePodRects();   // measure chips before the cards are rebuilt
-  updateAutoBtn();
-  buildDaySelector();
-  renderSubtitle();
-  renderPodTypes();                        // #podTypesList (no chips inside)
-  renderNodes();                           // #nodesList shells + nodeRefs, empty pod areas
-  updateCollapseAllBtns();                 // keep the section "todo ▾/▸" buttons in sync
-  placePods(firstRects);                   // move chips into queue/nodes, usages, FLIP
-}
-
-// Hard reset of the view: discard every persistent chip/ref, then rebuild.
-function fullRender(){
-  podEls.forEach(el => el.remove());
-  podEls.clear();
-  nodeRefs.clear();
-  getFlyLayer().innerHTML = '';   // drop any in-flight clones
-  const q = $('#queue');
-  if(q) q.innerHTML = '';
-  queuePlaceholder = null;
-  reconcile();
-}
-
-// Back-compat alias: anything still calling renderAll() gets a safe structural refresh.
-function renderAll(){ reconcile(); }
 
 // initial
-seedNodeReadiness();         // initial nodes start Ready (provisioned before the sim)
-syncPodsToReplicas();
 setupHeader();
-setupQueueDrop();
-startScaleTimer();
-fullRender();
+reconcile();
 
-Object.defineProperty(window, '_state', { get: () => S }); // debug (always current, even after reset)
-
+Object.defineProperty(window, '_state', { get: () => S });
 })();
 </script>
 </body>

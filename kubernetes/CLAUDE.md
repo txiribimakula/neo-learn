@@ -1,76 +1,67 @@
-# Kubernetes Scheduler Simulator — `scheduler.html`
+# Planificador de capacidad — `scheduler.html`
 
-Simulador educativo **single-file** del scheduler de Kubernetes: cómo se colocan
-pods en nodos según **taints/tolerations**, **capacidad / bin-packing**, y cómo
-**KEDA** autoescala (incluido scale-to-zero) a lo largo de una semana horaria,
-con **reporte de coste** y **escenarios** guardables. Hermano de
-`../kafka/kafka.html` y `../graphics/camera.html`.
+Aplicación educativa de un solo HTML, vanilla JS, sin build ni dependencias.
+Interfaz en español; comentarios del código en inglés. Estética clara, gris/azul,
+tipografía system-ui y cabeceras compactas.
 
-## Filosofía (no romper)
+## Alcance actual
 
-- **Un solo HTML**, vanilla JS, sin build ni dependencias. Doble clic o
-  `python -m http.server`.
-- Estética cream/blue (`:root` con `--bg`, `--card`, `--accent`…), tipografía
-  system-ui, fondo con radial-gradients.
-- **UI en español, comentarios de código en inglés.**
-- Educational-first y fiel al comportamiento real del kube-scheduler.
+- La línea temporal es la única pantalla: servicios arriba y grupos de nodos debajo.
+- Sin simulación en vivo, reloj, scheduler interactivo, paneles laterales, tarjetas,
+  comparación, optimización, escenarios ni menú «Más».
+- Las réplicas se editan directamente por hora, escribiendo o arrastrando.
+  Durante el arrastre se actualizan nodos, costes, cobertura y pendientes;
+  se conserva el track con captura del puntero para no interrumpir el gesto.
+- Tolerancias siempre visibles como etiquetas compactas: clic para añadir/quitar.
+  Sugerencias de nodos deduplicadas; + abre opciones para una regla personalizada.
+- Los nombres de servicios y nodos se editan directamente en sus filas.
+- CPU por réplica y réplicas fijas se editan en la fila del servicio. CPU por nodo,
+  máximo de nodos y precio por hora se editan en la fila del nodo.
+  Conservar estos inputs al recalcular: sustituir solo las gráficas.
+- «Opciones», «+ Servicio» y «+ Nodo» abren `openResourceEditor`.
+  Los recursos existentes reservan el popup para color, modo y restricciones.
+  El formulario trabaja con una copia: Guardar aplica; Cancelar descarta.
+  No reconstruir el formulario durante la edición ni al pulsar un stepper.
+- Configuración de servicio: nombre, color, CPU por réplica (mínimo 1, paso 1),
+  modo horario o réplicas fijas y tolerancias.
+- Configuración de nodo: nombre, CPU, máximo de instancias, tarifa y taints.
+- Coste, cobertura y pico permanecen en un resumen compacto. «Ver pendientes»
+  abre las horas afectadas y permite enfocar su demanda en la tabla.
 
-## Cómo correr / verificar
+## Modelo
 
-- Servidor: config en `.claude/launch.json` (`python -m http.server`).
-- Verificar con `preview_*`. El estado global vive en `S` (objeto `initialState()`).
+`S` contiene servicios, nodos y selección de día/hora. La selección solo navega;
+no avanza automáticamente. No hay temporizadores ni fases de arranque/parada.
 
-## Modelo de dominio
+`computeWeekCost` calcula las 168 horas en un estado aislado, conserva las
+colocaciones entre horas y devuelve costes, réplicas por servicio/nodo,
+instancias con su ocupación y pendientes. Reutiliza reglas de capacidad,
+restricciones y asignación. La caché depende de la configuración, y el cálculo
+no modifica el estado visible. El mes equivale al patrón semanal × 52/12.
 
-- **Pod types** (`S.podTypes`): plantilla con `request` (CPU), tolerations, color,
-  y un **perfil horario** de réplicas deseadas (`buildHourly`, editor por día/hora).
-  KEDA = `desiredReplicas(t, day, hour)`; `SCALE_TO_ZERO_MS` para bajar a 0.
-- **Nodos** (`S.nodes`): `capacity` (CPU por instancia), `maxReplicas` (instancias
-  del nodepool), `taints[]`. Arrancan/paran con `NODE_BOOT_MS`/boot timers.
-- **Pods** (`S.pods`): instancia con `typeId`, `location` (nodo), fase
-  (`Pending/ContainerCreating/Running/Terminating`), timers de arranque/parada.
-- **Reloj** semanal: `S.day` (0–6) × `S.hour` (0–23) = 168 slots. `weekSlot()`.
+Los nombres internos heredados de scheduler/autoscaler describen únicamente
+el cálculo de asignación; no representan herramientas o pantallas del producto.
 
-## Pipeline del scheduler (fiel a kube-scheduler)
+## Representación
 
-1. **Filtros** (`passesFilters` / `nodeFits`): taints vs tolerations
-   (`tolerates`, `tolerationMatchesTaint`), capacidad disponible
-   (`fitsInReadyInstances`, bin-packing en instancias ready vía `packNode`).
-2. **Scoring** (`scoreNodeResources`, `MAX_NODE_SCORE = 100`): reparte/llena según
-   recursos. El nodo ganador recibe el pod.
-3. **Binding** + animación FLIP (`capturePodRects` → `placePods` → `playFlip`).
-- `evictForTaints` desaloja pods que dejan de tolerar; `enforceNodeCapacity`
-  corrige sobre-asignación.
+- `TIMELINE_CPU_UNIT`: escala común en píxeles por CPU.
+- Cada pod es una sola pieza de su color; las marcas interiores representan CPU.
+  Las marcas se pintan con CSS para no crear un elemento por unidad de CPU.
+- Cada marco de nodo tiene altura fija según capacidad. Se muestran las instancias
+  hasta el máximo configurado, diferenciando las inactivas y el espacio libre.
+- Las cantidades están debajo de las barras. Pending amarillo = falta capacidad;
+  rojo = ningún nodo compatible.
+- Textos de uso en Ayuda y tooltips; bandas con solo Pods/Nodos, sin instrucciones
+  repetidas ni leyenda de CPU permanente.
+- Sin resaltado del día/hora actual. Campos visibles en una columna fija de 176 px
+  (156 px en móvil); restricciones del nodo visibles como etiquetas.
+- Semana/día comparten columnas entre servicios y nodos; nombres fijos al desplazar.
+- `reconcile` recalcula el resumen y la tabla, sin construir vistas ocultas.
 
-## Coste y escenarios
+## Verificación
 
-- `computeWeekCost` / `planInstancesAt` / `costForConfig`: coste semanal según
-  instancias activas hora a hora. `CURRENCY = '€'`. Reporte en modal (`openCostReport`).
-- **Escenarios**: snapshot de config (`snapshotConfig`/`applyConfig`) guardado en
-  `localStorage` (`SCENARIOS_KEY`). Guardar/cargar/borrar/comparar/export-import JSON.
-
-## Bucle de simulación
-
-- `startSim`/`stopSim`/`togglePlay`, velocidades en `SIM_SPEEDS`.
-- `simAdvance` → avanza el slot horario; `simSettleThenNext` deja "asentar" la
-  colocación antes del siguiente tick (`isSettling`/`setSettling`).
-- `reconcile()` = re-evalúa colocaciones; `fullRender`/`renderAll` repintan.
-
-## Render
-
-- `renderPodTypes`, `renderNodes`, `makePodEl`/`refreshPodEl`, `makeHourlyEditor`
-  (editor del perfil KEDA), `buildDaySelector`, `renderSubtitle`.
-- Drag&drop de pods a la cola (`setupQueueDrop`). Animaciones FLIP con `#flyLayer`.
-- Helpers UI: `makeNum` (steppers), `money`, `escapeHtml`/`escapeAttr`, `uid`.
-
-## Constantes a conocer
-
-`CPU_UNIT`, `DEFAULT_MAX_REPLICAS`, `POD_START_MS`, `NODE_BOOT_MS`,
-`POD_TERMINATE_MS`, `SCALE_TO_ZERO_MS`, `HOURS_PER_WEEK = 168`,
-`WEEKS_PER_MONTH ≈ 4.333`, `COLORS`.
-
-## Convenciones al editar
-
-- Estado en `S` (no closures dispersos). IDs con `uid(prefix)`.
-- Mantén la fidelidad al pipeline real (filtro→score→bind) al tocar scheduling.
-- Tras cambios, verifica en preview sin errores de consola.
+- `node --test scheduler.test.cjs`: pruebas del modelo sin dependencias.
+- Comprobar edición de réplicas, CPU=1, formularios Guardar/Cancelar, altas/bajas,
+  restricciones, navegación por día, costes y estados vacíos.
+- Mantener el HTML independiente. Puede abrirse directamente o servirse con
+  `python -m http.server`; config local en `.claude/launch.json`.
