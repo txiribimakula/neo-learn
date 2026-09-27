@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Encontrar el commit que rompe el test nocturno</title>
+  <style>
+    :root {
+      --bg:#f3f1ea; --paper:#fffefb; --ink:#20231f; --muted:#6f746b; --line:#d8d6cd;
+      --blue:#176b87; --blue-soft:#dceef3; --green:#28784a; --green-soft:#dff1e5;
+      --red:#b3473e; --red-soft:#f5dfdc; --amber:#a16c15; --amber-soft:#f5e9cc;
+      --dark:#20231f; --shadow:0 18px 48px rgba(38,42,32,.09);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;overflow:hidden}
+    body{margin:0;background:radial-gradient(circle at 8% 0,#dbeef2 0,transparent 31rem),var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5}
+    button{font:inherit}
+    .page{width:min(1440px,calc(100% - 24px));height:100%;margin:0 auto;padding:12px 0;display:grid;grid-template-rows:auto auto minmax(0,1fr);gap:10px}
+    .controls{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--paper);box-shadow:0 8px 24px rgba(38,42,32,.06)}
+    .step-copy b{display:block;font-size:14px}.step-copy span{color:var(--muted);font-size:12px}
+    .buttons{display:flex;gap:7px}.buttons button{min-width:100px;padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font-size:13px;font-weight:800;cursor:pointer}.buttons button:hover:not(:disabled){background:#f0eee7}.buttons button:disabled{opacity:.38;cursor:default}
+    .operation{display:grid;grid-template-columns:minmax(0,1fr) 54px minmax(0,1fr);align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--paper)}
+    .copy-side{min-width:0;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:#f6f4ee}.copy-side .copy-label{display:block;color:var(--muted);font-size:9px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.copy-side code{display:block;margin-top:2px;overflow:hidden;color:var(--ink);font:750 11px/1.3 ui-monospace,SFMono-Regular,Consolas,monospace;text-overflow:ellipsis;white-space:nowrap}.copy-side.source{border-color:color-mix(in srgb,var(--amber) 48%,var(--line));background:var(--amber-soft)}.copy-side.destination{border-color:color-mix(in srgb,var(--blue) 44%,var(--line));background:var(--blue-soft)}
+    .copy-arrow{text-align:center;color:var(--blue);font-size:22px;font-weight:900}.copy-arrow span{display:block;color:var(--muted);font-size:8px;letter-spacing:.07em;text-transform:uppercase}
+    .layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(350px,.72fr);gap:10px;min-height:0}
+    .panel{min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr);border:1px solid var(--line);border-radius:15px;background:var(--paper);box-shadow:var(--shadow);overflow:hidden}
+    .panel-head{padding:13px 18px 10px;border-bottom:1px solid var(--line)}
+    .panel-head h2{margin:0;font-size:18px;letter-spacing:-.035em}.panel-head p{margin:2px 0 0;color:var(--muted);font-size:11px}
+    .day{min-height:0;overflow:auto;padding:12px 14px 14px;scrollbar-gutter:stable}
+    .disk-current{padding:10px;border:1px solid var(--line);border-radius:10px;background:#f7f5ef}
+    .disk-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.disk-title h3{margin:0;font-size:13px}.disk-path{color:var(--muted);font:700 10px/1 ui-monospace,SFMono-Regular,Consolas,monospace}
+    .current-packages{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.disk-package{padding:9px;border:1px solid color-mix(in srgb,var(--blue) 35%,var(--line));border-radius:7px;background:var(--blue-soft)}.disk-package span{display:block;color:var(--muted);font-size:9px;font-weight:850;text-transform:uppercase}.disk-package b{display:block;margin-top:3px;font:850 12px/1 ui-monospace,SFMono-Regular,Consolas,monospace}.disk-package.changing{animation:disk-write .48s ease-out}@keyframes disk-write{0%{transform:scale(.92);box-shadow:0 0 0 5px var(--amber-soft)}100%{transform:scale(1);box-shadow:0 0 0 0 transparent}}
+    .write-rule{margin-top:7px;color:var(--muted);font-size:10px}.write-rule code{color:var(--ink);font:700 10px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace}
+    .tree-shell{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#f7f5ef;font:700 10px/1.25 ui-monospace,SFMono-Regular,Consolas,monospace}.tree,.tree ul{list-style:none;margin:0;padding:0}.tree ul{position:relative;margin-left:13px;padding-left:15px}.tree ul:before{content:"";position:absolute;top:0;bottom:8px;left:5px;border-left:1px solid #c8c6bd}.tree li{position:relative}.tree li:before{content:"";position:absolute;top:13px;left:-10px;width:10px;border-top:1px solid #c8c6bd}.tree>li:before{display:none}.tree-row{display:flex;align-items:center;gap:6px;min-height:25px;padding:3px 6px;border:1px solid transparent;border-radius:5px}.tree-row .icon{width:15px;text-align:center}.tree-row .node-name{color:var(--ink)}.tree-row .node-meta{margin-left:auto;color:var(--muted);font-size:9px}.tree-row.file{background:var(--paper);border-color:var(--line)}.tree-row.active-source{border-color:var(--amber);background:var(--amber-soft);box-shadow:0 0 0 2px color-mix(in srgb,var(--amber) 18%,transparent)}.tree-row.active-destination{border-color:var(--blue);background:var(--blue-soft);box-shadow:0 0 0 2px color-mix(in srgb,var(--blue) 16%,transparent)}.tree-branches{display:grid;grid-template-columns:.72fr 1.28fr;gap:10px}.history-a{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-top:3px!important}.history-a:before,.history-a li:before{display:none}.history-a li{min-width:0}.history-a .tree-row{min-height:35px}.history-note{color:var(--muted);font-size:9px;font-weight:600}
+    .axis-head{display:grid;grid-template-columns:72px 1fr 170px;gap:12px;margin-bottom:8px;color:var(--muted);font-size:10px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+    .axis-head span:nth-child(2){padding-left:10px}
+    .builds{position:relative}.builds:before{content:"";position:absolute;left:84px;top:20px;bottom:20px;width:2px;background:var(--line)}
+    .build{display:grid;grid-template-columns:72px 1fr 170px;gap:12px;align-items:center;min-height:52px;opacity:.18;transform:translateY(-5px);transition:opacity .3s,transform .3s}
+    .build.visible{opacity:1;transform:none}
+    .time{text-align:right;color:var(--muted);font:700 11px/1 ui-monospace,SFMono-Regular,Consolas,monospace}
+    .artifact{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--blue) 38%,var(--line));border-radius:9px;background:var(--blue-soft)}
+    .artifact:before{content:"";position:absolute;left:-17px;top:50%;width:10px;height:10px;transform:translate(-50%,-50%);border:3px solid var(--paper);border-radius:50%;background:var(--blue);box-shadow:0 0 0 1px var(--blue)}
+    .artifact .version{font:850 13px/1 ui-monospace,SFMono-Regular,Consolas,monospace}.artifact .commit{color:var(--muted);font:700 10px/1 ui-monospace,SFMono-Regular,Consolas,monospace}
+    .artifact.good{background:var(--green-soft);border-color:color-mix(in srgb,var(--green) 45%,var(--line))}.artifact.good:before{background:var(--green);box-shadow:0 0 0 1px var(--green)}
+    .artifact.bad{background:var(--red-soft);border-color:color-mix(in srgb,var(--red) 45%,var(--line))}.artifact.bad:before{background:var(--red);box-shadow:0 0 0 1px var(--red)}
+    .artifact.culprit{outline:3px solid color-mix(in srgb,var(--red) 28%,transparent);animation:pulse 1.15s ease-in-out infinite alternate}
+    @keyframes pulse{to{outline-width:7px}}
+    .saved{justify-self:stretch;padding:7px 8px;border:1px solid var(--line);border-radius:6px;background:#f2f0e9;color:var(--muted);font:700 9px/1.25 ui-monospace,SFMono-Regular,Consolas,monospace}.saved b{display:block;color:var(--ink);font-size:9px}
+    .archive{padding:10px;border:1px solid var(--line);border-radius:10px;background:#f7f5ef}
+    .archive h3{margin:0 0 7px;font-size:12px}.folders{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+    .folder{border:1px solid var(--line);background:var(--paper)}.folder.future,.folder.future + .history-note{display:none}.folder.current{border-color:var(--blue);background:var(--blue-soft)}.folder.good{border-color:var(--green);background:var(--green-soft)}.folder.bad{border-color:var(--red);background:var(--red-soft)}.folder.culprit{box-shadow:0 0 0 3px color-mix(in srgb,var(--red) 25%,transparent)}.folder.active-source{border-color:var(--amber);background:var(--amber-soft);box-shadow:0 0 0 2px color-mix(in srgb,var(--amber) 18%,transparent)}.folder.active-destination{border-color:var(--blue);background:var(--blue-soft)}
+    .night{min-height:0;overflow:auto;padding:14px;scrollbar-gutter:stable}
+    .sandbox{margin-bottom:14px;padding:14px;border:1px solid var(--line);border-radius:11px;background:#f7f5ef}.sandbox-head{display:flex;justify-content:space-between;gap:10px;margin-bottom:9px}.sandbox-head b{font-size:12px}.sandbox-head code{color:var(--muted);font:700 9px/1 ui-monospace,SFMono-Regular,Consolas,monospace}.sandbox-packages{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.sandbox-package{padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--paper)}.sandbox-package span{display:block;color:var(--muted);font-size:8px;font-weight:850;text-transform:uppercase}.sandbox-package b{display:block;margin-top:3px;font:850 11px/1 ui-monospace,SFMono-Regular,Consolas,monospace}.sandbox-package.restored{border-color:color-mix(in srgb,var(--amber) 42%,var(--line));background:var(--amber-soft)}.sandbox-package.active-destination{border-color:var(--blue);background:var(--blue-soft);box-shadow:0 0 0 2px color-mix(in srgb,var(--blue) 16%,transparent)}.restore-copy{min-height:28px;margin-top:8px;color:var(--muted);font:700 9px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}.restore-copy strong{color:var(--ink)}
+    .nightly{padding:11px 13px;border-radius:9px;background:var(--dark);color:#d5d9d2;font:11px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}
+    .nightly .command{color:#7ec5d9}.nightly .pass{color:#8bd0a3}.nightly .fail{color:#ef9188}.nightly .dim{color:#8e958b}
+    .search{margin-top:10px}
+    .search h3{margin:0 0 8px;font-size:14px}.search p{margin:0 0 13px;color:var(--muted);font-size:12px}
+    .range{position:relative;display:grid;grid-template-columns:repeat(8,1fr);gap:5px;padding:21px 0 9px}
+    .range:before{content:"";position:absolute;left:4%;right:4%;top:32px;height:2px;background:var(--line)}
+    .point{position:relative;z-index:1;text-align:center}.dot{display:grid;place-items:center;width:23px;height:23px;margin:0 auto 6px;border:2px solid var(--paper);border-radius:50%;background:#c8cbc4;box-shadow:0 0 0 1px var(--line);color:white;font-size:11px;font-weight:900}.point.good .dot{background:var(--green);box-shadow:0 0 0 1px var(--green)}.point.bad .dot{background:var(--red);box-shadow:0 0 0 1px var(--red)}.point.probe .dot{background:var(--amber);box-shadow:0 0 0 4px var(--amber-soft)}.point.culprit .dot{background:var(--red);box-shadow:0 0 0 4px var(--red-soft)}
+    .point small{display:block;color:var(--muted);font:700 9px/1 ui-monospace,SFMono-Regular,Consolas,monospace}
+    .probe-card{min-height:88px;margin-top:9px;padding:11px;border:1px solid var(--line);border-left:5px solid var(--amber);border-radius:9px;background:var(--amber-soft)}
+    .probe-card.final{border-left-color:var(--red);background:var(--red-soft)}.probe-card .label{color:var(--muted);font-size:10px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.probe-card b{display:block;margin:4px 0;font-size:16px}.probe-card p{margin:0;color:var(--muted);font-size:12px}
+    .rule{margin-top:9px;padding:10px;border:1px solid var(--line);border-radius:9px;background:#f5f3ed;font-size:11px;color:var(--muted)}.rule b{color:var(--ink)}
+    .legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;color:var(--muted);font-size:9px}.legend span{display:inline-flex;align-items:center;gap:5px}.swatch{width:10px;height:10px;border-radius:3px;background:var(--blue)}.swatch.good{background:var(--green)}.swatch.bad{background:var(--red)}.swatch.probe{background:var(--amber)}
+    @media(max-width:850px){html,body{height:auto;overflow:auto}.page{height:auto;min-height:100vh}.layout{grid-template-columns:1fr}.panel{max-height:72vh}.tree-branches{grid-template-columns:1fr}.panel{box-shadow:none}}
+    @media(max-width:520px){.page{width:calc(100% - 12px);padding:6px 0}.controls{align-items:flex-start;flex-direction:column}.buttons{width:100%}.buttons button{flex:1;min-width:0}.operation{grid-template-columns:1fr}.copy-arrow{transform:rotate(90deg)}.copy-arrow span{display:none}.panel-head,.day{padding-left:12px;padding-right:12px}.history-a{grid-template-columns:1fr}.sandbox-packages{grid-template-columns:1fr}.night{padding:11px}.range{gap:2px}.dot{width:20px;height:20px}.point small{font-size:8px}}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <nav class="controls" aria-label="Pasos de la simulación">
+      <div class="step-copy"><b id="step-title">Punto de partida</b><span id="step-detail">A-0 pasó el test nocturno anterior y es el baseline conocido bueno.</span></div>
+      <div class="buttons"><button type="button" id="previous" disabled>← Anterior</button><button type="button" id="next">Siguiente →</button></div>
+    </nav>
+
+    <section class="operation" aria-label="Copia realizada en este paso">
+      <div class="copy-side source"><span class="copy-label">Origen</span><code id="copy-source">—</code></div>
+      <div class="copy-arrow">→<span>copiar</span></div>
+      <div class="copy-side destination"><span class="copy-label">Destino</span><code id="copy-destination">—</code></div>
+    </section>
+
+    <div class="layout">
+      <section class="panel">
+        <header class="panel-head"><h2>Estructura permanente del disco</h2><p>Amarillo = origen leído · azul = destino escrito en este paso.</p></header>
+        <div class="day">
+          <section class="tree-shell" aria-label="Árbol de carpetas del disco">
+            <ul class="tree">
+              <li><div class="tree-row"><span class="icon">💽</span><span class="node-name">DISK/</span></div>
+                <ul>
+                  <li><div class="tree-row"><span class="icon">📁</span><span class="node-name">shared/releases/</span></div>
+                    <ul class="tree-branches">
+                      <li><div class="tree-row"><span class="icon">📁</span><span class="node-name">packages/</span><span class="node-meta">carpeta común de compilación</span></div>
+                        <ul>
+                          <li><div class="tree-row file" id="current-a"><span class="icon">📦</span><span class="node-name">A.pkg</span><span class="node-meta">A-0</span></div></li>
+                          <li><div class="tree-row file" id="current-b"><span class="icon">📦</span><span class="node-name">B.pkg</span><span class="node-meta">B-3</span></div></li>
+                          <li><div class="tree-row file" id="current-c"><span class="icon">📦</span><span class="node-name">C.pkg</span><span class="node-meta">C-8</span></div></li>
+                        </ul>
+                      </li>
+                      <li><div class="tree-row"><span class="icon">📁</span><span class="node-name">history/</span><span class="node-meta">una carpeta por commit · solo paquetes modificados</span></div>
+                        <ul class="history-a" id="folders"></ul>
+                      </li>
+                    </ul>
+                  </li>
+                  <li><div class="tree-row"><span class="icon">📁</span><span class="node-name">nightly/</span></div>
+                    <ul class="tree-branches">
+                      <li><div class="tree-row"><span class="icon">📁</span><span class="node-name">frozen/</span></div><ul>
+                        <li><div class="tree-row file" id="frozen-a"><span class="icon">📦</span><span class="node-name">A.pkg</span><span class="node-meta">—</span></div></li>
+                        <li><div class="tree-row file" id="frozen-b"><span class="icon">📦</span><span class="node-name">B.pkg</span><span class="node-meta">—</span></div></li>
+                        <li><div class="tree-row file" id="frozen-c"><span class="icon">📦</span><span class="node-name">C.pkg</span><span class="node-meta">—</span></div></li>
+                      </ul></li>
+                      <li><div class="tree-row"><span class="icon">📁</span><span class="node-name">sandbox/</span><span class="node-meta">estado probado →</span></div><ul>
+                        <li><div class="tree-row file" id="tree-sandbox-a"><span class="icon">📦</span><span class="node-name">A.pkg</span><span class="node-meta">—</span></div></li>
+                        <li><div class="tree-row file" id="tree-sandbox-b"><span class="icon">📦</span><span class="node-name">B.pkg</span><span class="node-meta">—</span></div></li>
+                        <li><div class="tree-row file" id="tree-sandbox-c"><span class="icon">📦</span><span class="node-name">C.pkg</span><span class="node-meta">—</span></div></li>
+                      </ul></li>
+                    </ul>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </section>
+          <div class="legend"><span><i class="swatch"></i> versión disponible</span><span><i class="swatch good"></i> nightly pasa</span><span><i class="swatch bad"></i> nightly falla</span><span><i class="swatch probe"></i> origen leído</span></div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <header class="panel-head"><h2>Noche · test largo</h2><p>Se repite solo el test que falló, cambiando la versión de A.</p></header>
+        <div class="night">
+          <section class="sandbox">
+            <div class="sandbox-head"><b>Estado reconstruido para la prueba</b><code>//nightly/sandbox/</code></div>
+            <div class="sandbox-packages">
+              <div class="sandbox-package restored" id="sandbox-card-a"><span>Paquete A</span><b id="sandbox-a">—</b></div>
+              <div class="sandbox-package" id="sandbox-card-b"><span>Paquete B</span><b id="sandbox-b">—</b></div>
+              <div class="sandbox-package" id="sandbox-card-c"><span>Paquete C</span><b id="sandbox-c">—</b></div>
+            </div>
+            <div class="restore-copy" id="restore-copy">El sandbox se crea cuando comienza el nightly.</div>
+          </section>
+          <div class="nightly" id="terminal"><span class="dim">$ esperando al nightly…</span></div>
+          <section class="search">
+            <h3>Búsqueda binaria</h3>
+            <p>Se mantiene un límite bueno y otro malo; se prueba siempre el punto medio.</p>
+            <div class="range" id="range"></div>
+            <div class="probe-card" id="probe-card"><span class="label">Estado</span><b>Baseline preparado</b><p>A-0 es bueno. Aún no sabemos si la última build falla.</p></div>
+          </section>
+          <div class="rule"><b>Resultado:</b> el estado 0104 pasa y 0105 falla. El primer cambio defectuoso es <b>commit c5e8b0</b>, que modificó A y B.</div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      const versions = [
+        {order:"0100",commit:"31ac90",folder:"0100_20260812-1840_31ac90",changed:["A"],state:{A:"A-0",B:"B-3",C:"C-8"},sources:{A:"0100_20260812-1840_31ac90",B:"0099_20260812-1620_a81d0c",C:"0099_20260812-1620_a81d0c"}},
+        {order:"0101",commit:"0ad15a",folder:"0101_20260813-0912_0ad15a",changed:["A"],state:{A:"A-1",B:"B-3",C:"C-8"},sources:{A:"0101_20260813-0912_0ad15a",B:"0099_20260812-1620_a81d0c",C:"0099_20260812-1620_a81d0c"}},
+        {order:"0102",commit:"6f31c2",folder:"0102_20260813-1005_6f31c2",changed:["A","B"],state:{A:"A-2",B:"B-4",C:"C-8"},sources:{A:"0102_20260813-1005_6f31c2",B:"0102_20260813-1005_6f31c2",C:"0099_20260812-1620_a81d0c"}},
+        {order:"0103",commit:"b842d1",folder:"0103_20260813-1147_b842d1",changed:["A"],state:{A:"A-3",B:"B-4",C:"C-8"},sources:{A:"0103_20260813-1147_b842d1",B:"0102_20260813-1005_6f31c2",C:"0099_20260812-1620_a81d0c"}},
+        {order:"0104",commit:"98ea73",folder:"0104_20260813-1320_98ea73",changed:["A","C"],state:{A:"A-4",B:"B-4",C:"C-9"},sources:{A:"0104_20260813-1320_98ea73",B:"0102_20260813-1005_6f31c2",C:"0104_20260813-1320_98ea73"}},
+        {order:"0105",commit:"c5e8b0",folder:"0105_20260813-1502_c5e8b0",changed:["A","B"],state:{A:"A-5",B:"B-5",C:"C-9"},sources:{A:"0105_20260813-1502_c5e8b0",B:"0105_20260813-1502_c5e8b0",C:"0104_20260813-1320_98ea73"}},
+        {order:"0106",commit:"e17c44",folder:"0106_20260813-1618_e17c44",changed:["A"],state:{A:"A-6",B:"B-5",C:"C-9"},sources:{A:"0106_20260813-1618_e17c44",B:"0105_20260813-1502_c5e8b0",C:"0104_20260813-1320_98ea73"}},
+        {order:"0107",commit:"f903ab",folder:"0107_20260813-1741_f903ab",changed:["A","C"],state:{A:"A-7",B:"B-5",C:"C-10"},sources:{A:"0107_20260813-1741_f903ab",B:"0105_20260813-1502_c5e8b0",C:"0107_20260813-1741_f903ab"}}
+      ];
+      const previousCommits = [
+        {folder:"0097_20260812-1015_72af10",files:"B.pkg",state:"B-2"},
+        {folder:"0098_20260812-1330_d197ac",files:"C.pkg",state:"C-7"},
+        {folder:"0099_20260812-1620_a81d0c",files:"B.pkg · C.pkg",state:"B-3 · C-8"}
+      ];
+      const steps = [
+        {title:"Punto de partida",detail:"El estado 0100 pasó el nightly anterior y es el baseline conocido bueno.",visible:0,phase:"idle"},
+        ...versions.slice(1).map((item,index) => ({title:`Commit ${item.order} · cambian ${item.changed.join(" + ")}`,detail:`Se guardan solo ${item.changed.map(p=>p+".pkg").join(" y ")} más manifest.json.`,visible:index+1,phase:"day"})),
+        {title:"A las 22:00 · falla el nightly",detail:"Falla el estado final 0107: A-7 + B-5 + C-10.",visible:7,phase:"night"},
+        {title:"Búsqueda 1/3 · probar 0103",detail:"A-3 + B-4 + C-8 pasa. El error está después de 0103.",visible:7,phase:"probe3"},
+        {title:"Búsqueda 2/3 · probar 0105",detail:"A-5 + B-5 + C-9 falla. El primer error está entre 0103 y 0105.",visible:7,phase:"probe5"},
+        {title:"Búsqueda 3/3 · probar 0104",detail:"A-4 + B-4 + C-9 pasa. El primer commit malo es el siguiente: 0105.",visible:7,phase:"probe4"},
+        {title:"Commit localizado",detail:"0105 / c5e8b0 es el primer commit que falla; cambió A y B.",visible:7,phase:"done"}
+      ];
+      const folders = document.getElementById("folders");
+      const range = document.getElementById("range");
+      const terminal = document.getElementById("terminal");
+      const card = document.getElementById("probe-card");
+      const title = document.getElementById("step-title");
+      const detail = document.getElementById("step-detail");
+      const previous = document.getElementById("previous");
+      const next = document.getElementById("next");
+      const currentA = document.querySelector("#current-a .node-meta");
+      const currentB = document.querySelector("#current-b .node-meta");
+      const currentC = document.querySelector("#current-c .node-meta");
+      const sandboxA = document.getElementById("sandbox-a");
+      const sandboxB = document.getElementById("sandbox-b");
+      const sandboxC = document.getElementById("sandbox-c");
+      const restoreCopy = document.getElementById("restore-copy");
+      const copySource = document.getElementById("copy-source");
+      const copyDestination = document.getElementById("copy-destination");
+      let current = 0;
+
+      folders.innerHTML = [
+        ...previousCommits.map(item => `<li><div class="tree-row folder" data-commit="${item.folder}"><span class="icon">📁</span><span class="node-name">${item.folder}/</span><span class="node-meta">Δ ${item.files.replaceAll(".pkg","")}</span></div><div class="history-note">📦 ${item.files} · 📄 manifest.json</div></li>`),
+        ...versions.map((item,index) => `<li><div class="tree-row folder" data-folder="${index}" data-commit="${item.folder}"><span class="icon">📁</span><span class="node-name">${item.folder}/</span><span class="node-meta">Δ ${item.changed.join("+")}</span></div><div class="history-note">${item.changed.map(p=>"📦 "+p+".pkg").join(" · ")} · 📄 manifest.json</div></li>`)
+      ].join("");
+      range.innerHTML = versions.map((item,index) => `<div class="point" data-point="${index}"><span class="dot">${index}</span><small>${item.order}</small></div>`).join("");
+
+      function mark(indices, className){indices.forEach(index => document.querySelector(`[data-point="${index}"]`).classList.add(className));}
+      function highlight(ids, className){ids.forEach(id=>document.getElementById(id)?.classList.add(className));}
+      function setOperation(source,destination){copySource.textContent=source;copyDestination.textContent=destination;}
+      function restore(versionIndex){
+        document.querySelectorAll(".active-source,.active-destination").forEach(el=>el.classList.remove("active-source","active-destination"));
+        const item=versions[versionIndex];
+        const state=item.state;
+        sandboxA.textContent=state.A; sandboxB.textContent=state.B; sandboxC.textContent=state.C;
+        ["A","B","C"].forEach(p=>document.querySelector(`#tree-sandbox-${p.toLowerCase()} .node-meta`).textContent=state[p]);
+        const paths=Object.entries(item.sources).map(([p,folder])=>`history/${folder}/${p}.pkg`);
+        setOperation(`manifest ${item.folder} → resolver A+B+C`,"sandbox/{A.pkg,B.pkg,C.pkg}");
+        restoreCopy.innerHTML=paths.map((path,index)=>`<strong>${path}</strong> → sandbox/${["A","B","C"][index]}.pkg`).join("<br>");
+        [...new Set(Object.values(item.sources))].forEach(folder=>document.querySelector(`[data-commit="${folder}"]`)?.classList.add("active-source"));
+        highlight(["tree-sandbox-a","tree-sandbox-b","tree-sandbox-c","sandbox-card-a","sandbox-card-b","sandbox-card-c"],"active-destination");
+      }
+      function render(){
+        const step=steps[current];
+        title.textContent=step.title; detail.textContent=step.detail;
+        previous.disabled=current===0; next.disabled=current===steps.length-1;
+        document.querySelectorAll(".folder").forEach(el=>{
+          const hasStep=el.dataset.folder!==undefined;
+          const index=Number(el.dataset.folder);
+          el.className="tree-row folder";
+          el.classList.toggle("future",hasStep && index>step.visible);
+          el.classList.toggle("current",hasStep && index===step.visible);
+        });
+        document.querySelectorAll(".file,.sandbox-package").forEach(el=>el.classList.remove("active-source","active-destination"));
+        document.querySelectorAll(".point").forEach(el=>el.className="point");
+        const visibleState=versions[step.visible].state;
+        currentA.textContent=visibleState.A; currentB.textContent=visibleState.B; currentC.textContent=visibleState.C;
+        ["frozen-a","frozen-b","frozen-c"].forEach(id=>document.querySelector(`#${id} .node-meta`).textContent="—");
+        ["tree-sandbox-a","tree-sandbox-b","tree-sandbox-c"].forEach(id=>document.querySelector(`#${id} .node-meta`).textContent="—");
+        setOperation("—","—");
+        document.querySelector('[data-folder="0"]').classList.add("good");
+        mark([0],"good");
+        sandboxA.textContent="—"; sandboxB.textContent="—"; sandboxC.textContent="—";
+        restoreCopy.textContent="El sandbox se crea cuando comienza el nightly.";
+        terminal.innerHTML='<span class="dim">$ esperando al nightly…</span>';
+        card.className="probe-card"; card.innerHTML='<span class="label">Estado</span><b>0100 es el baseline</b><p>A-0 + B-3 + C-8 pasó el nightly anterior.</p>';
+
+        if(step.phase==="day"){
+          const item=versions[step.visible];
+          const files=item.changed.map(p=>p+".pkg");
+          setOperation(`packages/{${files.join(",")}} recién compilados`,`history/${item.folder}/{${files.join(",")},manifest.json}`);
+          highlight(item.changed.map(p=>"current-"+p.toLowerCase()),"active-source");
+          document.querySelector(`[data-folder="${step.visible}"]`).classList.add("active-destination");
+        }
+
+        if(["night","probe3","probe5","probe4","done"].includes(step.phase)){
+          document.querySelector('[data-folder="7"]').classList.add("bad"); mark([7],"bad");
+          const finalState=versions[7].state;
+          ["A","B","C"].forEach(p=>{
+            document.querySelector(`#frozen-${p.toLowerCase()} .node-meta`).textContent=finalState[p];
+            document.querySelector(`#tree-sandbox-${p.toLowerCase()} .node-meta`).textContent=finalState[p];
+          });
+          sandboxA.textContent=finalState.A; sandboxB.textContent=finalState.B; sandboxC.textContent=finalState.C;
+          setOperation("packages/{A.pkg,B.pkg,C.pkg}","frozen/{A.pkg,B.pkg,C.pkg} → sandbox/");
+          highlight(["current-a","current-b","current-c"],"active-source");
+          highlight(["frozen-a","frozen-b","frozen-c","tree-sandbox-a","tree-sandbox-b","tree-sandbox-c","sandbox-card-a","sandbox-card-b","sandbox-card-c"],"active-destination");
+          restoreCopy.innerHTML='<strong>packages/* → frozen/* → sandbox/*</strong><br>Se congela exactamente el estado que produjo el fallo.';
+          terminal.innerHTML='<span class="command">$ test sandbox/ # A-7 · B-5 · C-10</span><br><span class="fail">FAIL</span> · test_largo_memoria';
+          card.innerHTML='<span class="label">Intervalo inicial</span><b>0100 pasa · 0107 falla</b><p>El primer commit malo está entre ambos extremos.</p>';
+        }
+        if(["probe3","probe5","probe4","done"].includes(step.phase)){
+          document.querySelector('[data-folder="3"]').classList.add("good"); mark([3],"good");
+          restore(3);
+          terminal.innerHTML+='<br><span class="command">$ restore 0103 && test</span> <span class="pass">PASS</span>';
+          card.innerHTML='<span class="label">Primera división</span><b>0103 pasa</b><p>A-3 + B-4 + C-8. El fallo está después.</p>';
+        }
+        if(step.phase==="probe3") mark([3],"probe");
+        if(["probe5","probe4","done"].includes(step.phase)){
+          document.querySelector('[data-folder="5"]').classList.add("bad"); mark([5],"bad");
+          restore(5);
+          terminal.innerHTML+='<br><span class="command">$ restore 0105 && test</span> <span class="fail">FAIL</span>';
+          card.innerHTML='<span class="label">Segunda división</span><b>0105 falla</b><p>A-5 + B-5 + C-9. El primer fallo queda entre 0104 y 0105.</p>';
+        }
+        if(step.phase==="probe5") mark([5],"probe");
+        if(["probe4","done"].includes(step.phase)){
+          document.querySelector('[data-folder="4"]').classList.add("good"); mark([4],"good");
+          restore(4);
+          terminal.innerHTML+='<br><span class="command">$ restore 0104 && test</span> <span class="pass">PASS</span>';
+          card.innerHTML='<span class="label">Tercera división</span><b>0104 pasa</b><p>A-4 + B-4 + C-9. El siguiente commit, 0105, es el primero malo.</p>';
+        }
+        if(step.phase==="probe4") mark([4],"probe");
+        if(step.phase==="done"){
+          document.querySelector('[data-folder="5"]').classList.add("culprit"); document.querySelector('[data-point="5"]').classList.add("culprit");
+          document.querySelectorAll(".active-source,.active-destination").forEach(el=>el.classList.remove("active-source","active-destination"));
+          setOperation("history/0105_20260813-1502_c5e8b0/manifest.json","incidencia: commit c5e8b0 identificado");
+          document.querySelector('[data-folder="5"]').classList.add("active-source");
+          card.className="probe-card final"; card.innerHTML='<span class="label">Primer commit defectuoso</span><b>0105 · c5e8b0</b><p>Ese commit cambió A.pkg y B.pkg. El bisectado identifica el commit; después se investiga cuál de sus cambios causa el fallo.</p>';
+        }
+      }
+      previous.addEventListener("click",()=>{current-=1;render()});
+      next.addEventListener("click",()=>{current+=1;render()});
+      render();
+    })();
+  </script>
+</body>
+</html>
