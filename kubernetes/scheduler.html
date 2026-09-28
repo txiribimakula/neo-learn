@@ -606,6 +606,10 @@ function packNode(n){
 
 const PAINT_SCALE = 8;
 
+// Replicas have no upper limit: the drag scale always leaves headroom above the
+// weekly peak, so each gesture can go higher and the scale grows on release.
+function paintScale(peak){ return Math.max(PAINT_SCALE, peak + Math.max(2, Math.ceil(peak / 2))); }
+
 function commitHourly(){reconcile();}
 
 function setDay(day){S.day=((day%7)+7)%7;reconcile();}
@@ -941,7 +945,7 @@ function makeDemandTimelineRow(t, start, count){
     const t=type();
     ensureHourly(t);
     // Keep the drag scale stable while painting so the pointer maps to the same values.
-    if(!demandPainting)scale=Math.max(PAINT_SCALE,...Array.from({length:HOURS_PER_WEEK},(_,slot)=>desiredReplicas(t,Math.floor(slot/24),slot%24)));
+    if(!demandPainting)scale=paintScale(Math.max(0,...Array.from({length:HOURS_PER_WEEK},(_,slot)=>desiredReplicas(t,Math.floor(slot/24),slot%24))));
     row.style.setProperty('--workload-color',t.color);
     row.style.setProperty('--plot-height',`${scale*t.request*TIMELINE_CPU_UNIT}px`);
     track.setAttribute('aria-label',`Réplicas de ${t.name}`);
