@@ -25,6 +25,9 @@ tipografía system-ui y cabeceras compactas.
 - Configuración de servicio: nombre, color, CPU por réplica (mínimo 1, paso 1),
   modo horario o réplicas fijas y tolerancias.
 - Configuración de nodo: nombre, CPU, máximo de instancias, tarifa y taints.
+- «Exportar» descarga servicios, nodos y periodo de coste como JSON legible
+  (`format: "planificador-capacidad"`, sin ids). «Importar» valida todo con
+  `parseConfig` antes de tocar el estado y pide confirmación para sustituirlo.
 - Coste, cobertura y pico permanecen en un resumen compacto. «Ver pendientes»
   abre las horas afectadas y permite enfocar su demanda en la tabla.
 

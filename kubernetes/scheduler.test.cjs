@@ -14,7 +14,8 @@ function harness(){
   vm.createContext(context);
   vm.runInContext(source.slice(0, source.indexOf('// initial\n')) + `
     globalThis.api = { getState: () => S, computeWeekCost, nodeCostForPeriod,
-      coverageMetrics, coverageText, buildNodeTimeline, enforceNodeCapacity, packNode };
+      coverageMetrics, coverageText, buildNodeTimeline, enforceNodeCapacity, packNode,
+      exportConfig, parseConfig };
   })();`, context);
   return context.api;
 }
@@ -221,4 +222,38 @@ test('one CPU replicas fit and forecast correctly alongside larger requests', ()
   assert.equal(result.perNodeHourBins.node[0][0].used,4);
   assert.equal(result.perNodeHourPods.node[0].work,2);
   assert.equal(result.perNodeHourPods.node[0].other,1);
+});
+
+test('exported configuration imports back to the same plan with fresh ids', () => {
+  const api=harness(), state=api.getState();
+  state.podTypes[0].hourly[2][14]=7; state.podTypes[1].kedaEnabled=false; state.podTypes[1].replicas=4;
+  state.nodeCostPeriod='week';
+  const before=api.computeWeekCost(), exported=JSON.parse(JSON.stringify(api.exportConfig()));
+  assert.ok(!JSON.stringify(exported).includes('"id"'));
+  const config=api.parseConfig(exported);
+  assert.equal(config.costPeriod,'week');
+  assert.notEqual(config.podTypes[0].id,state.podTypes[0].id);
+  // Ids feed the projection keys, so compare the totals after swapping the plan in.
+  state.podTypes=config.podTypes; state.nodes=config.nodes;
+  const after=api.computeWeekCost();
+  assert.equal(after.total,before.total);
+  assert.deepEqual(after.pendingPerHour,before.pendingPerHour);
+  assert.equal(config.podTypes[1].replicas,4);
+  assert.equal(config.podTypes[0].hourly[2][14],7);
+});
+
+test('invalid imports are rejected with a readable reason and leave the state untouched', () => {
+  const api=harness(), state=api.getState(), before=JSON.stringify(state);
+  const valid=()=>JSON.parse(JSON.stringify(api.exportConfig()));
+  const reject=(mutate,pattern)=>{const data=valid();mutate(data);assert.throws(()=>api.parseConfig(data),pattern);};
+  assert.throws(()=>api.parseConfig([]),/no contiene/);
+  reject(d=>{d.format='otro';},/no es una exportación/);
+  reject(d=>{d.services[0].cpuPerReplica=0;},/CPU por réplica/);
+  reject(d=>{d.services[0].hourly[3].pop();},/7 días × 24 horas/);
+  reject(d=>{d.services[0].hourly[0][0]=-1;},/7 días × 24 horas/);
+  reject(d=>{d.nodes[0].maxNodes=1.5;},/máximo de nodos/);
+  reject(d=>{d.nodes[0].pricePerHour='gratis';},/precio/);
+  reject(d=>{d.nodes[1].taints[0].effect='';},/efecto/);
+  reject(d=>{d.nodes[0].name='  ';},/falta el nombre/);
+  assert.equal(JSON.stringify(state),before);
 });

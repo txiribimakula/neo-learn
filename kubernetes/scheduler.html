@@ -271,6 +271,9 @@
 <header class="section-head"><div class="actions">
 <button class="ghost-btn" id="addTimelinePodBtn">+ Servicio</button>
 <button class="ghost-btn" id="addNodeBtn">+ Nodo</button>
+<button class="ghost-btn" id="exportConfigBtn" title="Descargar servicios y nodos como JSON">Exportar</button>
+<button class="ghost-btn" id="importConfigBtn" title="Cargar servicios y nodos desde un JSON exportado">Importar</button>
+<input type="file" id="importConfigFile" accept="application/json,.json" hidden>
           <div class="timeline-toolbar" id="timelineControls">
             <label><select id="timelineScope" aria-label="Periodo de la línea temporal"><option value="week">Semana</option><option value="day">Día</option></select></label>
             <div class="timeline-day-nav" id="timelineDayNav" hidden><button class="ghost-btn" id="timelinePrevDay" aria-label="Ver día anterior">←</button><strong id="timelineDayLabel"></strong><button class="ghost-btn" id="timelineNextDay" aria-label="Ver día siguiente">→</button></div>
@@ -1205,6 +1208,121 @@ function updatePlanningSummary(c){
 
 }
 
+const CONFIG_FORMAT = 'planificador-capacidad';
+
+const TAINT_EFFECTS = ['NoSchedule','NoExecute','PreferNoSchedule'];
+
+function exportConfig(){
+  // A readable, id-free document: ids are regenerated on import.
+  const rules=list=>list.map(({key,value,effect})=>({key,value,effect}));
+  return {
+    format: CONFIG_FORMAT, version: 1,
+    costPeriod: S.nodeCostPeriod,
+    services: S.podTypes.map(t => ({
+      name: t.name, color: t.color, cpuPerReplica: t.request,
+      mode: t.kedaEnabled ? 'hourly' : 'fixed',
+      fixedReplicas: t.replicas | 0,
+      hourly: ensureHourly(t).map(day => day.slice()),
+      tolerations: rules(t.tolerations),
+    })),
+    nodes: S.nodes.map(n => ({
+      name: n.name, cpu: n.capacity, maxNodes: maxReplicas(n),
+      pricePerHour: n.pricePerHour ?? .10, taints: rules(n.taints),
+    })),
+  };
+}
+
+function parseConfig(data){
+  // Validate everything before touching the live state; throw a readable message.
+  const fail = message => { throw new Error(message); };
+  if(!data || typeof data !== 'object' || Array.isArray(data)) fail('El archivo no contiene una configuración.');
+  if(data.format !== CONFIG_FORMAT) fail('El archivo no es una exportación del planificador de capacidad.');
+  if(!Array.isArray(data.services) || !Array.isArray(data.nodes)) fail('Faltan las listas de servicios o nodos.');
+  const count = (value, min) => Number.isSafeInteger(value) && value >= min;
+  const text = value => typeof value === 'string' ? value : '';
+  const name = (value, where) => text(value).trim() || fail(`${where}: falta el nombre.`);
+  const rules = (list, where, effects) => {
+    if(list === undefined) return [];
+    if(!Array.isArray(list)) fail(`${where}: las reglas deben ser una lista.`);
+    return list.map(rule => {
+      const effect = text(rule?.effect);
+      if(!effects.includes(effect)) fail(`${where}: efecto «${effect}» no válido.`);
+      return { key: text(rule.key), value: text(rule.value), effect };
+    });
+  };
+  const podTypes = data.services.map((s, i) => {
+    const where = `Servicio «${text(s?.name) || i + 1}»`;
+    if(!count(s?.cpuPerReplica, 1)) fail(`${where}: la CPU por réplica debe ser un entero mayor que 0.`);
+    const hourly = s.hourly;
+    const validHourly = Array.isArray(hourly) && hourly.length === 7 &&
+      hourly.every(day => Array.isArray(day) && day.length === 24 && day.every(v => count(v, 0)));
+    if(s.mode !== 'fixed' && !validHourly) fail(`${where}: las réplicas por hora deben ser 7 días × 24 horas de enteros ≥ 0.`);
+    if(s.mode === 'fixed' && !count(s.fixedReplicas, 0)) fail(`${where}: las réplicas fijas deben ser un entero ≥ 0.`);
+    return {
+      id: uid('t'), name: name(s.name, where),
+      color: /^#[0-9a-f]{6}$/i.test(text(s.color)) ? s.color : COLORS[i % COLORS.length],
+      request: s.cpuPerReplica, kedaEnabled: s.mode !== 'fixed',
+      replicas: count(s.fixedReplicas, 0) ? s.fixedReplicas : 0,
+      hourly: validHourly ? hourly.map(day => day.slice()) : buildHourly([0,0,0,0,0,0,0]),
+      tolerations: rules(s.tolerations, where, ['', ...TAINT_EFFECTS]),
+    };
+  });
+  const nodes = data.nodes.map((n, i) => {
+    const where = `Nodo «${text(n?.name) || i + 1}»`;
+    if(!count(n?.cpu, 1)) fail(`${where}: la CPU por nodo debe ser un entero mayor que 0.`);
+    if(!count(n.maxNodes, 1)) fail(`${where}: el máximo de nodos debe ser un entero mayor que 0.`);
+    if(!Number.isFinite(n.pricePerHour) || n.pricePerHour < 0) fail(`${where}: el precio por hora debe ser un número ≥ 0.`);
+    return { id: uid('n'), name: name(n.name, where), capacity: n.cpu, maxReplicas: n.maxNodes,
+      pricePerHour: n.pricePerHour, taints: rules(n.taints, where, TAINT_EFFECTS) };
+  });
+  const costPeriod = NODE_COST_PERIODS[data.costPeriod] ? data.costPeriod : null;
+  return { podTypes, nodes, costPeriod };
+}
+
+function downloadConfig(){
+  const blob = new Blob([JSON.stringify(exportConfig(), null, 2) + '\n'], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob); link.download = 'planificador-capacidad.json';
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 0);
+}
+
+function applyConfig(config){
+  S.podTypes = config.podTypes; S.nodes = config.nodes;
+  if(config.costPeriod){ S.nodeCostPeriod = config.costPeriod; $('#nodeCostPeriod').value = config.costPeriod; }
+  S.timelineFocus = null;
+  reconcile();
+}
+
+async function importConfigFile(file){
+  let config;
+  try{ config = parseConfig(JSON.parse(await file.text())); }
+  catch(error){
+    const message = error instanceof SyntaxError ? 'El archivo no es un JSON válido.' : error.message;
+    openModal(m => {
+      const title = document.createElement('h2'); title.textContent = 'No se pudo importar';
+      const text = document.createElement('p'); text.className = 'timeline-help'; text.textContent = message;
+      const actions = document.createElement('div'); actions.className = 'config-actions';
+      const close = document.createElement('button'); close.className = 'btn primary'; close.textContent = 'Cerrar';
+      close.addEventListener('click', closeModal); actions.appendChild(close);
+      m.append(title, text, actions);
+    });
+    return;
+  }
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  openModal(m => {
+    const title = document.createElement('h2'); title.textContent = 'Importar configuración';
+    const text = document.createElement('p'); text.className = 'timeline-help';
+    text.textContent = `Se sustituirán ${plural(S.podTypes.length,'servicio','servicios')} y ${plural(S.nodes.length,'nodo','nodos')} actuales por ${plural(config.podTypes.length,'servicio','servicios')} y ${plural(config.nodes.length,'nodo','nodos')} de «${file.name}». Exporta antes si quieres conservar la configuración actual.`;
+    const actions = document.createElement('div'); actions.className = 'config-actions';
+    const cancel = document.createElement('button'); cancel.className = 'btn'; cancel.textContent = 'Cancelar';
+    cancel.addEventListener('click', closeModal);
+    const confirm = document.createElement('button'); confirm.className = 'btn primary'; confirm.textContent = 'Importar';
+    confirm.addEventListener('click', () => { closeModal(); applyConfig(config); });
+    actions.append(cancel, confirm); m.append(title, text, actions);
+  });
+}
+
 function openCoverageDetails(){
   const c = computeWeekCost();
   openModal(m => {
@@ -1278,6 +1396,9 @@ function setupHeader(){
     $('#timelineNextDay').addEventListener('click',()=>setDay(S.day+1));
     $('#addTimelinePodBtn').addEventListener('click',()=>openResourceEditor('service'));
     $('#addNodeBtn').addEventListener('click',()=>openResourceEditor('node'));
+    $('#exportConfigBtn').addEventListener('click',downloadConfig);
+    $('#importConfigBtn').addEventListener('click',()=>$('#importConfigFile').click());
+    $('#importConfigFile').addEventListener('change',e=>{const file=e.target.files[0];e.target.value='';if(file)importConfigFile(file);});
     $('#nodeCostPeriod').value=S.nodeCostPeriod;
     $('#nodeCostPeriod').addEventListener('change',e=>{S.nodeCostPeriod=e.target.value;reconcile();});
     $('#coverageDetailsBtn').addEventListener('click',openCoverageDetails);
