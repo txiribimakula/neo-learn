@@ -4,38 +4,86 @@
     {
       "name": "kafka",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8123", "--directory", "kafka"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8123",
+        "--directory",
+        "kafka"
+      ],
       "port": 8123
     },
     {
       "name": "layout",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8125", "--directory", "layout"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8125",
+        "--directory",
+        "layout"
+      ],
       "port": 8125
     },
     {
       "name": "cpp",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8126", "--directory", "cpp"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8126",
+        "--directory",
+        "cpp"
+      ],
       "port": 8126
     },
     {
       "name": "architecture",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8127", "--directory", "architecture"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8127",
+        "--directory",
+        "architecture"
+      ],
       "port": 8127
     },
     {
       "name": "orientacion",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8129", "--directory", "orientacion"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8129",
+        "--directory",
+        "orientacion"
+      ],
       "port": 8129
     },
     {
       "name": "history",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8128", "--directory", "history"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8128",
+        "--directory",
+        "history"
+      ],
       "port": 8128
+    },
+    {
+      "name": "kubernetes",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8130",
+        "--directory",
+        "kubernetes"
+      ],
+      "port": 8130
     }
   ]
 }

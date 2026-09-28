@@ -57,6 +57,12 @@ el cálculo de asignación; no representan herramientas o pantallas del producto
   (156 px en móvil); restricciones del nodo visibles como etiquetas.
 - Semana/día comparten columnas entre servicios y nodos; nombres fijos al desplazar.
 - `reconcile` recalcula el resumen y la tabla, sin construir vistas ocultas.
+- Rendimiento: las filas se reconstruyen solo si cambian columnas o recursos
+  (`timelineStructure`); los cambios de datos pasan por `track._update`, que
+  redibuja solo las celdas cuya firma cambió. El arrastre agrupa movimientos
+  en un recálculo por frame. `.timeline-scroll` y `.timeline-detail` usan
+  `contain: strict` para que el texto de estado no fuerce relayout de la tabla.
+  Las marcas de CPU son una capa de fondo del pod, sin pseudo-elementos.
 
 ## Verificación
 

@@ -68,7 +68,7 @@
   .timeline-toolbar select{border:1px solid var(--card-border);background:#fff;border-radius:6px;padding:5px 8px;color:var(--ink);font:inherit}
   .timeline-day-nav{display:flex;align-items:center;gap:8px}
   .timeline-legend{display:flex;align-items:center;gap:6px;margin:0;font-size:10.5px;color:var(--muted);line-height:1.5}
-  .timeline-scroll{overflow:auto;min-height:0;flex:1;border:1px solid var(--card-border);border-radius:9px;background:#fff}
+  .timeline-scroll{overflow:auto;min-height:0;flex:1;contain:strict;border:1px solid var(--card-border);border-radius:9px;background:#fff}
   .timeline-canvas{display:grid;min-height:100%;align-content:start;grid-template-rows:var(--timeline-rows,1fr);--timeline-label:176px;min-width:calc(var(--timeline-label) + var(--timeline-count) * var(--timeline-slot-min));width:100%}
   .timeline-axis,.timeline-row{display:grid;grid-template-columns:var(--timeline-label) minmax(0,1fr)}
   .timeline-axis{position:sticky;top:0;z-index:4;background:#f0f4fc;border-bottom:1px solid var(--card-border)}
@@ -168,15 +168,17 @@
   .timeline-demand .demand-cell,.timeline-supply .timeline-slot{justify-content:flex-end}
   .timeline-canvas .demand-plot,.timeline-canvas .node-pod-plot{flex:none;min-height:0;height:var(--plot-height);margin-top:auto}
   .timeline-canvas .hbar-fill{flex:none;gap:0}
-  .timeline-canvas .cpu-pod{position:relative;display:block;flex:none;width:100%;min-height:0;outline:1px solid #ffffffc0;outline-offset:-1px;border-radius:2px;box-shadow:inset 0 0 0 1px #17203340}
-  .cpu-pod::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(to top,transparent 0,transparent calc(var(--cpu-unit) - 1px),#ffffff59 calc(var(--cpu-unit) - 1px),#ffffff59 var(--cpu-unit))}
+  /* CPU ticks are a background layer on the pod itself: one box per pod, no pseudo-element. */
+  .timeline-canvas .cpu-pod{--cpu-ticks:repeating-linear-gradient(to top,transparent 0 calc(var(--cpu-unit) - 1px),#ffffff59 calc(var(--cpu-unit) - 1px) var(--cpu-unit));
+    display:block;flex:none;width:100%;min-height:0;outline:0;border-radius:2px;
+    background:var(--cpu-ticks),var(--replica-color);box-shadow:inset 0 0 0 1px #ffffffb0}
   .timeline-canvas .demand-count,.timeline-canvas .node-pod-count{border-bottom:0;border-top:1px solid #b7c9e5}
   .timeline-supply .node-pod-plot{display:flex;flex-direction:column-reverse;align-items:stretch;gap:3px;box-shadow:none;background:transparent}
   .timeline-supply .timeline-slot.weekend .node-pod-plot,.timeline-supply .timeline-slot.is-off .node-pod-plot{background:transparent;opacity:1}
   .timeline-instance{display:flex;flex-direction:column-reverse;position:relative;flex:none;width:100%;outline:1px solid #71839a;outline-offset:-1px;border-radius:2px;background:repeating-linear-gradient(to top,#e9eef5 0,#e9eef5 calc(var(--cpu-unit) - 1px),#cdd8e5 calc(var(--cpu-unit) - 1px),#cdd8e5 var(--cpu-unit))}
   .timeline-instance.instance-off{outline:1px dashed #a8b5c6;outline-offset:-1px;background:repeating-linear-gradient(135deg,#f4f6f9 0 3px,#e6ebf1 3px 5px)}
-  .timeline-canvas .cpu-pod.replica-pending{box-shadow:inset 0 0 0 1px #b97a00}
-  .timeline-canvas .cpu-pod.replica-blocked{box-shadow:inset 0 0 0 1px #a52222}
+  .timeline-canvas .cpu-pod.replica-pending{background:var(--cpu-ticks),repeating-linear-gradient(135deg,#f5bc36 0 3px,#ffe19a 3px 5px);box-shadow:inset 0 0 0 1px #ffffffb0,inset 0 0 0 2px #b97a00}
+  .timeline-canvas .cpu-pod.replica-blocked{background:var(--cpu-ticks),repeating-linear-gradient(135deg,#dc4848 0 3px,#ffabab 3px 5px);box-shadow:inset 0 0 0 1px #ffffffb0,inset 0 0 0 2px #a52222}
   @media(max-width:720px){
     .app{padding:6px;gap:5px}.plan-kpi{padding:4px 7px}
     #nodesTimeline{overflow:hidden}.timeline-scroll{flex:1;height:auto;max-height:none}
@@ -229,7 +231,7 @@
   .node-restrictions{width:100%;display:flex;flex-wrap:wrap;gap:3px}
   .node-restriction{max-width:100%;font-size:10px;line-height:1.4;border:1px solid #cbd5e1;border-radius:4px;background:#fff;padding:2px 5px;overflow-wrap:anywhere}
   .node-restrictions:empty{display:none}
-  .timeline-detail{font-size:11px;line-height:1.4}
+  .timeline-detail{font-size:11px;line-height:1.4;height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;contain:strict}
   .timeline-scroll:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
   .timeline-slot.day-start{border-left-color:#a8b6cc}
   .timeline-tolerations summary:hover{color:#253eae}
@@ -716,15 +718,13 @@ function buildNodeTimeline(forecast, scope = S.timelineScope, day = S.day){
   return { start, count, rows, maxCpu };
 }
 
-let timelineForecast = null, timelineStart = -1, timelineCount = 0, timelineCursor = -1;
-
-const timelineRows = new Map();
+let timelineForecast = null, timelineStructure = '', timelineStart = -1, timelineCount = 0, timelineCursor = -1;
 
 let demandPainting = false;
 
-function timelineSlotText(node, slot, instances){
+function timelineSlotText(node, slot, instances, forecast=timelineForecast){
   const cpu=instances*node.capacity, cost=instances*(node.pricePerHour ?? .10);
-  const pods=timelineForecast?.perNodeHourPods[node.id]?.[slot]||{};
+  const pods=forecast?.perNodeHourPods[node.id]?.[slot]||{};
   const composition=S.podTypes.filter(t=>pods[t.id]).map(t=>`${pods[t.id]} ${t.name}`).join(', ');
   return `${node.name} · ${fmtClock(Math.floor(slot/24),slot%24)} · ${Object.values(pods).reduce((sum,n)=>sum+n,0)} pods${composition?` (${composition})`:''} · ${instances ? `${instances} instancia${instances===1?'':'s'} · ${cpu} CPU` : 'apagado · 0 instancias · 0 CPU'} · ${money(cost)}/h`;
 }
@@ -770,8 +770,6 @@ function makeCpuPod(t){
   const pod=document.createElement('span');pod.className='hbar-replica cpu-pod';pod.dataset.typeId=t.id;
   pod.style.height=`${t.request*TIMELINE_CPU_UNIT}px`;
   pod.style.setProperty('--replica-color',t.color);
-  // Paint CPU ticks with one CSS layer, independent of the requested CPU count.
-  pod.style.setProperty('--cpu-unit',`${TIMELINE_CPU_UNIT}px`);
   return pod;
 }
 
@@ -849,39 +847,22 @@ function makeTimelineNumber(owner,key,text,{min=1,step='1',integer=true}={}){
   });
   label.append(caption,input);return label;
 }
-function updateTimelineContent(canvas,content){
+function refreshTimelineLabel(row,label){
   // Keep native number inputs mounted while their steppers update the charts.
-  const rows=Array.from(content.children);
-  rows.forEach((row,index)=>{
-    const previous=canvas.children[index];
-    if(row._resource && previous?._resource===row._resource){
-      previous.style.cssText=row.style.cssText;
-      previous.querySelector('.timeline-track').replaceWith(row.querySelector('.timeline-track'));
-      previous.querySelectorAll('input[data-field]').forEach(input=>{
-        input.setAttribute('aria-label',Array.from(row.querySelectorAll('input[data-field]')).find(field=>field.dataset.field===input.dataset.field).getAttribute('aria-label'));
-        if(input!==document.activeElement)input.value=row._resource[input.dataset.field];
-      });
-      const oldTolerations=previous.querySelector('.timeline-tolerations'),newTolerations=row.querySelector('.timeline-tolerations');
-      if(oldTolerations && oldTolerations._signature!==newTolerations._signature){
-        oldTolerations.replaceWith(newTolerations);
-      }
-      previous.querySelector('.ghost-btn').setAttribute('aria-label',row.querySelector('.ghost-btn').getAttribute('aria-label'));
-    }else if(previous)previous.replaceWith(row);
-    else canvas.appendChild(row);
+  const previous=row.firstElementChild;
+  if(row._resource!==label._resource){row._resource=label._resource;previous.replaceWith(label);return;}
+  previous.querySelectorAll('input[data-field]').forEach(input=>{
+    const field=label.querySelector(`input[data-field="${input.dataset.field}"]`);
+    if(field)input.setAttribute('aria-label',field.getAttribute('aria-label'));
+    if(input!==document.activeElement)input.value=row._resource[input.dataset.field];
   });
-  while(canvas.children.length>rows.length)canvas.lastElementChild.remove();
-  canvas.querySelectorAll('.timeline-supply').forEach(row=>{
-    timelineRows.set(row.dataset.nodeId,{cost:row.querySelector('.timeline-node-cost'),track:row.querySelector('.timeline-track')});
-  });
+  const oldTolerations=previous.querySelector('.timeline-tolerations'),newTolerations=label.querySelector('.timeline-tolerations');
+  if(oldTolerations && oldTolerations._signature!==newTolerations._signature)oldTolerations.replaceWith(newTolerations);
+  previous.querySelector('.ghost-btn').setAttribute('aria-label',label.querySelector('.ghost-btn').getAttribute('aria-label'));
 }
 
-function makeDemandTimelineRow(t, start, count, forecast){
-  const scale=Math.max(PAINT_SCALE,...Array.from({length:168},(_,slot)=>desiredReplicas(t,Math.floor(slot/24),slot%24)));
-  ensureHourly(t);
-  const row=document.createElement('div'); row.className='timeline-row timeline-demand'; row.dataset.typeId=t.id;row._resource=t;
-  row.style.setProperty('--workload-color',t.color);
-  row.style.setProperty('--plot-height',`${scale*t.request*TIMELINE_CPU_UNIT}px`);
-  const label=document.createElement('div'); label.className='timeline-node';
+function makeDemandLabel(t){
+  const label=document.createElement('div'); label.className='timeline-node';label._resource=t;
   const identity=document.createElement('div');identity.className='service-identity';
   const color=document.createElement('span');color.className='service-color';color.style.background=t.color;
   const name=makeTimelineName(t);identity.append(color,name);
@@ -891,46 +872,52 @@ function makeDemandTimelineRow(t, start, count, forecast){
   const edit=document.createElement('button');edit.className='ghost-btn';edit.textContent='Opciones';edit.setAttribute('aria-label','Configurar '+t.name);
   edit.addEventListener('click',()=>openResourceEditor('service',t));
   label.append(resourceKind('pod','Servicio'),identity,meta,mode,makeTimelineTolerations(t),edit);
-  const track=document.createElement('div');track.className='timeline-track';
-  track.setAttribute('role','group');track.setAttribute('aria-label',`Réplicas de ${t.name}`);
+  return label;
+}
 
-  const valueAt=slot=>desiredReplicas(t,Math.floor(slot/24),slot%24);
-  const pendingAt=slot=>forecast.pendingByType[t.id]?.[slot]||0;
-  const reason=()=>forecast.pendingReasonByType[t.id]==='blocked'?'ningún nodo compatible':'capacidad agotada';
-  const describe=slot=>`${t.name} · ${fmtClock(Math.floor(slot/24),slot%24)} · ${valueAt(slot)} réplicas${t.kedaEnabled?'':' · fijas toda la semana'} · ${pendingAt(slot)} Pending${pendingAt(slot)?` (${reason()})`:''}`;
+function makeDemandTimelineRow(t, start, count){
+  // Cells are built once per structure; track._update redraws only the cells whose data changed.
+  const typeId=t.id, type=()=>getType(typeId);
+  const row=document.createElement('div'); row.className='timeline-row timeline-demand'; row.dataset.typeId=typeId;row._resource=t;
+  const track=document.createElement('div');track.className='timeline-track';track.setAttribute('role','group');
+  let forecast=null, scale=PAINT_SCALE;
+  const valueAt=slot=>desiredReplicas(type(),Math.floor(slot/24),slot%24);
+  const pendingAt=slot=>forecast.pendingByType[typeId]?.[slot]||0;
+  const blocked=()=>forecast.pendingReasonByType[typeId]==='blocked';
+  const describe=slot=>`${type().name} · ${fmtClock(Math.floor(slot/24),slot%24)} · ${valueAt(slot)} réplicas${type().kedaEnabled?'':' · fijas toda la semana'} · ${pendingAt(slot)} Pending${pendingAt(slot)?` (${blocked()?'ningún nodo compatible':'capacidad agotada'})`:''}`;
+  const cells=[];
   const draw=index=>{
-    const cell=track.children[index], slot=start+index, value=valueAt(slot), fill=cell.querySelector('.hbar-fill');
-    cell.querySelector('input').value=value;
-    fill.style.height=`${value*t.request*TIMELINE_CPU_UNIT}px`;
-    fill.replaceChildren();
+    const t=type(), slot=start+index, value=valueAt(slot), pending=pendingAt(slot), cell=cells[index];
+    const signature=[value,pending,blocked(),t.request,t.color,t.name,t.kedaEnabled].join('|');
+    if(cell.signature===signature)return;
+    cell.signature=signature;
+    cell.input.value=value;
+    cell.fill.style.height=`${value*t.request*TIMELINE_CPU_UNIT}px`;
+    const segments=[];
     for(let i=0;i<value;i++){
       const segment=makeCpuPod(t);
-      if(i<pendingAt(slot))segment.classList.add(forecast.pendingReasonByType[t.id]==='blocked'?'replica-blocked':'replica-pending');
-      fill.appendChild(segment);
+      if(i<pending)segment.classList.add(blocked()?'replica-blocked':'replica-pending');
+      segments.push(segment);
     }
-    cell.title=describe(slot);
-    cell.querySelector('input').setAttribute('aria-label',describe(slot));
-    cell.classList.toggle('has-pending',pendingAt(slot)>0);
+    cell.fill.replaceChildren(...segments);
+    cell.el.title=describe(slot);
+    cell.input.setAttribute('aria-label',cell.el.title);
+    cell.el.classList.toggle('has-pending',pending>0);
   };
   const setValue=(slot,value)=>{
-    if(t.kedaEnabled)t.hourly[Math.floor(slot/24)][slot%24]=value;
+    const t=type();
+    if(t.kedaEnabled)ensureHourly(t)[Math.floor(slot/24)][slot%24]=value;
     else t.replicas=value;
   };
   for(let index=0;index<count;index++){
     const slot=start+index;
-    const cell=document.createElement('div');cell.className='demand-cell'+(slot%24===0?' day-start':'')+(Math.floor(slot/24)>=5?' weekend':'');cell.dataset.slot=slot;
+    const el=document.createElement('div');el.className='demand-cell'+(slot%24===0?' day-start':'')+(Math.floor(slot/24)>=5?' weekend':'');el.dataset.slot=slot;
     const input=document.createElement('input');input.className='demand-count';input.type='number';input.min='0';input.step='1';
-    input.setAttribute('aria-label',`${t.name} · ${fmtClock(Math.floor(slot/24),slot%24)} · réplicas${t.kedaEnabled?'':' fijas toda la semana'}`);
     const commitValue=()=>{
       if(!input.checkValidity() || !Number.isSafeInteger(input.valueAsNumber)){input.value=valueAt(slot);return;}
       if(input.valueAsNumber===valueAt(slot))return;
       setValue(slot,input.valueAsNumber);
-      const focused=document.activeElement===input;
       commitHourly();
-      if(focused){
-        const updated=Array.from($('#timelineCanvas').children).find(row=>row.dataset.typeId===t.id);
-        updated?.querySelectorAll('.demand-count')[index]?.focus({preventScroll:true});
-      }
     };
     input.addEventListener('change',commitValue);
     input.addEventListener('keydown',e=>{
@@ -939,35 +926,58 @@ function makeDemandTimelineRow(t, start, count, forecast){
       e.preventDefault();
       const next=e.key==='Home'?0:e.key==='End'?count-1:Math.max(0,Math.min(count-1,index+(e.key==='ArrowRight'?1:-1)));
       commitValue();
-      const currentRow=Array.from($('#timelineCanvas').children).find(row=>row.dataset.typeId===t.id);
-      currentRow?.querySelectorAll('.demand-count')[next]?.focus();
+      cells[next].input.focus();
     });
     const plot=document.createElement('div');plot.className='demand-plot';plot.setAttribute('aria-hidden','true');
-    const fill=document.createElement('div');fill.className='hbar-fill';fill.style.setProperty('--replica-color',t.color);
-    plot.appendChild(fill);cell.append(plot,input);track.appendChild(cell);draw(index);
-    cell.addEventListener('pointerover',()=>showDemandDetail(t.id,slot,forecast));
-    input.addEventListener('focus',()=>showDemandDetail(t.id,slot,forecast));
+    const fill=document.createElement('div');fill.className='hbar-fill';
+    plot.appendChild(fill);el.append(plot,input);track.appendChild(el);
+    cells.push({el,input,plot,fill,signature:null});
   }
-  track._updateForecast=next=>{forecast=next;for(let i=0;i<count;i++)draw(i);};
-  let painting=false, lastIndex=null;
+  const cellSlot=e=>e.target.closest('.demand-cell')?.dataset.slot;
+  track.addEventListener('pointerover',e=>{const slot=cellSlot(e);if(slot!=null)showDemandDetail(typeId,+slot,forecast);});
+  track.addEventListener('focusin',e=>{const slot=cellSlot(e);if(slot!=null)showDemandDetail(typeId,+slot,forecast);});
+  track._update=next=>{
+    forecast=next;
+    const t=type();
+    ensureHourly(t);
+    // Keep the drag scale stable while painting so the pointer maps to the same values.
+    if(!demandPainting)scale=Math.max(PAINT_SCALE,...Array.from({length:HOURS_PER_WEEK},(_,slot)=>desiredReplicas(t,Math.floor(slot/24),slot%24)));
+    row.style.setProperty('--workload-color',t.color);
+    row.style.setProperty('--plot-height',`${scale*t.request*TIMELINE_CPU_UNIT}px`);
+    track.setAttribute('aria-label',`Réplicas de ${t.name}`);
+    for(let i=0;i<count;i++)draw(i);
+  };
+  // Coalesce pointer moves to one recalculation per frame.
+  let painting=false, lastIndex=null, queued=null, frame=0;
   const paint=e=>{
     const bounds=track.getBoundingClientRect();
     const index=Math.max(0,Math.min(count-1,Math.floor((e.clientX-bounds.left)/bounds.width*count)));
-    const plot=track.children[index].querySelector('.demand-plot').getBoundingClientRect();
+    const plot=cells[index].plot.getBoundingClientRect();
     const value=Math.max(0,Math.min(scale,Math.round((1-(e.clientY-plot.top)/plot.height)*scale)));
-    for(let i=Math.min(lastIndex??index,index);i<=Math.max(lastIndex??index,index);i++){setValue(start+i,value);}
-    forecast=computeWeekCost();
-    updateTimelineWhilePainting(forecast);
-    lastIndex=index;showDemandDetail(t.id,start+index,forecast);
+    let changed=false;
+    for(let i=Math.min(lastIndex??index,index);i<=Math.max(lastIndex??index,index);i++){
+      if(valueAt(start+i)!==value){setValue(start+i,value);changed=true;}
+    }
+    lastIndex=index;
+    if(changed)updateTimelineWhilePainting(computeWeekCost());
+    showDemandDetail(typeId,start+index,forecast);
+  };
+  const flush=()=>{
+    if(frame){cancelAnimationFrame(frame);frame=0;}
+    if(queued){const e=queued;queued=null;paint(e);}
   };
   track.addEventListener('pointerdown',e=>{
     if(!e.target.closest('.demand-plot') || e.button!==0)return;
-    e.preventDefault();painting=true;demandPainting=true;lastIndex=null;track.setPointerCapture(e.pointerId);paint(e);
+    e.preventDefault();painting=true;demandPainting=true;lastIndex=null;queued=null;track.setPointerCapture(e.pointerId);paint(e);
   });
-  track.addEventListener('pointermove',e=>{if(painting)paint(e);});
-  const finish=()=>{if(painting){painting=false;demandPainting=false;commitHourly();}};
+  track.addEventListener('pointermove',e=>{
+    if(!painting)return;
+    queued=e;
+    if(!frame)frame=requestAnimationFrame(()=>{frame=0;flush();});
+  });
+  const finish=()=>{if(painting){flush();painting=false;demandPainting=false;timelineForecast=null;commitHourly();}};
   track.addEventListener('pointerup',finish);track.addEventListener('pointercancel',finish);track.addEventListener('lostpointercapture',finish);
-  row.append(label,track);return row;
+  row.append(makeDemandLabel(t),track);return row;
 }
 
 function makeTimelineNodePlot(node,item){
@@ -985,27 +995,92 @@ function makeTimelineNodePlot(node,item){
   return plot;
 }
 
-function updateTimelineWhilePainting(forecast){
-  updatePlanningSummary(forecast);
-  const data=buildNodeTimeline(forecast);
-  for(const {node,slots} of data.rows){
-    const ref=timelineRows.get(node.id);if(!ref)continue;
-    const unit=(NODE_COST_PERIODS[S.nodeCostPeriod]||NODE_COST_PERIODS.hour).unit;
-    ref.cost.textContent=money(nodeCostForPeriod(forecast,node.id).total)+'/'+unit;
-    slots.forEach((item,index)=>{
-      const button=ref.track.children[index];
-      const signature=JSON.stringify([item.instances,item.bins]);
-      if(button._placement===signature)return;
+function makeNodeLabel(node){
+  const label=document.createElement('div');label.className='timeline-node';label._resource=node;
+  const name=makeTimelineName(node);
+  const cost=document.createElement('span');cost.className='timeline-node-cost';
+  const capacity=makeTimelineNumber(node,'capacity','CPU / nodo');
+  const maximum=makeTimelineNumber(node,'maxReplicas','Máx. nodos');
+  const price=makeTimelineNumber(node,'pricePerHour','€/nodo·h',{min:0,step:'any',integer:false});
+  const edit=document.createElement('button');edit.className='ghost-btn';edit.textContent='Opciones';edit.setAttribute('aria-label',`Editar ${node.name}`);
+  edit.addEventListener('click',()=>openResourceEditor('node',node));
+  const restrictions=document.createElement('div');restrictions.className='node-restrictions';restrictions.setAttribute('aria-label','Restricciones del nodo');
+  node.taints.forEach(rule=>{
+    const badge=document.createElement('span');badge.className='node-restriction';
+    badge.textContent=rule.key+'='+rule.value;
+    badge.title=rule.key+'='+rule.value+' · '+rule.effect+(rule.effect==='PreferNoSchedule'?' · Preferencia: evita servicios sin esta tolerancia':' · Requiere esta tolerancia en el servicio');
+    restrictions.appendChild(badge);
+  });
+  label.append(resourceKind('node','Grupo de nodos'),name,cost,capacity,maximum,price,restrictions,edit);
+  return label;
+}
+
+function makeNodeTimelineRow(node, start, count){
+  const nodeId=node.id;
+  const row=document.createElement('div');row.className='timeline-row timeline-supply';row.dataset.nodeId=nodeId;row._resource=node;
+  const track=document.createElement('div');track.className='timeline-track';track.setAttribute('role','group');
+  for(let index=0;index<count;index++){
+    const slot=start+index;
+    const button=document.createElement('button');button.className='timeline-slot'+(slot%24===0?' day-start':'')+(Math.floor(slot/24)>=5?' weekend':'');
+    button.dataset.slot=String(slot);button.tabIndex=-1;
+    const number=document.createElement('span');number.className='node-pod-count';
+    const plot=document.createElement('span');plot.className='node-pod-plot';
+    button.append(plot,number);track.appendChild(button);
+  }
+  track.addEventListener('pointerover',e=>{const button=e.target.closest('[data-slot]');if(button)showTimelineDetail(nodeId,+button.dataset.slot);});
+  track.addEventListener('focusin',e=>{const button=e.target.closest('[data-slot]');if(button)showTimelineDetail(nodeId,+button.dataset.slot);});
+  track.addEventListener('click',e=>{
+    const button=e.target.closest('[data-slot]');if(!button)return;
+    S.timelineFocus={nodeId,slot:+button.dataset.slot};setTimeSlot(+button.dataset.slot,false);
+  });
+  track.addEventListener('keydown',e=>{
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
+    const current=e.target.closest('[data-slot]');if(!current)return;
+    e.preventDefault();
+    const index=+current.dataset.slot-start;
+    const next=e.key==='Home'?0:e.key==='End'?count-1:Math.max(0,Math.min(count-1,index+(e.key==='ArrowRight'?1:-1)));
+    track.children[next].focus();
+  });
+  track._update=forecast=>{
+    const node=getNode(nodeId), limit=maxReplicas(node);
+    row.style.setProperty('--plot-height',`${limit*node.capacity*TIMELINE_CPU_UNIT+Math.max(0,limit-1)*TIMELINE_INSTANCE_GAP}px`);
+    track.setAttribute('aria-label',`Pods asignados a ${node.name}`);
+    // Anything that changes a slot's pods, frames or tooltip belongs in its signature.
+    const context=JSON.stringify([S.podTypes.map(t=>[t.id,t.name,t.color,t.request]),node.name,node.capacity,limit,node.pricePerHour]);
+    for(let index=0;index<count;index++){
+      const button=track.children[index], slot=start+index;
+      const item={instances:forecast.perNodeHourIH[nodeId][slot],bins:forecast.perNodeHourBins[nodeId][slot],pods:forecast.perNodeHourPods[nodeId][slot]};
+      const signature=context+JSON.stringify([item.instances,item.bins]);
+      if(button._placement===signature)continue;
       button._placement=signature;
       button.classList.toggle('is-off',item.instances===0);
-      button.title=timelineSlotText(node,item.slot,item.instances);
+      button.title=timelineSlotText(node,slot,item.instances,forecast);
       button.setAttribute('aria-label',button.title);
-      button.querySelector('.node-pod-count').textContent=Object.values(item.pods).reduce((sum,n)=>sum+n,0);
-      button.querySelector('.node-pod-plot').replaceWith(makeTimelineNodePlot(node,item));
-    });
+      button.lastElementChild.textContent=Object.values(item.pods).reduce((sum,n)=>sum+n,0);
+      button.firstElementChild.replaceWith(makeTimelineNodePlot(node,item));
+    }
+  };
+  row.append(makeNodeLabel(node),track);return row;
+}
+
+function refreshTimeline(forecast){
+  for(const row of $('#timelineCanvas').children)row.lastElementChild?._update?.(forecast);
+}
+
+function updateNodeCosts(forecast){
+  const unit=(NODE_COST_PERIODS[S.nodeCostPeriod]||NODE_COST_PERIODS.hour).unit;
+  for(const row of $$('#timelineCanvas > .timeline-supply')){
+    const cost=row.querySelector('.timeline-node-cost');
+    const label=`${money(nodeCostForPeriod(forecast,row.dataset.nodeId).total)}/${unit}`;
+    if(cost.textContent!==label)cost.textContent=label;
   }
+}
+
+function updateTimelineWhilePainting(forecast){
+  updatePlanningSummary(forecast);
   // Retain the captured track and refresh pending indicators on every service.
-  document.querySelectorAll('.timeline-demand .timeline-track').forEach(track=>track._updateForecast(forecast));
+  refreshTimeline(forecast);
+  updateNodeCosts(forecast);
 }
 
 function renderNodeTimeline(forecast){
@@ -1016,30 +1091,32 @@ function renderNodeTimeline(forecast){
   $('#timelineScope').value = S.timelineScope;
   $('#timelineDayNav').hidden = S.timelineScope !== 'day';
   $('#timelineDayLabel').textContent = DAYS_FULL[S.day];
-  const rebuild = timelineForecast !== forecast || timelineStart !== start || timelineCount !== count;
-  const moveCursor = rebuild || timelineCursor !== weekSlot();
+  const canvas=$('#timelineCanvas');
+  // Rows are rebuilt only when columns or resources change; data edits update cells in place.
+  const structure = JSON.stringify([start,count,S.podTypes.map(t=>t.id),S.nodes.map(n=>n.id)]);
+  const rebuild = structure !== timelineStructure;
+  const refresh = rebuild || forecast !== timelineForecast;
+  const moveCursor = refresh || timelineCursor !== weekSlot();
   if(rebuild){
-    const data = buildNodeTimeline(forecast);
     if(timelineStart !== start || timelineCount !== count) $('#timelineScroll').scrollLeft = 0;
-    timelineForecast=forecast; timelineStart=data.start; timelineCount=data.count;
-    timelineRows.clear();
-    const canvas=$('#timelineCanvas');const content=document.createDocumentFragment();
+    timelineStructure=structure; timelineStart=start; timelineCount=count;
+    const content=document.createDocumentFragment();
     // Keep rows compact instead of stretching pods to fill unused viewport height.
     const rowTracks=['auto'];
     if(S.podTypes.length)rowTracks.push('auto',`repeat(${S.podTypes.length},minmax(120px,max-content))`);
-    if(data.rows.length)rowTracks.push('auto',`repeat(${data.rows.length},minmax(120px,max-content))`);
-    canvas.style.setProperty('--timeline-rows',S.podTypes.length || data.rows.length ? rowTracks.join(' ') : '1fr');
-    canvas.style.setProperty('--timeline-count',String(data.count));
+    if(S.nodes.length)rowTracks.push('auto',`repeat(${S.nodes.length},minmax(120px,max-content))`);
+    canvas.style.setProperty('--timeline-rows',S.podTypes.length || S.nodes.length ? rowTracks.join(' ') : '1fr');
+    canvas.style.setProperty('--timeline-count',String(count));
     canvas.style.setProperty('--timeline-slot-min','18px');
     canvas.style.setProperty('--cpu-unit',`${TIMELINE_CPU_UNIT}px`);
-    if(!data.rows.length && !S.podTypes.length){
+    if(!S.nodes.length && !S.podTypes.length){
       const empty=document.createElement('div'); empty.className='timeline-empty'; empty.textContent='Sin servicios ni nodos';content.appendChild(empty);
     } else {
       const axis=document.createElement('div');axis.className='timeline-axis';
       const axisLabel=document.createElement('div');axisLabel.className='timeline-axis-label';axisLabel.textContent='';
       const ticks=document.createElement('div');ticks.className='timeline-ticks';
-      ticks.style.gridTemplateColumns=`repeat(${data.count===168?7:24},minmax(0,1fr))`;
-      if(data.count===168){
+      ticks.style.gridTemplateColumns=`repeat(${count===168?7:24},minmax(0,1fr))`;
+      if(count===168){
         DAYS_FULL.forEach((day,d)=>{
           const button=document.createElement('button');button.className='timeline-day';button.textContent=day;
           button.title=`Ver ${day.toLowerCase()} en detalle`;
@@ -1055,68 +1132,24 @@ function renderNodeTimeline(forecast){
       }
       axis.append(axisLabel,ticks);content.appendChild(axis);
       if(S.podTypes.length)content.appendChild(timelineSectionBand('pod','Pods','Cantidad al pie de cada barra · escribe o arrastra para editar'));
-      S.podTypes.forEach(t=>content.appendChild(makeDemandTimelineRow(t,data.start,data.count,forecast)));
-      if(data.rows.length)content.appendChild(timelineSectionBand('node','Nodos','Un marco = un nodo · marco discontinuo = inactivo'));
-      data.rows.forEach(({node,slots})=>{
-        const row=document.createElement('div');row.className='timeline-row timeline-supply';row.dataset.nodeId=node.id;row._resource=node;
-        const limit=maxReplicas(node);
-        row.style.setProperty('--plot-height',`${limit*node.capacity*TIMELINE_CPU_UNIT+Math.max(0,limit-1)*TIMELINE_INSTANCE_GAP}px`);
-        const label=document.createElement('div');label.className='timeline-node';
-        const name=makeTimelineName(node);
-        const cost=document.createElement('span');cost.className='timeline-node-cost';
-        const capacity=makeTimelineNumber(node,'capacity','CPU / nodo');
-        const maximum=makeTimelineNumber(node,'maxReplicas','Máx. nodos');
-        const price=makeTimelineNumber(node,'pricePerHour','€/nodo·h',{min:0,step:'any',integer:false});
-        const edit=document.createElement('button');edit.className='ghost-btn';edit.textContent='Opciones';edit.setAttribute('aria-label',`Editar ${node.name}`);
-        edit.addEventListener('click',()=>openResourceEditor('node',node));
-        const restrictions=document.createElement('div');restrictions.className='node-restrictions';restrictions.setAttribute('aria-label','Restricciones del nodo');
-        node.taints.forEach(rule=>{
-          const badge=document.createElement('span');badge.className='node-restriction';
-          badge.textContent=rule.key+'='+rule.value;
-          badge.title=rule.key+'='+rule.value+' · '+rule.effect+(rule.effect==='PreferNoSchedule'?' · Preferencia: evita servicios sin esta tolerancia':' · Requiere esta tolerancia en el servicio');
-          restrictions.appendChild(badge);
-        });
-        label.append(resourceKind('node','Grupo de nodos'),name,cost,capacity,maximum,price,restrictions,edit);
-        const track=document.createElement('div');track.className='timeline-track';track.setAttribute('role','group');track.setAttribute('aria-label',`Pods asignados a ${node.name}`);
-        slots.forEach(item=>{
-          const button=document.createElement('button');button.className='timeline-slot'+(item.slot%24===0?' day-start':'')+(Math.floor(item.slot/24)>=5?' weekend':'');
-          button.dataset.slot=String(item.slot);button.tabIndex=-1;
-          button._placement=JSON.stringify([item.instances,item.bins]);
-          button.classList.toggle('is-off',item.instances===0);
-          button.title=timelineSlotText(node,item.slot,item.instances);button.setAttribute('aria-label',button.title);
-          const total=Object.values(item.pods).reduce((sum,n)=>sum+n,0);
-          const number=document.createElement('span');number.className='node-pod-count';number.textContent=total;
-          const plot=makeTimelineNodePlot(node,item);
-          button.append(plot,number);track.appendChild(button);
-        });
-        track.addEventListener('pointerover',e=>{const button=e.target.closest('[data-slot]');if(button)showTimelineDetail(node.id,+button.dataset.slot);});
-        track.addEventListener('focusin',e=>{const button=e.target.closest('[data-slot]');if(button)showTimelineDetail(node.id,+button.dataset.slot);});
-        track.addEventListener('click',e=>{
-          const button=e.target.closest('[data-slot]');if(!button)return;
-          S.timelineFocus={nodeId:node.id,slot:+button.dataset.slot};setTimeSlot(+button.dataset.slot,false);
-        });
-        track.addEventListener('keydown',e=>{
-          if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
-          const current=e.target.closest('[data-slot]');if(!current)return;
-          e.preventDefault();
-          const index=+current.dataset.slot-data.start;
-          const next=e.key==='Home'?0:e.key==='End'?slots.length-1:Math.max(0,Math.min(slots.length-1,index+(e.key==='ArrowRight'?1:-1)));
-          track.children[next].focus();
-        });
-        row.append(label,track);content.appendChild(row);
-        timelineRows.set(node.id,{cost,track});
-      });
+      S.podTypes.forEach(t=>content.appendChild(makeDemandTimelineRow(t,start,count)));
+      if(S.nodes.length)content.appendChild(timelineSectionBand('node','Nodos','Un marco = un nodo · marco discontinuo = inactivo'));
+      S.nodes.forEach(node=>content.appendChild(makeNodeTimelineRow(node,start,count)));
     }
-    updateTimelineContent(canvas,content);
+    canvas.replaceChildren(content);
+  } else if(refresh){
+    for(const row of canvas.children){
+      if(!row._resource)continue;
+      const label=row.dataset.typeId ? makeDemandLabel(getType(row.dataset.typeId)) : makeNodeLabel(getNode(row.dataset.nodeId));
+      refreshTimelineLabel(row,label);
+    }
   }
+  if(refresh){timelineForecast=forecast;refreshTimeline(forecast);}
   // A clock or cost-period change updates only labels and the cursor, retaining
   // scroll position and keyboard focus instead of rebuilding hundreds of cells.
-  for(const node of S.nodes){
-    const ref=timelineRows.get(node.id);if(!ref)continue;
-    const unit=(NODE_COST_PERIODS[S.nodeCostPeriod]||NODE_COST_PERIODS.hour).unit;
-    const label=`${money(nodeCostForPeriod(forecast,node.id).total)}/${unit}`;
-    if(ref.cost.textContent!==label)ref.cost.textContent=label;
-    if(moveCursor)for(const button of ref.track.children){
+  updateNodeCosts(forecast);
+  if(moveCursor)for(const row of $$('#timelineCanvas > .timeline-supply')){
+    for(const button of row.lastElementChild.children){
       const selected=+button.dataset.slot===weekSlot();
       button.tabIndex=selected?0:-1;
     }
