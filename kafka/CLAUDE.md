@@ -7,18 +7,26 @@ Service Bus Queues** y la idea es seguir añadiendo modelos. Hermano de
 
 ## Hermano: `tapper.html` (Kafka en el bar)
 
-Comparativa Kafka vs Azure Service Bus con estética del arcade Tapper; de momento
-solo está Kafka. Es otra página de un solo HTML, con su propia estética oscura, y
-no comparte código con `kafka.html`.
+Comparativa Kafka vs Azure Service Bus que imita la pantalla del arcade Tapper; de
+momento solo está Kafka. Es otra página de un solo HTML y no comparte código ni
+estética con `kafka.html`.
 
-- **Analogía:** cliente = producer; comanda = mensaje; 3 barras = particiones de
+- **Aspecto:** paleta sacada de la pantalla original (`PAL`), suelo en trapecio,
+  barras cada vez más largas, clientes detrás de la barra y figuras a 2x con contorno
+  negro. Los barriles del original son cocinas con fuego. No uses el logotipo de la
+  cerveza del original.
+- **Analogía:** cliente = producer; su letra = clave del mensaje, que fija siempre la
+  barra (no hay reparto por turnos); comanda = mensaje; 3 barras = particiones de
   `comandas`; cocineros = grupo `cocina`, y a la vez producers de `platos`
-  (1 partición, barra vertical); camarero = grupo `sala`.
+  (1 partición, barra diagonal junto a la pared derecha); camarero = grupo `sala`.
+- **Dónde se pide y dónde se sirve:** se pide en las barras de madera, en fila de uno
+  para no romper el orden de una clave. Después el cliente sale por la puerta y se
+  sienta en la mesa con mantel, donde le llega el plato. La mesa no es un topic.
 - **Lo que no hay que perder:** leer no borra (la comanda se apaga y solo cae por
   retención), cada barra tiene un solo dueño y el triángulo marca el offset
   confirmado, que sobrevive al rebalance.
 - **Código:** el modelo va antes del marcador `// initial`, sin DOM, y lo prueba
-  `node --test tapper.test.cjs`. Detrás van el dibujo (canvas de 640×360 ampliado
+  `node --test tapper.test.cjs`. Detrás van el dibujo (canvas de 640×440 ampliado
   sin suavizado) y el panel.
 - **Simplificaciones:** retención por número de comandas (14 por barra, 11 en
   platos), hash de la clave simplificado y una comanda en curso por partición.
