@@ -273,8 +273,8 @@ test('retention only drops messages already read', () => {
   }
   const bar = S.comandas[0];
   assert.equal(bar.end, 24);
-  assert.equal(bar.log.length, 14);
-  assert.equal(bar.earliest, 10);
+  assert.equal(bar.log.length, 18);
+  assert.equal(bar.earliest, 6);
   assert.equal(bar.committed, 24);
   assert.equal(S.stats.served, 24);
 });

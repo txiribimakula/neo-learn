@@ -113,25 +113,25 @@
         <h2>Prueba esto</h2>
         <div class="try">
           <b>Un cocinero va lento</b>
-          <p>Su triángulo se queda atrás y su hilo acumula comandas encendidas. El otro no puede ayudarle aunque esté parado: dentro del grupo, cada barra tiene un solo dueño.</p>
+          <p>Su triángulo se queda atrás y su hilo acumula comandas encendidas. El otro no puede ayudarle aunque esté parado: dentro del grupo, cada hilo tiene un solo dueño.</p>
           <div class="actions"><button type="button" data-try="slow">Poner lento a C2</button></div>
         </div>
         <div class="try">
           <b>Un cocinero se va</b>
-          <p>Rebalance: nadie coge comandas nuevas hasta que el grupo se reparte las barras. Lo que dejó a medias no estaba confirmado, así que otro lo vuelve a leer.</p>
+          <p>Rebalance: nadie coge comandas nuevas hasta que el grupo se reparte los hilos. Lo que dejó a medias no estaba confirmado, así que otro lo vuelve a leer.</p>
           <div class="actions"><button type="button" data-try="leave">Sacar a C1</button></div>
         </div>
         <div class="try">
           <b>La letra es la clave</b>
-          <p>Cada letra es un comensal, y cada plato de su menú, un mensaje con esa clave. Como van todos a la misma barra, a A nunca le llega el postre antes que el primero. Entre letras no hay orden: un plato de A puede adelantar a uno de B.</p>
+          <p>Cada letra es un comensal, y cada plato de su menú, un mensaje con esa clave. Como van todos al mismo hilo, a A nunca le llega el postre antes que el primero. Entre letras no hay orden: un plato de A puede adelantar a uno de B.</p>
           <div class="actions"><button type="button" data-try="burst">A pide menú con café</button></div>
         </div>
         <div class="try">
           <b>Leer no borra</b>
           <p>Las comandas leídas se apagan, pero siguen colgadas. Rebobinar mueve el triángulo atrás: se vuelve a cocinar todo y sobran platos.</p>
           <div class="actions">
-            <button type="button" data-seek="0">Rebobinar barra 0</button>
-            <button type="button" data-seek="1">Barra 1</button>
+            <button type="button" data-seek="0">Rebobinar hilo 0</button>
+            <button type="button" data-seek="1">Hilo 1</button>
           </div>
         </div>
       </section>
@@ -145,12 +145,12 @@
         <h2>Qué es cada cosa</h2>
         <dl>
           <dt>Camarero con bloc</dt><dd>Producer: hay 2, y mandan las comandas a su hilo</dd>
-          <dt>Letra del comensal</dt><dd>Clave del mensaje: decide la barra</dd>
+          <dt>Letra del comensal</dt><dd>Clave del mensaje: decide el hilo</dd>
           <dt>Comanda</dt><dd>Mensaje: un plato del menú</dd>
           <dt>Hilo de comandas</dt><dd>Partición del topic <code>comandas</code></dd>
-          <dt>Número en la barra</dt><dd>Offset</dd>
+          <dt>Número bajo la comanda</dt><dd>Offset</dd>
           <dt>Triángulo</dt><dd>Offset confirmado del grupo</dd>
-          <dt>Comanda apagada</dt><dd>Ya leída, pero retenida (14 por barra)</dd>
+          <dt>Comanda apagada</dt><dd>Ya leída, pero retenida (18 por hilo)</dd>
           <dt>Cocinero</dt><dd>Consumer del grupo <code>cocina</code></dd>
           <dt>Mostrador del medio</dt><dd>No es Kafka: el plato desaparece al recogerlo</dd>
           <dt>Camarero con bandeja</dt><dd>No es Kafka: hay 2, y cualquiera lleva el siguiente plato</dd>
@@ -174,7 +174,7 @@
 
   const W = 730, H = 420;
   const PARTITIONS = 2, PLATES_ROW = 1;
-  const RETENTION = 14;
+  const RETENTION = 18;
   const ROW_PITCH = 130, FLOOR_TOP = 58, SLOT_W = 22;
   const WAITING_GAP = 18, ORDER_WAITER_HOMES = [{x:160, y:182}, {x:160, y:372}], TRAY_WAITER_HOMES = [{x:196, y:246}, {x:196, y:306}];
   const SEAT_SPEED = 170, EAT_S = 1.8;
@@ -199,12 +199,12 @@
   // Rows top to bottom: orders partition 0, plates counter, orders partition 1. Only the orders are Kafka.
   const rowOf = part => (part === 0 ? 0 : 2);
   const barTop = row => 108 + row * ROW_PITCH;
-  const barStart = row => 242 - row * 22;
-  const barEnd = row => 582 + row * 22;
-  const cookX = pos => barEnd(pos) + 10;
-  // Waiters never go behind a bar: they send and pick up from its left end.
+  const barStart = row => (row === PLATES_ROW ? 220 : 198);
+  const barEnd = row => (row === PLATES_ROW ? 604 : 626);
+  const COOK_X = 636;
+  // Waiters send from the left end of a wire, at the height of the hanging orders.
   const standX = row => barStart(row) - 22;
-  const floorY = row => barTop(row) + 38;
+  const floorY = row => barTop(row) + 12;
   const seatX = letter => (LETTERS.indexOf(letter) % 2 ? 106 : 36);
   const tableTop = letter => 124 + Math.floor(LETTERS.indexOf(letter) / 2) * 118;
   const slotX = (part, end, offset) => barEnd(rowOf(part)) - 34 - (end - 1 - offset) * SLOT_W;
@@ -337,7 +337,7 @@
       const p = S.comandas[c.job.part];
       p.busy = false;
       p.position = p.committed;
-      logEvent(S, `${c.name} deja a medias el offset ${c.job.offset} de la barra ${c.job.part}, sin confirmar.`, 'warn');
+      logEvent(S, `${c.name} deja a medias el offset ${c.job.offset} del hilo ${c.job.part}, sin confirmar.`, 'warn');
       c.job = null;
     }
     if(!active) { c.partitions = []; c.walking = false; }
@@ -351,7 +351,7 @@
     p.committed = p.earliest;
     p.position = p.earliest;
     S.cooks.forEach(c => { if(c.job && c.job.part === part) c.job.stale = true; });
-    logEvent(S, `Rebobinado: la barra ${part} vuelve al offset ${p.earliest}.`, 'key');
+    logEvent(S, `Rebobinado: el hilo ${part} vuelve al offset ${p.earliest}.`, 'key');
   }
 
   // Simplification: retention only drops what the group has already committed, so no diner starves.
@@ -380,7 +380,7 @@
     p.position++;
     p.busy = true;
     c.cursor = pick.index + 1;
-    c.job = {part:pick.part, offset, order:entry.order, stale:false, phase:'fetch', timer:0, dur:Math.max(0.15, (cookX(rowOf(pick.part)) - fromX) / 500), fromX};
+    c.job = {part:pick.part, offset, order:entry.order, stale:false, phase:'fetch', timer:0, dur:Math.max(0.15, (COOK_X - fromX) / 500), fromX};
   }
 
   function finishJob(S, c){
@@ -389,7 +389,7 @@
     S.plates.push({order, row:rowOf(part), t:0, x:barEnd(PLATES_ROW) - 8});
     if(!stale){
       p.committed = Math.max(p.committed, offset + 1, p.earliest);
-      logEvent(S, `${c.name} deja el plato y confirma el offset ${offset} de la barra ${part}.`);
+      logEvent(S, `${c.name} deja el plato y confirma el offset ${offset} del hilo ${part}.`);
     }
     p.busy = false;
     c.job = null;
@@ -598,7 +598,7 @@
       ticket.t += dt / ticket.dur;
       if(ticket.t < 1) return true;
       const offset = appendToLog(S, S.comandas[ticket.part], ticket.order);
-      logEvent(S, `${messageTag(ticket.order)} → barra ${ticket.part}, offset ${offset} (clave ${ticket.order.key})`);
+      logEvent(S, `${messageTag(ticket.order)} → hilo ${ticket.part}, offset ${offset} (clave ${ticket.order.key})`);
       return false;
     });
     S.plates = S.plates.filter(plate => {
@@ -889,11 +889,8 @@
   function buildBackground(){
     const {c, ctx, rect} = layerContext();
     rect(0, 0, W, H, PAL.wall);
-    rect(0, 0, 670, FLOOR_TOP, PAL.backWall);
-    // Floor: straight on the dining-room side, slanted like the bar ends on the kitchen side.
-    for(let y = FLOOR_TOP; y < H; y += 2){
-      rect(0, y, 650 + (y - 108) * 22 / ROW_PITCH, 2, PAL.floor);
-    }
+    rect(0, 0, 700, FLOOR_TOP, PAL.backWall);
+    rect(0, FLOOR_TOP, 700, H - FLOOR_TOP, PAL.floor);
     // Sign on the back wall.
     const signX = 302, signW = 196;
     for(let i = 0; i < 12; i += 2){
@@ -953,22 +950,21 @@
     R(cx - 5, top + 25, 10, 5, '#ffd23f');
   }
 
-  // One bar plus its swing doors, drawn over the waiters walking behind it.
+  // The order rows are just a wire between two posts; only the middle row is a counter.
   function buildRowLayer(row){
     const {c, rect} = layerContext();
     const x0 = barStart(row), x1 = barEnd(row), top = barTop(row);
     const len = x1 - x0;
-    // The plates bar has no door: the waiter picks up from its open end.
     if(row !== PLATES_ROW){
-      for(const [dx, dy, h] of [[6, -48, 40], [-12, -22, 44]]){
-        for(let i = 0; i < 16; i += 2){
-          const y = top + dy + (14 - i);
-          rect(x0 + dx + i, y - 2, 2, h + 4, PAL.black);
-          rect(x0 + dx + i, y, 2, h, i < 4 ? PAL.doorDark : PAL.door);
-          if(i >= 4 && i < 8) rect(x0 + dx + i, y + 8, 2, h - 18, PAL.doorDark);
-          if(i >= 8) rect(x0 + dx + i, y + 8, 2, 2, PAL.doorDark);
-        }
+      const wire = wireY(row);
+      for(const px of [x0 + 2, x1 - 6]){
+        rect(px - 1, wire - 4, 6, top + 38 - wire + 4, PAL.black);
+        rect(px, wire - 3, 4, top + 38 - wire + 2, PAL.greyDark);
+        rect(px - 5, top + 36, 14, 4, PAL.black);
       }
+      rect(x0 + 2, wire - 1, len - 8, 3, PAL.black);
+      rect(x0 + 2, wire, len - 8, 1, '#f6efd8');
+      return c;
     }
     rect(x0 - 4, top - 2, len + 8, 18, PAL.black);
     rect(x0 - 2, top, len + 4, 12, PAL.barTop);
@@ -979,16 +975,6 @@
       rect(x, top + 16, 2, 18, PAL.barTop);
     }
     rect(x0 + 2, top + 34, len - 4, 2, PAL.rail);
-    // The wire the orders hang from, between two posts: only the order bars have one.
-    if(row !== PLATES_ROW){
-      const wire = wireY(row);
-      for(const px of [x0 + 2, x1 - 6]){
-        rect(px - 1, wire - 4, 6, top - wire + 6, PAL.black);
-        rect(px, wire - 3, 4, top - wire + 4, PAL.greyDark);
-      }
-      rect(x0 + 2, wire - 1, len - 8, 3, PAL.black);
-      rect(x0 + 2, wire, len - 8, 1, '#f6efd8');
-    }
     return c;
   }
 
@@ -1065,7 +1051,7 @@
     S.comandas.forEach((p, i) => { view.ends[i] += (p.end - view.ends[i]) * k; });
   }
 
-  function drawOrdersBar(part){
+  function drawOrdersWire(part){
     const p = S.comandas[part], row = rowOf(part), top = barTop(row), end = view.ends[part];
     const owner = p.owner == null ? PAL.grey : COLORS.cooks[p.owner];
     const lag = lagOf(p);
@@ -1078,7 +1064,7 @@
       const read = entry.offset < p.committed;
       const inProgress = !read && entry.offset < p.position;
       drawTicket(x, ticketTop(row), entry.order, {dim:read, fresh:S.time - entry.at < 0.3, outline:inProgress ? owner : null});
-      label(entry.offset, x, top + 2, read ? PAL.grey : PAL.white, 'center');
+      label(entry.offset, x, top - 1, read ? PAL.grey : PAL.white, 'center');
     });
     const pointerX = Math.max(barStart(row) + 10, slotX(part, end, Math.max(p.committed, p.earliest)));
     drawPointer(pointerX, wireY(row) - 9, owner);
@@ -1190,7 +1176,7 @@
         label(`${c.name} FUERA`, barEnd(rowOf(c.id)) + 42, barTop(rowOf(c.id)) + 42, PAL.white, 'center');
         return;
       }
-      const x = cookX(c.pos);
+      const x = COOK_X;
       const top = barTop(0) + c.pos * ROW_PITCH;
       const job = c.job;
       const atOven = job && job.phase !== 'fetch';
@@ -1202,7 +1188,7 @@
       if(!job) return;
       const row = rowOf(job.part), bt = barTop(row), oven = barEnd(row) + 42;
       if(job.phase === 'fetch'){
-        const toX = cookX(row) - 16;
+        const toX = COOK_X - 16;
         drawTicket(job.fromX + (toX - job.fromX) * (job.timer / job.dur), ticketTop(row), job.order);
       } else if(job.phase === 'cook'){
         drawItems(job.order.items, oven, bt - 20);
@@ -1255,7 +1241,7 @@
     if(S.rebalance){
       const color = Math.floor(S.time * 4) % 2 ? PAL.cyan : PAL.red;
       const waiting = S.cooks.filter(c => c.active && c.job).map(c => c.name);
-      drawBanner(['REBALANCE', waiting.length ? `ESPERANDO A ${waiting.join(' Y ')}` : 'REPARTIENDO LAS BARRAS'], color);
+      drawBanner(['REBALANCE', waiting.length ? `ESPERANDO A ${waiting.join(' Y ')}` : 'REPARTIENDO LOS HILOS'], color);
     } else if(!S.cooks.some(c => c.active)){
       drawBanner(['SIN COCINEROS', 'LAS COMANDAS SE ACUMULAN'], PAL.red);
     }
@@ -1274,7 +1260,7 @@
         drawCounter();
       } else {
         const part = row === 0 ? 0 : 1;
-        drawOrdersBar(part);
+        drawOrdersWire(part);
         drawFlights(part);
       }
     }
@@ -1317,8 +1303,8 @@
 
   function cookStatus(c){
     if(!c.active) return 'Fuera del grupo.';
-    if(S.rebalance && !c.job) return 'Esperando el reparto de barras.';
-    const bars = c.partitions.length > 1 ? `Barras ${c.partitions.join(', ')}` : `Barra ${c.partitions[0]}`;
+    if(S.rebalance && !c.job) return 'Esperando el reparto de hilos.';
+    const bars = c.partitions.length > 1 ? `Hilos ${c.partitions.join(', ')}` : `Hilo ${c.partitions[0]}`;
     const lag = c.partitions.reduce((sum, part) => sum + lagOf(S.comandas[part]), 0);
     const doing = !c.job ? 'sin comandas' :
       c.job.phase === 'fetch' ? `lee el offset ${c.job.offset}` :
