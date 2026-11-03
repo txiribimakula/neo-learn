@@ -17,7 +17,6 @@
     --accent:#ff6d00;
     --c1:#ffd23f;
     --c2:#4fd1ff;
-    --c3:#ff7ac6;
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--ink)}
@@ -31,8 +30,8 @@
   .layout{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
   @media (min-width:1240px){.layout{grid-template-columns:minmax(0,1fr) 360px;align-items:start}}
   .stage{min-width:0}
-  .cabinet{background:#000;border:4px solid var(--accent);overflow-x:auto;max-width:calc(84vh * 640 / 440);margin:0 auto}
-  canvas{display:block;width:100%;min-width:640px;aspect-ratio:640/440}
+  .cabinet{background:#000;border:4px solid var(--accent);overflow-x:auto;max-width:calc(84vh * 730 / 420);margin:0 auto}
+  canvas{display:block;width:100%;min-width:640px;aspect-ratio:730/420}
   .controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:10px 12px;margin-top:12px;background:var(--panel);border:1px solid var(--line)}
   .field{display:flex;align-items:center;gap:8px}
   .field>span{color:var(--muted)}
@@ -40,6 +39,7 @@
   input[type=range]{width:120px;accent-color:var(--amber)}
   button{background:var(--panel-2);border:1px solid var(--line);padding:4px 10px;cursor:pointer}
   button:hover{border-color:var(--amber);background:#0030d8}
+  button:disabled{opacity:.55;cursor:default;border-color:var(--line);background:var(--panel-2)}
   button:focus-visible,input:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
   button[aria-pressed=true]{background:var(--amber);border-color:var(--amber);color:#00006d;font-weight:700}
   .primary{background:var(--accent);border-color:var(--accent);color:#000;font-weight:700}
@@ -59,6 +59,12 @@
   .try b{display:block;margin-bottom:2px}
   .try p{margin:0 0 6px;color:var(--muted)}
   .try .actions{display:flex;flex-wrap:wrap;gap:6px}
+  .menu{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+  .menu li{display:flex;align-items:center;gap:8px}
+  .menu canvas{width:24px;height:24px;min-width:0;aspect-ratio:1;image-rendering:pixelated}
+  .menu span{margin-left:auto;color:var(--muted)}
+  .menu .course{color:var(--amber);margin-top:6px}
+  .menu .course:first-child{margin-top:0}
   dl{display:grid;grid-template-columns:max-content 1fr;gap:3px 10px;margin:0}
   dt{color:var(--ink)}
   dd{margin:0;color:var(--muted)}
@@ -73,15 +79,15 @@
 <div class="page">
   <header>
     <h1>Kafka en el bar</h1>
-    <p>Las comandas viajan por tres barras; los platos vuelven por una sola.</p>
+    <p>Las comandas cuelgan de dos hilos, que son Kafka; los platos vuelven por un simple mostrador.</p>
     <a href="kafka.html">Simulador completo</a>
   </header>
 
   <div class="layout">
     <div class="stage">
       <div class="cabinet">
-        <canvas id="scene" width="1920" height="1320" role="img"
-          aria-label="Bar arcade en perspectiva: los clientes piden en tres barras de madera y mandan comandas hacia la derecha; tres cocineros las leen, cocinan al fuego y dejan los platos en una barra diagonal junto a la pared derecha; el camarero los desliza por una mesa con mantel, abajo, donde los clientes esperan sentados."></canvas>
+        <canvas id="scene" width="2190" height="1260" role="img"
+          aria-label="Bar arcade en perspectiva: a la izquierda, un comedor con mesas donde los comensales esperan con su menú sobre la cabeza; a la derecha, dos cocineros leen las comandas colgadas con pinzas de dos hilos; por un mostrador central vuelven los platos; dos camareros con bloc mandan las comandas y dos con bandeja llevan los platos a las mesas."></canvas>
       </div>
 
       <div class="controls">
@@ -91,11 +97,11 @@
           <button type="button" data-speed="2" aria-pressed="false">x2</button>
           <button type="button" data-speed="4" aria-pressed="false">x4</button>
         </div>
-        <label class="field"><span>Pedidos/min</span>
-          <input id="rate" type="range" min="0" max="120" step="5" value="40" />
-          <output id="rateOut">40</output>
+        <label class="field"><span>Clientes/min</span>
+          <input id="rate" type="range" min="0" max="40" step="5" value="20" />
+          <output id="rateOut">20</output>
         </label>
-        <button id="addOrder" type="button">+ Pedido</button>
+        <button id="addOrder" type="button">+ Cliente</button>
         <button id="restart" type="button">Reiniciar</button>
       </div>
 
@@ -107,44 +113,48 @@
         <h2>Prueba esto</h2>
         <div class="try">
           <b>Un cocinero va lento</b>
-          <p>Su triángulo se queda atrás y la barra acumula comandas encendidas. Los otros dos no pueden ayudarle: dentro del grupo, cada barra tiene un solo dueño.</p>
+          <p>Su triángulo se queda atrás y su hilo acumula comandas encendidas. El otro no puede ayudarle aunque esté parado: dentro del grupo, cada barra tiene un solo dueño.</p>
           <div class="actions"><button type="button" data-try="slow">Poner lento a C2</button></div>
         </div>
         <div class="try">
           <b>Un cocinero se va</b>
           <p>Rebalance: nadie coge comandas nuevas hasta que el grupo se reparte las barras. Lo que dejó a medias no estaba confirmado, así que otro lo vuelve a leer.</p>
-          <div class="actions"><button type="button" data-try="leave">Sacar a C3</button></div>
+          <div class="actions"><button type="button" data-try="leave">Sacar a C1</button></div>
         </div>
         <div class="try">
           <b>La letra es la clave</b>
-          <p>Cada letra va siempre a la misma barra, así que sus pedidos se cocinan en orden. El orden solo se garantiza dentro de una barra: el plato de A puede salir antes o después que el de B.</p>
-          <div class="actions"><button type="button" data-try="burst">A pide 3 veces</button></div>
+          <p>Cada letra es un comensal, y cada plato de su menú, un mensaje con esa clave. Como van todos a la misma barra, a A nunca le llega el postre antes que el primero. Entre letras no hay orden: un plato de A puede adelantar a uno de B.</p>
+          <div class="actions"><button type="button" data-try="burst">A pide menú con café</button></div>
         </div>
         <div class="try">
           <b>Leer no borra</b>
-          <p>Las comandas leídas se apagan, pero siguen en la barra. Rebobinar mueve el triángulo atrás: se vuelve a cocinar todo y sobran platos.</p>
+          <p>Las comandas leídas se apagan, pero siguen colgadas. Rebobinar mueve el triángulo atrás: se vuelve a cocinar todo y sobran platos.</p>
           <div class="actions">
             <button type="button" data-seek="0">Rebobinar barra 0</button>
             <button type="button" data-seek="1">Barra 1</button>
-            <button type="button" data-seek="2">Barra 2</button>
           </div>
         </div>
       </section>
 
       <section>
+        <h2>La carta</h2>
+        <ul class="menu" id="menu"></ul>
+      </section>
+
+      <section>
         <h2>Qué es cada cosa</h2>
         <dl>
-          <dt>Cliente</dt><dd>Producer</dd>
-          <dt>Letra del cliente</dt><dd>Clave del mensaje: decide la barra</dd>
-          <dt>Comanda</dt><dd>Mensaje</dd>
-          <dt>Barra de comandas</dt><dd>Partición del topic <code>comandas</code></dd>
-          <dt>Número bajo la comanda</dt><dd>Offset</dd>
+          <dt>Camarero con bloc</dt><dd>Producer: hay 2, y mandan las comandas a su hilo</dd>
+          <dt>Letra del comensal</dt><dd>Clave del mensaje: decide la barra</dd>
+          <dt>Comanda</dt><dd>Mensaje: un plato del menú</dd>
+          <dt>Hilo de comandas</dt><dd>Partición del topic <code>comandas</code></dd>
+          <dt>Número en la barra</dt><dd>Offset</dd>
           <dt>Triángulo</dt><dd>Offset confirmado del grupo</dd>
           <dt>Comanda apagada</dt><dd>Ya leída, pero retenida (14 por barra)</dd>
-          <dt>Cocinero</dt><dd>Consumer del grupo <code>cocina</code> y producer de <code>platos</code></dd>
-          <dt>Barra de platos</dt><dd>Topic <code>platos</code> con 1 partición</dd>
-          <dt>Camarero</dt><dd>Consumer del grupo <code>sala</code></dd>
-          <dt>Mesa con mantel</dt><dd>Donde se entrega el plato; no es un topic</dd>
+          <dt>Cocinero</dt><dd>Consumer del grupo <code>cocina</code></dd>
+          <dt>Mostrador del medio</dt><dd>No es Kafka: el plato desaparece al recogerlo</dd>
+          <dt>Camarero con bandeja</dt><dd>No es Kafka: hay 2, y cualquiera lleva el siguiente plato</dd>
+          <dt>Mesas del comedor</dt><dd>Donde se entrega el plato</dd>
         </dl>
       </section>
 
@@ -162,34 +172,44 @@
 
   // ---- Kafka model: no DOM here, so the tests can drive it directly ----
 
-  const W = 640, H = 440;
-  const PARTITIONS = 3;
-  const BAR_RETENTION = 14, PASS_RETENTION = 11;
-  const ROW_PITCH = 98, FLOOR_TOP = 58, SLOT_W = 22, SLOT_H = 22;
-  const PASS_TOP_Y = 86, PASS_BOTTOM_Y = 404, PASS_END_Y = 378;
-  const CUSTOMER_RUN = 78, CUSTOMER_GAP = 22;
-  const DINING_ROW = 3, SEATS = 18, SEAT_GAP = 26, SEAT_SPEED = 170, EAT_S = 1.6;
-  const WAITER_X = 566, LANE_START_X = 540, LANE_END_X = 40;
+  const W = 730, H = 420;
+  const PARTITIONS = 2, PLATES_ROW = 1;
+  const RETENTION = 14;
+  const ROW_PITCH = 130, FLOOR_TOP = 58, SLOT_W = 22;
+  const WAITING_GAP = 18, ORDER_WAITER_HOMES = [{x:160, y:182}, {x:160, y:372}], TRAY_WAITER_HOMES = [{x:196, y:246}, {x:196, y:306}];
+  const SEAT_SPEED = 170, EAT_S = 1.8;
+  const WAITER_SPEED = 240;
   const SLIDE_SPEED = 300, COOK_ROWS_PER_S = 2.2, WALK_SPEED = 90;
   const SLOW_FACTOR = 5;
   const REBALANCE_MIN_S = 1.6;
-  const ORDER_S = 0.55, WAITER_TAKE_S = 0.45, DELIVERY_S = 1.2, PLATE_TOSS_S = 0.22;
+  const ORDER_S = 0.55, ORDER_ITEM_S = 0.6, WAITER_TAKE_S = 0.4, PLATE_TOSS_S = 0.22, PLATE_FLIGHT_TOSS_S = 0.25;
   const LETTERS = 'ABCDEF';
+  const COURSES = ['primero', 'segundo', 'postre', 'cafe'];
   const ITEMS = {
-    burger:{cook:1.4}, pizza:{cook:2.0}, fries:{cook:0.8}, hotdog:{cook:1.0}, drink:{cook:0.4}
+    gazpacho:{name:'Gazpacho', course:'primero', cook:0.5}, paella:{name:'Paella', course:'primero', cook:2.2},
+    croquetas:{name:'Croquetas', course:'primero', cook:1.0}, jamon:{name:'Jamón', course:'primero', cook:0.4},
+    tortilla:{name:'Tortilla de patatas', course:'segundo', cook:1.6}, merluza:{name:'Merluza', course:'segundo', cook:1.8},
+    pollo:{name:'Pollo asado', course:'segundo', cook:1.4},
+    flan:{name:'Flan', course:'postre', cook:0.3}, arroz:{name:'Arroz con leche', course:'postre', cook:0.4},
+    churros:{name:'Churros', course:'postre', cook:0.8},
+    cafe:{name:'Café', course:'cafe', cook:0.3}
   };
   const ITEM_NAMES = Object.keys(ITEMS);
 
-  // Rows 0-2 are the partitions of the orders topic; row 3 is the dining table, not a topic.
-  const barTop = row => 96 + row * ROW_PITCH;
-  const barStart = row => 100 - row * 28;
-  const barEnd = row => 440 + row * 32;
+  // Rows top to bottom: orders partition 0, plates counter, orders partition 1. Only the orders are Kafka.
+  const rowOf = part => (part === 0 ? 0 : 2);
+  const barTop = row => 108 + row * ROW_PITCH;
+  const barStart = row => 242 - row * 22;
+  const barEnd = row => 582 + row * 22;
   const cookX = pos => barEnd(pos) + 10;
-  const passX = y => 518 + (y - 96) * 0.327;
-  const customerExitX = row => barStart(row) - 14;
-  const seatX = seat => barStart(DINING_ROW) + 44 + seat * SEAT_GAP;
-  const slotX = (row, end, offset) => barEnd(row) - 34 - (end - 1 - offset) * SLOT_W;
-  const passSlotY = (end, offset) => PASS_END_Y - SLOT_H - (end - 1 - offset) * SLOT_H;
+  // Waiters never go behind a bar: they send and pick up from its left end.
+  const standX = row => barStart(row) - 22;
+  const floorY = row => barTop(row) + 38;
+  const seatX = letter => (LETTERS.indexOf(letter) % 2 ? 106 : 36);
+  const tableTop = letter => 124 + Math.floor(LETTERS.indexOf(letter) / 2) * 118;
+  const slotX = (part, end, offset) => barEnd(rowOf(part)) - 34 - (end - 1 - offset) * SLOT_W;
+  // Plates travel the other way and queue up from the left end of the counter.
+  const counterSlotX = index => barStart(PLATES_ROW) + 20 + index * SLOT_W;
   const lagOf = p => p.end - p.committed;
 
   function mulberry32(seed){
@@ -209,15 +229,15 @@
 
   function createSim(seed = 7){
     const S = {
-      time:0, random:mulberry32(seed), rate:40, spawnIn:0.4,
-      nextOrder:1,
+      time:0, random:mulberry32(seed), rate:20, spawnIn:0.4,
+      nextMessage:1, nextVisit:1,
       comandas:Array.from({length:PARTITIONS}, makePartition),
-      platos:makePartition(),
-      cooks:[0, 1, 2].map(id => ({id, name:`C${id + 1}`, active:true, slow:false, pos:id, partitions:[], cursor:0, walking:false, job:null})),
-      waiter:{job:null},
-      customers:[], seats:Array(SEATS).fill(null), tickets:[], plates:[], deliveries:[],
+      cooks:[0, 1].map(id => ({id, name:`C${id + 1}`, active:true, slow:false, pos:rowOf(id), partitions:[], cursor:0, walking:false, job:null})),
+      trayWaiters:TRAY_WAITER_HOMES.map(spot => ({home:spot, x:spot.x, y:spot.y, state:'idle', timer:0, plate:null, fromX:0, faceLeft:false, walkPhase:0})),
+      barWaiters:ORDER_WAITER_HOMES.map(spot => ({home:spot, x:spot.x, y:spot.y, state:'idle', timer:0, customer:null, letter:null, row:null, spot:0, toSend:[], faceLeft:false, walkPhase:0})),
+      customers:[], tickets:[], plates:[], counter:[],
       rebalance:null, generation:1,
-      stats:{ordered:0, served:0, lost:0, duplicates:0, rebalances:0},
+      stats:{ordered:0, served:0, duplicates:0, rebalances:0},
       events:[], eventSeq:0
     };
     assignPartitions(S);
@@ -233,15 +253,39 @@
   // Same key, same bar: this is what keeps the orders of a customer in sequence.
   const partitionFor = letter => LETTERS.indexOf(letter) % PARTITIONS;
 
-  function addCustomer(S, letter){
-    const who = letter || LETTERS[Math.floor(S.random() * LETTERS.length)];
-    const count = S.random() < 0.45 ? 2 : 1;
-    const items = Array.from({length:count}, () => ITEM_NAMES[Math.floor(S.random() * ITEM_NAMES.length)]);
+  const messageTag = m => `${m.letter} (${ITEMS[m.items[0]].name.toLowerCase()})`;
+  const freeLetters = S => [...LETTERS].filter(letter => !S.customers.some(c => c.letter === letter));
+
+  // Courses only come in sequence: just a starter, no dessert, dessert, or dessert and coffee.
+  function menuSize(roll){
+    return roll < 0.15 ? 1 : roll < 0.4 ? 2 : roll < 0.8 ? 3 : 4;
+  }
+
+  function pickMenu(S, size){
+    return COURSES.slice(0, size).map(course => {
+      const options = ITEM_NAMES.filter(item => ITEMS[item].course === course);
+      return options[Math.floor(S.random() * options.length)];
+    });
+  }
+
+  // A letter is one diner, so it can only be in the dining room once; each dish is one message.
+  function addCustomer(S, letter, count){
+    const free = freeLetters(S);
+    const who = letter || free[Math.floor(S.random() * free.length)];
+    if(!who || !free.includes(who)) return null;
+    const total = count || menuSize(S.random());
+    const menu = pickMenu(S, total);
     const partition = partitionFor(who);
-    const order = {id:S.nextOrder++, letter:who, items, key:who, partition, orderedAt:S.time, cooked:false, delivering:false};
-    S.customers.push({order, letter:who, row:partition, x:customerExitX(partition), state:'enter', timer:0, walkPhase:S.random() * 6});
-    S.stats.ordered++;
-    return order;
+    const visit = S.nextVisit++;
+    const messages = Array.from({length:total}, (_, i) => ({
+      id:S.nextMessage++, visit, letter:who, key:who, seq:i + 1, total, partition,
+      items:[menu[i]]
+    }));
+    const customer = {visit, letter:who, partition, x:-20, state:'enter', timer:0, messages, plates:[], eating:null, eaten:0, total, walkPhase:S.random() * 6};
+    S.customers.push(customer);
+    S.stats.ordered += total;
+    logEvent(S, `${who} pide: ${menu.map(item => ITEMS[item].name.toLowerCase()).join(', ')}.`);
+    return customer;
   }
 
   // Range assignor: sorted partitions split over sorted members, first members get the remainder.
@@ -287,7 +331,7 @@
     if(c.active === active) return;
     c.active = active;
     if(active){
-      c.pos = id;
+      c.pos = rowOf(id);
     } else if(c.job){
       // Nothing was committed, so the next owner re-reads this offset.
       const p = S.comandas[c.job.part];
@@ -310,31 +354,20 @@
     logEvent(S, `Rebobinado: la barra ${part} vuelve al offset ${p.earliest}.`, 'key');
   }
 
-  function loseOrder(S, order){
-    S.stats.lost++;
-    const customer = S.customers.find(c => c.order.id === order.id && c.state !== 'leave');
-    if(customer){ releaseSeat(S, customer); customer.state = 'leave'; customer.angry = true; }
-    logEvent(S, `Retención: se borra el pedido ${order.letter}${order.id} sin que nadie lo haya leído.`, 'warn');
-  }
-
-  function appendToLog(S, p, order, retention, alreadyHandled){
+  // Simplification: retention only drops what the group has already committed, so no diner starves.
+  function appendToLog(S, p, order){
     const offset = p.end++;
     p.log.push({offset, order, at:S.time});
-    while(p.log.length > retention){
-      const gone = p.log.shift();
-      p.earliest = gone.offset + 1;
-      if(gone.offset >= p.position && !alreadyHandled(gone.order)) loseOrder(S, gone.order);
-    }
-    if(p.position < p.earliest) p.position = p.earliest;
-    if(!p.busy && p.committed < p.earliest) p.committed = p.earliest;
+    while(p.log.length > RETENTION && p.log[0].offset < p.committed) p.earliest = p.log.shift().offset + 1;
     return offset;
   }
 
   function pickPartition(S, c){
     for(let i = 0; i < c.partitions.length; i++){
-      const part = c.partitions[(c.cursor + i) % c.partitions.length];
+      const index = (c.cursor + i) % c.partitions.length;
+      const part = c.partitions[index];
       const p = S.comandas[part];
-      if(!p.busy && p.position < p.end) return {part, index:(c.cursor + i) % c.partitions.length};
+      if(!p.busy && p.position < p.end) return {part, index};
     }
     return null;
   }
@@ -347,15 +380,13 @@
     p.position++;
     p.busy = true;
     c.cursor = pick.index + 1;
-    c.job = {part:pick.part, offset, order:entry.order, stale:false, phase:'fetch', timer:0, dur:Math.max(0.15, (cookX(pick.part) - fromX) / 500), fromX};
+    c.job = {part:pick.part, offset, order:entry.order, stale:false, phase:'fetch', timer:0, dur:Math.max(0.15, (cookX(rowOf(pick.part)) - fromX) / 500), fromX};
   }
 
   function finishJob(S, c){
     const {part, offset, order, stale} = c.job;
     const p = S.comandas[part];
-    const rowY = barTop(part) + 8;
-    order.cooked = true;
-    S.plates.push({order, row:part, t:0, dur:(PASS_END_Y - rowY) / 260 + 0.2});
+    S.plates.push({order, row:rowOf(part), t:0, x:barEnd(PLATES_ROW) - 8});
     if(!stale){
       p.committed = Math.max(p.committed, offset + 1, p.earliest);
       logEvent(S, `${c.name} deja el plato y confirma el offset ${offset} de la barra ${part}.`);
@@ -381,112 +412,182 @@
       }
       return;
     }
-    if(S.rebalance) return;
+    if(S.rebalance || !c.partitions.length) return;
     const pick = pickPartition(S, c);
     const here = Math.round(c.pos);
-    const goal = pick ? pick.part : (c.partitions.includes(here) ? here : c.partitions[0]);
-    if(goal === undefined) return;
+    const goal = pick ? rowOf(pick.part) : (c.partitions.map(rowOf).includes(here) ? here : rowOf(c.partitions[0]));
     if(c.pos !== goal){
       const delta = COOK_ROWS_PER_S * dt;
       c.pos = Math.abs(goal - c.pos) <= delta ? goal : c.pos + Math.sign(goal - c.pos) * delta;
       c.walking = true;
     }
-    if(pick && c.pos === pick.part) startFetch(S, c, pick);
+    if(pick && c.pos === goal) startFetch(S, c, pick);
   }
 
-  function stepWaiter(S, dt){
-    const w = S.waiter, p = S.platos;
-    if(w.job){
-      w.job.timer += dt;
-      if(w.job.timer < WAITER_TAKE_S) return;
-      S.deliveries.push({order:w.job.order, t:0});
-      p.committed = Math.max(p.committed, w.job.offset + 1, p.earliest);
-      p.busy = false;
-      w.job = null;
-      return;
+  function walkTo(e, target, speed, dt){
+    const gap = target - e.x;
+    e.x = Math.abs(gap) <= speed * dt ? target : e.x + Math.sign(gap) * speed * dt;
+    return e.x === target;
+  }
+
+  function walkToPoint(e, tx, ty, speed, dt){
+    const dx = tx - e.x, dy = ty - e.y, dist = Math.hypot(dx, dy), step = speed * dt;
+    if(dx !== 0) e.faceLeft = dx < 0;
+    if(dist <= step){
+      e.x = tx; e.y = ty;
+      return true;
     }
-    if(p.position < p.end){
-      const offset = p.position;
-      const entry = p.log[offset - p.earliest];
-      entry.order.delivering = true;
-      w.job = {offset, order:entry.order, timer:0, fromY:passSlotY(p.end, offset)};
-      p.position++;
-      p.busy = true;
+    e.x += dx / dist * step;
+    e.y += dy / dist * step;
+    return false;
+  }
+
+  function serve(S, message){
+    const customer = S.customers.find(c => c.visit === message.visit);
+    if(customer && !message.served){
+      message.served = true;
+      customer.plates.push(message);
+      S.stats.served++;
+    } else {
+      S.stats.duplicates++;
+      logEvent(S, `Sobra un plato: ${messageTag(message)} ya se había servido.`, 'warn');
     }
   }
 
-  function releaseSeat(S, c){
-    if(c.seat != null) S.seats[c.seat] = null;
-    c.seat = null;
-  }
-
-  function takeSeat(S, c){
-    const seat = S.seats.indexOf(null);
-    if(seat < 0) return false;
-    S.seats[seat] = c.order.id;
-    c.seat = seat;
-    return true;
-  }
-
-  function walkTo(c, target, speed, dt){
-    const gap = target - c.x;
-    c.x = Math.abs(gap) <= speed * dt ? target : c.x + Math.sign(gap) * speed * dt;
-    return c.x === target;
-  }
-
-  function startEating(c){
-    c.state = 'eat';
-    c.timer = EAT_S;
-  }
-
-  function stepCustomers(S, dt){
-    const queue = [0, 0, 0];
-    S.customers = S.customers.filter(c => {
-      switch(c.state){
-        case 'enter':
-        case 'order': {
-          // Single file at the counter: only the oldest in line orders, so a key keeps its sequence.
-          const spot = queue[c.row]++;
-          c.spot = spot;
-          const target = Math.max(barStart(c.row) + 8, barStart(c.row) + CUSTOMER_RUN - spot * CUSTOMER_GAP);
-          const arrived = walkTo(c, target, WALK_SPEED, dt);
-          if(c.state === 'enter'){
-            if(arrived && spot === 0){ c.state = 'order'; c.timer = ORDER_S; }
-          } else {
-            c.timer -= dt;
-            if(c.timer <= 0){
-              S.tickets.push({order:c.order, part:c.row, x0:c.x, t:0, dur:(barEnd(c.row) - 34 - c.x) / SLIDE_SPEED});
-              c.state = 'toDoor';
-            }
+  // Not Kafka: any free waiter takes the oldest plate, one at a time. A plate waits while another
+  // waiter is still carrying a plate for that diner, so the courses cannot overtake each other.
+  function stepTrayWaiters(S, dt){
+    S.trayWaiters.forEach(w => {
+      switch(w.state){
+        case 'idle': {
+          const busyLetters = S.trayWaiters.filter(other => other.plate).map(other => other.plate.letter);
+          const index = S.counter.findIndex(entry => !busyLetters.includes(entry.order.letter));
+          if(index >= 0){
+            const [entry] = S.counter.splice(index, 1);
+            w.plate = entry.order;
+            w.fromX = entry.x;
+            w.state = 'take';
+            w.timer = 0;
           }
           break;
         }
-        case 'toDoor':
-          if(walkTo(c, customerExitX(c.row), WALK_SPEED * 1.5, dt)){
-            c.row = DINING_ROW;
-            c.x = customerExitX(DINING_ROW);
-            c.state = 'queue';
+        case 'take':
+          w.timer += dt;
+          if(w.timer >= WAITER_TAKE_S) w.state = 'deliver';
+          break;
+        case 'deliver':
+          if(walkToPoint(w, seatX(w.plate.letter), tableTop(w.plate.letter) + 44, WAITER_SPEED, dt)){
+            serve(S, w.plate);
+            w.plate = null;
+            w.state = 'return';
           }
           break;
-        case 'queue':
-          if(takeSeat(S, c)) c.state = 'toSeat';
-          break;
-        case 'toSeat':
-          if(walkTo(c, seatX(c.seat), SEAT_SPEED, dt)){
-            if(c.plateReady) startEating(c);
-            else c.state = 'wait';
+        case 'return':
+          if(walkToPoint(w, w.home.x, w.home.y, WAITER_SPEED, dt)){
+            w.state = 'idle';
+            w.faceLeft = false;
           }
           break;
-        case 'eat':
+      }
+    });
+  }
+
+  function freeSpot(S, row){
+    const used = S.barWaiters.filter(w => w.row === row && (w.state === 'toBar' || w.state === 'order')).map(w => w.spot);
+    return [0, 1, 2].find(spot => !used.includes(spot));
+  }
+
+  // Producers of the orders topic: a free waiter takes the oldest diner still waiting,
+  // writes the order at the table and sends it from the left end of the bar of that key.
+  function stepBarWaiters(S, dt){
+    S.barWaiters.forEach(w => {
+      switch(w.state){
+        case 'idle': {
+          const customer = S.customers.find(c => c.state === 'waitingWaiter' && !c.attended);
+          if(customer){
+            customer.attended = true;
+            w.customer = customer;
+            w.letter = customer.letter;
+            w.row = rowOf(customer.partition);
+            w.toSend = [...customer.messages];
+            w.state = 'toTable';
+          }
+          break;
+        }
+        case 'toTable':
+          if(walkToPoint(w, seatX(w.letter), tableTop(w.letter) + 44, WAITER_SPEED, dt)){
+            w.customer.state = 'asking';
+            w.customer.timer = ORDER_S;
+            w.state = 'atTable';
+          }
+          break;
+        case 'atTable':
+          if(w.customer.state === 'seated'){
+            w.spot = freeSpot(S, w.row);
+            w.state = 'toBar';
+          }
+          break;
+        case 'toBar':
+          if(walkToPoint(w, standX(w.row) - w.spot * WAITING_GAP, floorY(w.row), WAITER_SPEED, dt)){
+            w.state = 'order';
+            w.timer = ORDER_S;
+            w.faceLeft = false;
+          }
+          break;
+        case 'order':
+          w.timer -= dt;
+          if(w.timer <= 0){
+            const message = w.toSend.shift();
+            const start = barStart(w.row) + 4;
+            S.tickets.push({order:message, part:message.partition, x0:start, t:0, dur:(barEnd(w.row) - 34 - start) / SLIDE_SPEED});
+            if(w.toSend.length) w.timer = ORDER_ITEM_S;
+            else w.state = 'back';
+          }
+          break;
+        case 'back':
+          if(walkToPoint(w, w.home.x, w.home.y, WAITER_SPEED, dt)){
+            w.state = 'idle';
+            w.customer = null;
+            w.letter = null;
+            w.row = null;
+            w.faceLeft = false;
+          }
+          break;
+      }
+    });
+  }
+
+  function stepCustomers(S, dt){
+    S.customers = S.customers.filter(c => {
+      switch(c.state){
+        case 'enter':
+          if(walkTo(c, seatX(c.letter), SEAT_SPEED, dt)) c.state = 'waitingWaiter';
+          break;
+        case 'asking':
           c.timer -= dt;
-          if(c.timer <= 0){
-            releaseSeat(S, c);
-            c.state = 'leave';
+          if(c.timer <= 0) c.state = 'seated';
+          break;
+        case 'seated':
+          if(c.eating){
+            c.timer -= dt;
+            if(c.timer > 0) break;
+            c.eating.finished = true;
+            c.eating = null;
+            c.eaten++;
+            if(c.eaten >= c.total){
+              c.state = 'leave';
+              break;
+            }
+          }
+          // Plates are eaten in the order they reached the table.
+          if(c.plates.length){
+            c.eating = c.plates.shift();
+            c.timer = EAT_S;
           }
           break;
         case 'leave':
-          c.x -= (c.row === DINING_ROW ? SEAT_SPEED : WALK_SPEED) * dt;
-          return c.x > customerExitX(c.row);
+          c.x -= SEAT_SPEED * dt;
+          return c.x > -20;
       }
       return true;
     });
@@ -496,30 +597,24 @@
     S.tickets = S.tickets.filter(ticket => {
       ticket.t += dt / ticket.dur;
       if(ticket.t < 1) return true;
-      const p = S.comandas[ticket.part];
-      const offset = appendToLog(S, p, ticket.order, BAR_RETENTION, order => order.cooked);
-      logEvent(S, `${ticket.order.letter}${ticket.order.id} → barra ${ticket.part}, offset ${offset} (clave ${ticket.order.key})`);
+      const offset = appendToLog(S, S.comandas[ticket.part], ticket.order);
+      logEvent(S, `${messageTag(ticket.order)} → barra ${ticket.part}, offset ${offset} (clave ${ticket.order.key})`);
       return false;
     });
     S.plates = S.plates.filter(plate => {
-      plate.t += dt / plate.dur;
-      if(plate.t < 1) return true;
-      appendToLog(S, S.platos, plate.order, PASS_RETENTION, order => order.delivering);
+      if(plate.t < 1){
+        plate.t += dt / PLATE_FLIGHT_TOSS_S;
+        return true;
+      }
+      plate.x -= SLIDE_SPEED * dt;
+      const tail = counterSlotX(S.counter.length);
+      if(plate.x > tail) return true;
+      S.counter.push({order:plate.order, x:Math.max(plate.x, tail)});
       return false;
     });
-    S.deliveries = S.deliveries.filter(delivery => {
-      delivery.t += dt / DELIVERY_S;
-      if(delivery.t < 1) return true;
-      const customer = S.customers.find(c => c.order.id === delivery.order.id && c.state !== 'leave' && !c.plateReady);
-      if(customer){
-        customer.plateReady = true;
-        if(customer.state === 'wait') startEating(customer);
-        S.stats.served++;
-      } else {
-        S.stats.duplicates++;
-        logEvent(S, `Sobra un plato de ${delivery.order.letter}${delivery.order.id}: ya se había servido.`, 'warn');
-      }
-      return false;
+    // The queue moves up as plates are taken.
+    S.counter.forEach((entry, i) => {
+      entry.x = Math.max(counterSlotX(i), entry.x - SLIDE_SPEED * dt);
     });
   }
 
@@ -528,20 +623,25 @@
     if(S.rate > 0){
       S.spawnIn -= dt;
       if(S.spawnIn <= 0){
-        addCustomer(S);
-        S.spawnIn = 60 / S.rate * (0.6 + S.random() * 0.8);
+        // With every letter inside, nobody new can come in until someone leaves.
+        S.spawnIn = addCustomer(S) ? 60 / S.rate * (0.6 + S.random() * 0.8) : 0.5;
       }
     }
     stepCustomers(S, dt);
+    stepBarWaiters(S, dt);
     stepFlights(S, dt);
     stepRebalance(S, dt);
     S.cooks.forEach(c => stepCook(S, c, dt));
-    stepWaiter(S, dt);
+    stepTrayWaiters(S, dt);
   }
 
   // initial
-  // ---- Rendering: scene drawn at 640x440, blitted without smoothing ----
+  // ---- Rendering: scene drawn at 730x420, blitted without smoothing ----
 
+  const EATEN_ALPHA = 0.15;
+  const TABLE_COLOR = '#f6efd8';
+  const wireY = row => barTop(row) - 32;
+  const ticketTop = row => wireY(row) + 6;
   const PAL = {
     wall:'#00006d', backWall:'#0024b6', floor:'#494949', black:'#000000', white:'#ffffff',
     barTop:'#6d2400', barEdge:'#922400', barFront:'#492400', rail:'#db9200', door:'#ff6d00', doorDark:'#db9200',
@@ -549,7 +649,7 @@
   };
   const COLORS = {
     customers:{A:'#ff0000', B:'#2f8fff', C:'#24c24a', D:'#c85cff', E:'#ff9200', F:'#00d6b6'},
-    cooks:['#ffd23f', '#4fd1ff', '#ff7ac6']
+    cooks:['#ffd23f', '#4fd1ff']
   };
 
   const FONT = {
@@ -565,13 +665,19 @@
   };
   const ACCENTED = {'Á':'A','É':'E','Í':'I','Ó':'O','Ú':'U','Ñ':'N'};
 
-  const ICON_COLORS = {y:'#e8a33d', g:'#5bb04a', b:'#6b3a1e', r:'#d6402b', w:'#ffffff', o:'#f0c14b', c:'#3b2a1a', m:'#f4d03f', t:'#c98a3c', f:'#f7d65a', s:'#4da6ff'};
+  const ICON_COLORS = {b:'#4a2a14', y:'#f2c230', o:'#f7dc6f', t:'#b8732a', r:'#d6402b', g:'#4f9e3f', w:'#ffffff', e:'#c9c9c9', j:'#9c2b2b', k:'#ffd9c2'};
   const ICON_MAPS = {
-    burger:['..yyyy..','.yyyyyy.','yyyyyyyy','gggggggg','bbbbbbbb','oooooooo','yyyyyyyy','.yyyyyy.'],
-    pizza:['tttttttt','oooooooo','.orooro.','.oooooo.','..orro..','..oooo..','...oo...','...oo...'],
-    fries:['.f.ff.f.','.ffffff.','.ffffff.','rrrrrrrr','.rwrrwr.','.rrrrrr.','.rrrrrr.','..rrrr..'],
-    hotdog:['........','..yyyyy.','.ybbbbby','ybmbmbmy','ybbbbbby','.yyyyyy.','........','........'],
-    drink:['...wr...','...wr...','.ssssss.','.cccccc.','.cccccc.','.cccccc.','.cccccc.','..cccc..']
+    gazpacho:['........','wwwwwwww','wrrgrrrw','wrrrrgrw','erwrrrre','.errrre.','..eeee..','...ee...'],
+    paella:['........','.bbbbbb.','byryyygb','byyryyyb','bgyyyryb','byryyyyb','.bbbbbb.','........'],
+    croquetas:['.tt...tt','tbbt.tbb','tbbt.tbb','.tt...tt','...tt...','..tbbt..','..tbbt..','...tt...'],
+    jamon:['......ww','.....kww','....jjk.','..jjjjj.','.jjkjjj.','jjjjkjj.','jjjjjjb.','.bbbbb..'],
+    tortilla:['..tttt..','.toooot.','tooooyot','toyoooot','tooooyot','tooyooot','.toooot.','..tttt..'],
+    merluza:['........','...ee..e','.eeeee.e','ebeeeeee','eeeeeeee','.eeeee.e','...ee..e','........'],
+    pollo:['..ttt...','.ttttt..','ttttttt.','ttttttt.','.ttttt..','..ttw...','...www..','....ww..'],
+    flan:['........','..bbbb..','.tyyyyt.','.yyyyyy.','.yyyyyy.','wwwwwwww','eeeeeeee','........'],
+    arroz:['........','wwtwwtww','wwwwwwww','wwtwwwtw','.ewwwwe.','..eeee..','...ee...','........'],
+    churros:['..t..t..','..t..t..','.tt.tt..','.t..t...','tt.tt...','t..t....','........','........'],
+    cafe:['..e..e..','...e..e.','wwwwwww.','wbbbbbww','wwwwwwww','wwwwwww.','.wwwww..','eeeeeeee']
   };
 
   // Figures are built from stacked parts, drawn at 2x with a black contour like the arcade sprites.
@@ -648,16 +754,18 @@
     '..TTTTTTTTTTTT..'
   ];
   const BUST_HEADS = [
-    // Cowboy.
-    ['.....HHHHHH.....','....HHHHHHHH....','....hhhhhhhh....','.HHHHHHHHHHHHHH.','HHHHHHHHHHHHHHHH','....SSSSSSSS....','....SSSESSES....','....SSSSSSSS....','....SMMMMMMM....'],
-    // Cap.
-    ['................','.....HHHHHH.....','....HHHHHHHH....','....HHHHHHHHHHH.','....hhhhhhhh....','....KSSSSSSS....','....KSSESSES....','....SSSSSSSS....','....SSSMMMSS....'],
-    // Crest of hair.
-    ['......HHHH......','.....HHHHHH.....','.....HHHHHH.....','....hhhhhhhh....','....SSSSSSSS....','....SSSSSSSS....','....SSSESSES....','....SSSSSSSS....','....SSMMMMMS....']
+    // Short hair.
+    ['................','.....HHHHHH.....','....HHHHHHHH....','....HSSSSSSH....','....SSSESSES....','....SSSSSSSS....','....SSSSSSSS....','....SSSMMSSS....','....SSSSSSSS....'],
+    // Long hair.
+    ['.....HHHHHH.....','....HHHHHHHH....','...HHHHHHHHHH...','...HHSSSSSSHH...','...HHSSESSEHH...','...HHSSSSSSHH...','...HHSSSSSSHH...','...HHSSMMSSHH...','...HHSSSSSSHH...'],
+    // Bald with a moustache.
+    ['................','................','.....SSSSSS.....','....SSSSSSSS....','....HSSSSSSH....','....HSSESSEH....','....SSSSSSSS....','....SMMMMMMS....','....SSSSSSSS....'],
+    // Bun.
+    ['......HHHH......','......HHHH......','....HHHHHHHH....','....HSSSSSSH....','....SSSESSES....','....SSSSSSSS....','....SSSSSSSS....','....SSSMMSSS....','....SSSSSSSS....']
   ];
   const CUSTOMER_LOOKS = {
-    A:{head:0, hat:'#b0703a', band:'#6d3a14'}, B:{head:1, hat:'#ff0000', band:'#922400'}, C:{head:2, hat:'#3ad13a', band:'#1f8a1f'},
-    D:{head:0, hat:'#929292', band:'#6d6d6d'}, E:{head:1, hat:'#ffd23f', band:'#db9200'}, F:{head:2, hat:'#ff6dff', band:'#b63ab6'}
+    A:{head:0, hair:'#5a3417'}, B:{head:1, hair:'#1b1b1b'}, C:{head:2, hair:'#929292'},
+    D:{head:3, hair:'#e0c060'}, E:{head:0, hair:'#c8541e'}, F:{head:1, hair:'#7a4a22'}
   };
 
   const canvas = document.getElementById('scene');
@@ -754,21 +862,22 @@
     return sprite(`cook${id}-${reach}-${walk}`, rows, {H:PAL.white, h:'#c8c8c8', S:'#ffb68a', E:PAL.black, M:'#492400', W:PAL.white, A:COLORS.cooks[id], P:'#3b3b4f', B:'#6d2400'});
   }
 
-  function waiterSprite(reach){
-    const rows = [...HEAD_WAITER, ...(reach ? TORSO_REACH : TORSO_DOWN), ...LEGS_STAND];
-    return sprite(`waiter-${reach}`, rows, {K:'#1b1b1b', S:'#e0a070', E:PAL.black, M:'#1b1b1b', W:PAL.white, A:'#0024b6', P:'#1b1b2b', B:PAL.black});
+  function waiterSprite(reach, walk){
+    const rows = [...HEAD_WAITER, ...(reach ? TORSO_REACH : TORSO_DOWN), ...(walk ? LEGS_WALK : LEGS_STAND)];
+    return sprite(`waiter-${reach}-${walk}`, rows, {K:'#1b1b1b', S:'#e0a070', E:PAL.black, M:'#1b1b1b', W:PAL.white, A:'#0024b6', P:'#1b1b2b', B:PAL.black});
   }
 
-  function customerSprite(letter, angry){
+  function customerSprite(letter){
     const look = CUSTOMER_LOOKS[letter];
     const rows = [...BUST_HEADS[look.head], ...BUST_BODY];
-    return sprite(`bust${letter}-${angry}`, rows, {H:look.hat, h:look.band, S:angry ? '#ff5a3a' : '#ffb68a', E:PAL.black, K:'#492400', M:'#492400', T:COLORS.customers[letter]});
+    return sprite(`bust${letter}`, rows, {H:look.hair, S:'#ffb68a', E:PAL.black, M:'#492400', T:COLORS.customers[letter]});
   }
 
   // ---- Static layers ----
 
   const background = buildBackground();
-  const rowLayers = [0, 1, 2, 3].map(buildRowLayer);
+  const rowLayers = [0, 1, 2].map(buildRowLayer);
+  const tablesLayer = buildTablesLayer();
 
   function layerContext(){
     const c = document.createElement('canvas');
@@ -780,23 +889,13 @@
   function buildBackground(){
     const {c, ctx, rect} = layerContext();
     rect(0, 0, W, H, PAL.wall);
-    rect(84, 0, 464, FLOOR_TOP, PAL.backWall);
-    // Floor trapezoid: same diagonals as the bar ends.
+    rect(0, 0, 670, FLOOR_TOP, PAL.backWall);
+    // Floor: straight on the dining-room side, slanted like the bar ends on the kitchen side.
     for(let y = FLOOR_TOP; y < H; y += 2){
-      const left = 84 - (y - 96) * 0.286, right = 556 + (y - 96) * 0.327;
-      rect(left - (left % 2), y, right - left, 2, PAL.floor);
-    }
-    // Framed picture on the left wall.
-    for(let x = 8; x < 62; x += 2){
-      const top = 70 + (62 - x) * 0.6, height = 92;
-      const edge = x < 12 || x > 56;
-      rect(x, top, 2, height, edge ? PAL.door : PAL.greyDark);
-      rect(x, top, 2, 4, PAL.door);
-      rect(x, top + height - 4, 2, 4, PAL.door);
-      if(!edge && x % 8 < 4) rect(x, top + 30 + (x % 16), 2, 26 - (x % 12), PAL.grey);
+      rect(0, y, 650 + (y - 108) * 22 / ROW_PITCH, 2, PAL.floor);
     }
     // Sign on the back wall.
-    const signX = 222, signW = 196;
+    const signX = 302, signW = 196;
     for(let i = 0; i < 12; i += 2){
       rect(signX - 12 + i, 8 + i, signW + 24 - i * 2, 2, PAL.black);
       rect(signX - 12 + i, 48 - i, signW + 24 - i * 2, 2, PAL.black);
@@ -809,25 +908,10 @@
       rect(signX + signW - 2 - i, 11 + i, 11, 2, PAL.red);
       rect(signX + signW - 2 - i, 45 - i, 11, 2, PAL.red);
     }
-    text('KAFKA', 322, 19, PAL.black, 'center', 4, ctx);
-    text('KAFKA', 320, 17, PAL.white, 'center', 4, ctx);
-    // Single plates counter along the right wall, built as a pixel staircase.
-    for(let y = PASS_TOP_Y; y < PASS_BOTTOM_Y; y += 2){
-      const cx = passX(y);
-      rect(cx - 24, y, 48, 2, PAL.black);
-      rect(cx - 22, y, 36, 2, PAL.barTop);
-      rect(cx - 22, y, 2, 2, PAL.barEdge);
-      rect(cx + 14, y, 8, 2, (y % 12) < 8 ? PAL.barFront : PAL.black);
-    }
-    const endX = passX(PASS_BOTTOM_Y);
-    rect(endX - 24, PASS_BOTTOM_Y, 48, 2, PAL.black);
-    for(let x = endX - 22; x < endX + 22; x += 6){
-      rect(x, PASS_BOTTOM_Y + 2, 4, 20, PAL.barFront);
-      rect(x + 4, PASS_BOTTOM_Y + 2, 2, 20, PAL.black);
-    }
-    rect(endX - 24, PASS_BOTTOM_Y + 22, 48, 2, PAL.rail);
+    text('KAFKA', 402, 19, PAL.black, 'center', 4, ctx);
+    text('KAFKA', 400, 17, PAL.white, 'center', 4, ctx);
     // Stoves where the arcade has its kegs.
-    for(let row = 0; row < PARTITIONS; row++) drawStove(rect, barEnd(row) + 42, barTop(row));
+    for(let part = 0; part < PARTITIONS; part++) drawStove(rect, barEnd(rowOf(part)) + 42, barTop(rowOf(part)));
     return c;
   }
 
@@ -869,33 +953,22 @@
     R(cx - 5, top + 25, 10, 5, '#ffd23f');
   }
 
-  // One bar plus its swing doors, drawn over the customers walking behind it.
+  // One bar plus its swing doors, drawn over the waiters walking behind it.
   function buildRowLayer(row){
     const {c, rect} = layerContext();
     const x0 = barStart(row), x1 = barEnd(row), top = barTop(row);
     const len = x1 - x0;
-    // Far and near swing door panels.
-    for(const [dx, dy, h] of [[6, -48, 40], [-12, -22, 44]]){
-      for(let i = 0; i < 16; i += 2){
-        const y = top + dy + (14 - i);
-        rect(x0 + dx + i, y - 2, 2, h + 4, PAL.black);
-        rect(x0 + dx + i, y, 2, h, i < 4 ? PAL.doorDark : PAL.door);
-        if(i >= 4 && i < 8) rect(x0 + dx + i, y + 8, 2, h - 18, PAL.doorDark);
-        if(i >= 8) rect(x0 + dx + i, y + 8, 2, 2, PAL.doorDark);
+    // The plates bar has no door: the waiter picks up from its open end.
+    if(row !== PLATES_ROW){
+      for(const [dx, dy, h] of [[6, -48, 40], [-12, -22, 44]]){
+        for(let i = 0; i < 16; i += 2){
+          const y = top + dy + (14 - i);
+          rect(x0 + dx + i, y - 2, 2, h + 4, PAL.black);
+          rect(x0 + dx + i, y, 2, h, i < 4 ? PAL.doorDark : PAL.door);
+          if(i >= 4 && i < 8) rect(x0 + dx + i, y + 8, 2, h - 18, PAL.doorDark);
+          if(i >= 8) rect(x0 + dx + i, y + 8, 2, 2, PAL.doorDark);
+        }
       }
-    }
-    if(row === DINING_ROW){
-      // Gingham tablecloth: the place where food arrives, unlike the wooden order counters.
-      rect(x0 - 4, top - 2, len + 8, 18, PAL.black);
-      for(let y = 0; y < 12; y += 4){
-        for(let x = 0; x < len + 4; x += 8) rect(x0 - 2 + x, top + y, Math.min(8, len + 4 - x), 4, ((x / 8 + y / 4) % 2) ? PAL.white : PAL.red);
-      }
-      rect(x0, top + 14, len, 22, PAL.black);
-      for(let x = 0; x < len - 4; x += 8){
-        const drop = (x / 8) % 2 ? 14 : 18;
-        for(let y = 0; y < drop; y += 4) rect(x0 + 2 + x, top + 14 + y, 8, Math.min(4, drop - y), ((x / 8 + y / 4) % 2) ? PAL.white : PAL.red);
-      }
-      return c;
     }
     rect(x0 - 4, top - 2, len + 8, 18, PAL.black);
     rect(x0 - 2, top, len + 4, 12, PAL.barTop);
@@ -906,6 +979,28 @@
       rect(x, top + 16, 2, 18, PAL.barTop);
     }
     rect(x0 + 2, top + 34, len - 4, 2, PAL.rail);
+    // The wire the orders hang from, between two posts: only the order bars have one.
+    if(row !== PLATES_ROW){
+      const wire = wireY(row);
+      for(const px of [x0 + 2, x1 - 6]){
+        rect(px - 1, wire - 4, 6, top - wire + 6, PAL.black);
+        rect(px, wire - 3, 4, top - wire + 4, PAL.greyDark);
+      }
+      rect(x0 + 2, wire - 1, len - 8, 3, PAL.black);
+      rect(x0 + 2, wire, len - 8, 1, '#f6efd8');
+    }
+    return c;
+  }
+
+  // One plain table per diner, in front of the person sitting at it.
+  function buildTablesLayer(){
+    const {c, rect} = layerContext();
+    for(const letter of LETTERS){
+      const top = tableTop(letter), sx = seatX(letter);
+      rect(sx - 30, top - 2, 60, 30, PAL.black);
+      rect(sx - 28, top, 56, 26, TABLE_COLOR);
+      rect(sx - 28, top + 11, 56, 1, '#c9bf9f');
+    }
     return c;
   }
 
@@ -914,11 +1009,14 @@
   function drawTicket(cx, top, order, opts = {}){
     const x = Math.round(cx - 10), y = Math.round(top);
     g.globalAlpha = opts.dim ? 0.5 : 1;
+    // Clothes peg holding the order on the wire.
+    R(x + 7, y - 7, 6, 9, PAL.black);
+    R(x + 8, y - 6, 4, 7, '#c98a3c');
     R(x - 1, y - 1, 22, 24, PAL.black);
     R(x, y, 20, 22, '#f6efd8');
     R(x, y, 20, 9, COLORS.customers[order.letter]);
     text(order.letter, x + 7, y + 1, PAL.black);
-    drawItems(order.items, x + 10, y + 11);
+    drawItems(order.items, x + 10, y + 12);
     g.globalAlpha = 1;
     if(opts.fresh || opts.outline){
       const color = opts.outline || PAL.white;
@@ -927,13 +1025,22 @@
     }
   }
 
-  function drawPlate(cx, cy, order, dim){
+  function drawPlate(cx, cy, order, dim, left = 1){
     const x = Math.round(cx), y = Math.round(cy);
     g.globalAlpha = dim ? 0.55 : 1;
     R(x - 11, y + 4, 22, 5, PAL.black);
     R(x - 10, y + 5, 20, 3, '#f6efd8');
-    R(x - 8, y + 8, 16, 1, COLORS.customers[order.letter]);
-    drawItems(order.items, x, y - 3);
+    if(left < 1){
+      // Half-eaten: only the bottom rows of the icon remain.
+      const rows = Math.max(1, Math.ceil(8 * left));
+      g.drawImage(icon(order.items[0]), 0, 8 - rows, 8, rows, x - 4, y - 3 + 8 - rows, 8, rows);
+    } else {
+      drawItems(order.items, x, y - 3);
+    }
+    // Tag with the diner's letter and color, hanging below the plate.
+    R(x - 5, y + 8, 11, 11, PAL.black);
+    R(x - 4, y + 9, 9, 9, COLORS.customers[order.letter]);
+    text(order.letter, x - 2, y + 10, PAL.black);
     g.globalAlpha = 1;
   }
 
@@ -951,108 +1058,152 @@
 
   let S = createSim(Math.floor(Math.random() * 1e6));
   let paused = false, speed = 1;
-  const view = {ends:[0, 0, 0], passEnd:0, hidden:[0, 0, 0, 0]};
+  const view = {ends:[0, 0]};
 
   function updateView(realDt){
     const k = Math.min(1, realDt * 10);
     S.comandas.forEach((p, i) => { view.ends[i] += (p.end - view.ends[i]) * k; });
-    view.passEnd += (S.platos.end - view.passEnd) * k;
   }
 
-  function drawBar(row){
-    const p = S.comandas[row], top = barTop(row), end = view.ends[row];
+  function drawOrdersBar(part){
+    const p = S.comandas[part], row = rowOf(part), top = barTop(row), end = view.ends[part];
     const owner = p.owner == null ? PAL.grey : COLORS.cooks[p.owner];
     const lag = lagOf(p);
-    if(view.hidden[row]) label(`+${view.hidden[row]}`, barStart(row) + 6, top - 46, PAL.white);
-    const keys = [...LETTERS].filter(letter => partitionFor(letter) === row).join(' ');
-    label(`Pedidos · partición ${row} · ${keys}`, barEnd(row) - 56, top - 38, PAL.white, 'right');
-    label(`LAG ${lag}`, barEnd(row) - 14, top - 38, lag >= 8 ? PAL.red : lag >= 3 ? PAL.door : PAL.cyan, 'right');
+    const keys = [...LETTERS].filter(letter => partitionFor(letter) === part).join(' ');
+    label(`Pedidos · partición ${part} · ${keys}`, barEnd(row) - 56, top - 50, PAL.white, 'right');
+    label(`LAG ${lag}`, barEnd(row) - 14, top - 50, lag >= 8 ? PAL.red : lag >= 3 ? PAL.door : PAL.cyan, 'right');
     p.log.forEach(entry => {
-      const x = slotX(row, end, entry.offset);
+      const x = slotX(part, end, entry.offset);
       if(x < barStart(row) + 10) return;
       const read = entry.offset < p.committed;
       const inProgress = !read && entry.offset < p.position;
-      drawTicket(x, top - 14, entry.order, {dim:read, fresh:S.time - entry.at < 0.3, outline:inProgress ? owner : null});
-      label(entry.offset, x, top + 21, read ? PAL.grey : PAL.white, 'center');
+      drawTicket(x, ticketTop(row), entry.order, {dim:read, fresh:S.time - entry.at < 0.3, outline:inProgress ? owner : null});
+      label(entry.offset, x, top + 2, read ? PAL.grey : PAL.white, 'center');
     });
-    const pointerX = Math.max(barStart(row) + 10, slotX(row, end, Math.max(p.committed, p.earliest)));
-    drawPointer(pointerX, top - 22, owner);
+    const pointerX = Math.max(barStart(row) + 10, slotX(part, end, Math.max(p.committed, p.earliest)));
+    drawPointer(pointerX, wireY(row) - 9, owner);
   }
 
-  function drawCustomers(row){
-    let hidden = 0;
-    const top = barTop(row);
+  function drawCounter(){
+    const top = barTop(PLATES_ROW), y = top - 9;
+    label(`Platos listos · ${S.counter.length}`, barStart(PLATES_ROW) + 12, top - 38, PAL.white);
+    S.counter.forEach(entry => {
+      if(entry.x <= barEnd(PLATES_ROW) - 10) drawPlate(entry.x, y, entry.order);
+    });
+    // Plates tossed by the cooks: over onto the far end of this bar, then sliding to the queue.
+    S.plates.forEach(plate => {
+      const startX = barEnd(plate.row) + 54, startY = barTop(plate.row) + 4, endX = barEnd(PLATES_ROW) - 8;
+      if(plate.t < 1){
+        drawPlate(startX + (endX - startX) * plate.t, startY + (y - startY) * plate.t - Math.sin(plate.t * Math.PI) * 14, plate.order);
+      } else {
+        drawPlate(plate.x, y, plate.order);
+      }
+    });
+  }
+
+  function drawBubble(items, cx, top){
+    const w = items.length * 9 + 5, x = Math.round(cx - w / 2);
+    R(x - 1, top - 53, w + 2, 14, PAL.black);
+    R(x, top - 52, w, 12, PAL.white);
+    drawItems(items, cx, top - 50);
+  }
+
+  // The menu stays over the diner's head; each course fades out as it gets eaten.
+  function drawMenu(c, top){
+    const w = c.messages.length * 9 + 5, x = Math.round(c.x - w / 2);
+    R(x - 1, top - 53, w + 2, 14, PAL.black);
+    R(x, top - 52, w, 12, PAL.white);
+    c.messages.forEach((message, i) => {
+      g.globalAlpha = message.finished ? EATEN_ALPHA : c.eating === message ? EATEN_ALPHA + (1 - EATEN_ALPHA) * (c.timer / EAT_S) : 1;
+      g.drawImage(icon(message.items[0]), x + 3 + i * 9, top - 50);
+    });
+    g.globalAlpha = 1;
+  }
+
+  // Always in hand: blank while free, with the diner's letter (the message key) once attending.
+  function drawNotepad(letter, cx, cy){
+    const x = Math.round(cx), y = Math.round(cy);
+    R(x - 1, y - 1, 11, 13, PAL.black);
+    R(x, y, 9, 11, letter ? COLORS.customers[letter] : PAL.white);
+    R(x, y, 9, 2, PAL.greyDark);
+    if(letter) text(letter, x + 2, y + 3, PAL.black);
+    else for(let line = 4; line < 10; line += 2) R(x + 2, y + line, 5, 1, PAL.greyDark);
+  }
+
+  function drawTray(cx, cy){
+    const x = Math.round(cx), y = Math.round(cy);
+    R(x - 13, y - 1, 26, 4, PAL.black);
+    R(x - 12, y, 24, 2, PAL.grey);
+  }
+
+  function drawDiners(){
     S.customers.forEach(c => {
-      if(c.row !== row) return;
-      if(c.state === 'queue' || ((c.state === 'enter' || c.state === 'order') && c.spot >= 4)){ hidden++; return; }
-      const walking = c.state === 'enter' || c.state === 'toDoor' || c.state === 'toSeat' || c.state === 'leave';
+      const top = tableTop(c.letter);
+      const walking = c.state === 'enter' || c.state === 'leave';
       c.walkPhase += 0.016;
       const bob = walking ? (Math.floor(c.walkPhase * 12) % 2) * 2 : 0;
-      const raised = c.state === 'order' ? 3 : 0;
-      drawSprite(customerSprite(c.letter, !!c.angry), c.x, top + 2 - bob - raised, c.state === 'leave' || c.state === 'toDoor');
-      label(c.letter, c.x, top - 11 - bob - raised, PAL.white, 'center');
-      if(c.state === 'order'){
-        const w = c.order.items.length * 9 + 5, x = Math.round(c.x - w / 2);
-        R(x - 1, top - 53, w + 2, 14, PAL.black);
-        R(x, top - 52, w, 12, PAL.white);
-        drawItems(c.order.items, c.x, top - 50);
+      drawSprite(customerSprite(c.letter), c.x, top + 2 - bob, c.state === 'leave');
+      label(c.letter, c.x, top - 11 - bob, PAL.white, 'center');
+    });
+  }
+
+  function drawTableFood(){
+    S.customers.forEach(c => {
+      const top = tableTop(c.letter), seat = seatX(c.letter);
+      if(c.state === 'asking' || c.state === 'seated') drawMenu(c, top);
+      if(c.eating) drawPlate(seat - 18, top - 6, c.eating, false, c.timer / EAT_S);
+      c.plates.forEach((message, i) => drawPlate(seat - 6 + i * 12, top - 6, message));
+    });
+  }
+
+  function drawFloorWaiters(){
+    const stride = e => { e.walkPhase += 0.016; return Math.floor(e.walkPhase * 10) % 2 === 1; };
+    S.barWaiters.forEach(w => {
+      const moving = w.state === 'toTable' || w.state === 'toBar' || w.state === 'back';
+      const side = w.faceLeft ? -1 : 1;
+      drawSprite(waiterSprite(true, moving && stride(w)), w.x, w.y, !w.faceLeft);
+      drawNotepad(w.state === 'back' || w.state === 'toTable' ? null : w.letter, w.x + side * 14 - 4, w.y - 37);
+      if(w.state === 'order') drawBubble(w.toSend.flatMap(m => m.items), w.x, w.y - 15);
+    });
+    S.trayWaiters.forEach(w => {
+      const moving = w.state === 'deliver' || w.state === 'return';
+      const side = w.faceLeft ? -1 : 1;
+      const trayX = w.x + side * 14, trayY = w.y - 30;
+      drawSprite(waiterSprite(true, moving && stride(w)), w.x, w.y, !w.faceLeft);
+      drawTray(trayX, trayY);
+      if(w.state === 'take'){
+        const k = w.timer / WAITER_TAKE_S, fromY = barTop(PLATES_ROW) - 9;
+        drawPlate(w.fromX + (trayX - w.fromX) * k, fromY + (trayY - 9 - fromY) * k, w.plate);
+      } else if(w.state === 'deliver'){
+        drawPlate(trayX, trayY - 9, w.plate);
       }
-      if(c.state === 'eat') label('+', c.x + 10, top - 36, '#6dff6d');
-      if(c.angry) label('!', c.x + 10, top - 36, PAL.red);
     });
-    view.hidden[row] = hidden;
-  }
-
-  function drawFlights(row){
-    S.tickets.forEach(ticket => {
-      if(ticket.part !== row) return;
-      const target = barEnd(row) - 34;
-      drawTicket(ticket.x0 + (target - ticket.x0) * ticket.t, barTop(row) - 17, ticket.order);
-    });
-  }
-
-  function drawPassBar(){
-    const p = S.platos;
-    label('PLATOS', 590, 62, PAL.white, 'center');
-    const lag = lagOf(p);
-    label(`LAG ${lag}`, 590, 72, lag >= 4 ? PAL.door : PAL.cyan, 'center');
-    p.log.forEach(entry => {
-      const y = passSlotY(view.passEnd, entry.offset);
-      if(y < PASS_TOP_Y + 6) return;
-      const read = entry.offset < p.committed;
-      drawPlate(passX(y) - 9, y, entry.order, read);
-      text(entry.offset, passX(y) + 13, y + 1, read ? PAL.grey : PAL.white, 'right');
-    });
-    const pointerY = Math.max(PASS_TOP_Y + 6, passSlotY(view.passEnd, Math.max(p.committed, p.earliest)));
-    const px = Math.round(passX(pointerY)) + 25;
-    for(let i = 0; i < 5; i++) R(px + i, pointerY + 3 - i, 1, i * 2 + 1, PAL.white);
   }
 
   function drawCooks(){
-    for(let row = 0; row < PARTITIONS; row++){
-      const cooking = S.cooks.some(c => c.job && c.job.part === row && c.job.phase === 'cook');
-      drawFlames(barEnd(row) + 42, barTop(row), cooking);
+    for(let part = 0; part < PARTITIONS; part++){
+      const cooking = S.cooks.some(c => c.job && c.job.part === part && c.job.phase === 'cook');
+      drawFlames(barEnd(rowOf(part)) + 42, barTop(rowOf(part)), cooking);
     }
     S.cooks.forEach(c => {
       if(!c.active){
-        label(`${c.name} FUERA`, barEnd(c.id) + 42, barTop(c.id) + 42, PAL.white, 'center');
+        label(`${c.name} FUERA`, barEnd(rowOf(c.id)) + 42, barTop(rowOf(c.id)) + 42, PAL.white, 'center');
         return;
       }
       const x = cookX(c.pos);
       const top = barTop(0) + c.pos * ROW_PITCH;
       const job = c.job;
       const atOven = job && job.phase !== 'fetch';
-      const reach = !!job;
       c.phase = (c.phase || 0) + 0.016;
       const walk = c.walking && Math.floor(c.phase * 10) % 2 === 1;
-      drawSprite(cookSprite(c.id, reach, walk), x, top + 38, atOven);
+      drawSprite(cookSprite(c.id, !!job, walk), x, top + 38, atOven);
       label(c.name, x, top - 32, COLORS.cooks[c.id], 'center');
       if(c.slow) label('LENTO', x, top - 42, PAL.red, 'center');
       if(!job) return;
-      const row = job.part, bt = barTop(row), oven = barEnd(row) + 42;
+      const row = rowOf(job.part), bt = barTop(row), oven = barEnd(row) + 42;
       if(job.phase === 'fetch'){
         const toX = cookX(row) - 16;
-        drawTicket(job.fromX + (toX - job.fromX) * (job.timer / job.dur), bt - 17, job.order);
+        drawTicket(job.fromX + (toX - job.fromX) * (job.timer / job.dur), ticketTop(row), job.order);
       } else if(job.phase === 'cook'){
         drawItems(job.order.items, oven, bt - 20);
         R(oven - 13, bt - 12, 26, 3, PAL.black);
@@ -1063,37 +1214,13 @@
         drawPlate(oven + 12, bt, job.order);
       }
     });
-    // Plates tossed by the cooks: over the oven, then down the counter to the log end.
-    S.plates.forEach(plate => {
-      const startY = barTop(plate.row) + 4, startX = barEnd(plate.row) + 54, split = 0.18;
-      const endY = PASS_END_Y - SLOT_H;
-      if(plate.t < split){
-        const k = plate.t / split;
-        drawPlate(startX + (passX(startY) - 9 - startX) * k, startY - Math.sin(k * Math.PI) * 10, plate.order);
-      } else {
-        const y = startY + (endY - startY) * ((plate.t - split) / (1 - split));
-        drawPlate(passX(y) - 9, y, plate.order);
-      }
-    });
   }
 
-  function drawWaiter(){
-    const w = S.waiter, top = barTop(3);
-    label('Comedor · aquí se sirve', LANE_START_X - 14, top - 38, PAL.white, 'right');
-    if(view.hidden[DINING_ROW]) label(`+${view.hidden[DINING_ROW]}`, barStart(DINING_ROW) + 6, top - 46, PAL.white);
-    S.customers.forEach(c => {
-      if(c.row === DINING_ROW && c.seat != null && c.plateReady) drawPlate(seatX(c.seat), top - 5, c.order);
-    });
-    drawSprite(waiterSprite(!!w.job), WAITER_X, top + 38, !!w.job);
-    if(w.job){
-      const take = w.job.timer / WAITER_TAKE_S;
-      const fromX = passX(w.job.fromY) - 9;
-      drawPlate(fromX + (WAITER_X + 10 - fromX) * take, w.job.fromY + (top - 6 - w.job.fromY) * take, w.job.order);
-    }
-    S.deliveries.forEach(d => {
-      const customer = S.customers.find(c => c.order.id === d.order.id && c.state !== 'leave' && !c.plateReady);
-      const targetX = customer && customer.seat != null ? seatX(customer.seat) : LANE_END_X;
-      drawPlate(LANE_START_X + (targetX - LANE_START_X) * d.t, top - 5, d.order);
+  function drawFlights(part){
+    S.tickets.forEach(ticket => {
+      if(ticket.part !== part) return;
+      const row = rowOf(part), target = barEnd(row) - 34;
+      drawTicket(ticket.x0 + (target - ticket.x0) * ticket.t, ticketTop(row), ticket.order);
     });
   }
 
@@ -1108,17 +1235,16 @@
       text(value, x - 1, 19, color, 'left', 2);
     };
     stat('SERVIDOS', pad(st.served, 3), 12, PAL.cyan);
-    stat('PEDIDOS', pad(st.ordered, 3), 76, PAL.cyan);
-    stat('LAG', pad(totalLag, 2), 446, totalLag >= 8 ? PAL.red : PAL.cyan);
-    stat('PERDIDOS', pad(st.lost, 2), 480, st.lost ? PAL.red : PAL.cyan);
-    stat('SOBRAN', pad(st.duplicates, 2), 540, st.duplicates ? PAL.door : PAL.cyan);
-    text(`GEN ${S.generation}`, 628, 8, PAL.white, 'right');
-    text('COCINA', 628, 20, PAL.cyan, 'right');
+    stat('COMANDAS', pad(st.ordered, 3), 76, PAL.cyan);
+    stat('LAG', pad(totalLag, 2), 540, totalLag >= 8 ? PAL.red : PAL.cyan);
+    stat('SOBRAN', pad(st.duplicates, 2), 590, st.duplicates ? PAL.door : PAL.cyan);
+    text(`GEN ${S.generation}`, 722, 8, PAL.white, 'right');
+    text('COCINA', 722, 20, PAL.cyan, 'right');
   }
 
   function drawBanner(lines, color){
     const width = 300, height = 14 + lines.length * 11;
-    const x = 150, y = 180;
+    const x = 250, y = 208;
     R(x - 4, y - 4, width + 8, height + 8, PAL.black);
     R(x - 2, y - 2, width + 4, height + 4, color);
     R(x, y, width, height, PAL.wall);
@@ -1139,17 +1265,22 @@
   function draw(){
     g.drawImage(background, 0, 0);
     drawHud();
-    drawPassBar();
-    for(let row = 0; row < PARTITIONS; row++){
-      drawCustomers(row);
+    label('COMEDOR', 71, 60, PAL.white, 'center');
+    drawDiners();
+    g.drawImage(tablesLayer, 0, 0);
+    for(let row = 0; row < 3; row++){
       g.drawImage(rowLayers[row], 0, 0);
-      drawBar(row);
-      drawFlights(row);
+      if(row === PLATES_ROW){
+        drawCounter();
+      } else {
+        const part = row === 0 ? 0 : 1;
+        drawOrdersBar(part);
+        drawFlights(part);
+      }
     }
-    drawCustomers(DINING_ROW);
-    g.drawImage(rowLayers[DINING_ROW], 0, 0);
     drawCooks();
-    drawWaiter();
+    drawTableFood();
+    drawFloorWaiters();
     drawOverlays();
     screen.drawImage(low, 0, 0, canvas.width, canvas.height);
   }
@@ -1158,6 +1289,21 @@
 
   const $ = id => document.getElementById(id);
   const cooksEl = $('cooks'), logEl = $('log');
+
+  const COURSE_TITLES = {primero:'Primeros', segundo:'Segundos', postre:'Postres', cafe:'Para terminar'};
+  COURSES.forEach(course => {
+    const title = document.createElement('li');
+    title.className = 'course';
+    title.textContent = COURSE_TITLES[course];
+    $('menu').append(title);
+    ITEM_NAMES.filter(item => ITEMS[item].course === course).forEach(item => {
+      const li = document.createElement('li');
+      const time = document.createElement('span');
+      time.textContent = `${String(ITEMS[item].cook).replace('.', ',')} s`;
+      li.append(icon(item), ITEMS[item].name, time);
+      $('menu').append(li);
+    });
+  });
 
   cooksEl.innerHTML = S.cooks.map(c => `
     <div class="cook" data-cook="${c.id}" style="--cook:var(--c${c.id + 1})">
@@ -1190,7 +1336,12 @@
       card.querySelector('[data-action=presence]').textContent = c.active ? 'Se va' : 'Vuelve';
     });
     document.querySelector('[data-try=slow]').textContent = S.cooks[1].slow ? 'Devolverle el ritmo a C2' : 'Poner lento a C2';
-    document.querySelector('[data-try=leave]').textContent = S.cooks[2].active ? 'Sacar a C3' : 'Que vuelva C3';
+    document.querySelector('[data-try=leave]').textContent = S.cooks[0].active ? 'Sacar a C1' : 'Que vuelva C1';
+    const free = freeLetters(S);
+    $('addOrder').disabled = !free.length;
+    const burst = document.querySelector('[data-try=burst]');
+    burst.disabled = !free.includes('A');
+    burst.textContent = burst.disabled ? 'A ya está en la mesa' : 'A pide menú con café';
     if(S.eventSeq !== shownEvent){
       shownEvent = S.eventSeq;
       logEl.innerHTML = '';
@@ -1220,7 +1371,7 @@
       const {rate} = S;
       S = createSim(Math.floor(Math.random() * 1e6));
       S.rate = rate;
-      view.ends = [0, 0, 0]; view.passEnd = 0; shownEvent = -1;
+      view.ends = [0, 0]; shownEvent = -1;
     }
     refreshPanel();
   });
@@ -1244,8 +1395,8 @@
     const b = e.target.closest('button');
     if(!b) return;
     if(b.dataset.try === 'slow') setCookSlow(S, 1, !S.cooks[1].slow);
-    if(b.dataset.try === 'leave') setCookActive(S, 2, !S.cooks[2].active);
-    if(b.dataset.try === 'burst') for(let i = 0; i < 3; i++) addCustomer(S, 'A');
+    if(b.dataset.try === 'leave') setCookActive(S, 0, !S.cooks[0].active);
+    if(b.dataset.try === 'burst') addCustomer(S, 'A', 4);
     if(b.dataset.seek) seekToEarliest(S, Number(b.dataset.seek));
     refreshPanel();
   });

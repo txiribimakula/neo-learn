@@ -11,25 +11,43 @@ Comparativa Kafka vs Azure Service Bus que imita la pantalla del arcade Tapper; 
 momento solo está Kafka. Es otra página de un solo HTML y no comparte código ni
 estética con `kafka.html`.
 
-- **Aspecto:** paleta sacada de la pantalla original (`PAL`), suelo en trapecio,
-  barras cada vez más largas, clientes detrás de la barra y figuras a 2x con contorno
-  negro. Los barriles del original son cocinas con fuego. No uses el logotipo de la
-  cerveza del original.
-- **Analogía:** cliente = producer; su letra = clave del mensaje, que fija siempre la
-  barra (no hay reparto por turnos); comanda = mensaje; 3 barras = particiones de
-  `comandas`; cocineros = grupo `cocina`, y a la vez producers de `platos`
-  (1 partición, barra diagonal junto a la pared derecha); camarero = grupo `sala`.
-- **Dónde se pide y dónde se sirve:** se pide en las barras de madera, en fila de uno
-  para no romper el orden de una clave. Después el cliente sale por la puerta y se
-  sienta en la mesa con mantel, donde le llega el plato. La mesa no es un topic.
+- **Aspecto:** paleta sacada de la pantalla original (`PAL`), barras en escalera con los
+  extremos en diagonal, figuras a 2x con contorno negro y cocinas con fuego en lugar de
+  barriles. No uses el logotipo de la cerveza del original.
+- **Escena de izquierda a derecha:** comedor con 6 mesas individuales de color liso,
+  barras y cocineros. De arriba abajo: comandas partición 0, mostrador de platos, comandas
+  partición 1.
+- **Solo las comandas son Kafka:** cuelgan con pinzas de un hilo y siguen ahí tras leerlas.
+  El mostrador central es una cola normal: el plato desaparece al recogerlo. Pablo quiso
+  dos camareros de platos, y con un topic de una partición solo podría leer uno.
+- **Analogía:** camarero con bloc = producer; letra del comensal = clave del mensaje, que
+  fija siempre la barra; comanda = mensaje con un solo plato; 2 hilos = particiones de
+  `comandas`; cocineros = grupo `cocina`.
+- **Una letra es un comensal:** no puede estar dos veces en el comedor. Cada visita es un
+  menú de 1 a 4 mensajes, uno por plato y siempre en orden: primero, segundo, postre y
+  café. Comandas y platos llevan la letra y el color del comensal, sin más números que
+  el offset en la barra. Dos letras de una barra se intercalan en el log, pero cada
+  una conserva su orden, así que el postre nunca llega antes que el primero.
+- **Recorrido:** el comensal entra y se sienta; un camarero con bloc le toma nota en la
+  mesa, va al borde izquierdo de la barra de esa letra, manda las comandas y vuelve. Uno
+  con bandeja recoge los platos de uno en uno en el borde del mostrador y se los lleva.
+  Ningún camarero entra detrás de una barra. El comensal los come por orden de llegada,
+  con su menú en iconos sobre la cabeza que se apagan al comer, y solo entonces se va.
+- **Plantilla fija:** 2 camareros con bloc y 2 con bandeja, siempre visibles y siempre con
+  ese objeto en la mano. Nunca aparecen de la nada: esperan en su sitio y, si están
+  ocupados, el comensal espera. Un plato no sale mientras otro camarero lleva uno del mismo
+  comensal, para que no se adelanten entre sí.
 - **Lo que no hay que perder:** leer no borra (la comanda se apaga y solo cae por
   retención), cada barra tiene un solo dueño y el triángulo marca el offset
   confirmado, que sobrevive al rebalance.
+- **Población cerrada:** con 6 letras, el lag de una barra de comandas no pasa de 12, así
+  que la retención (14) no llega a borrar nada sin leer. Por simplicidad, además, solo
+  borra lo ya confirmado. Para enseñar esa pérdida haría falta otra fuente de mensajes.
 - **Código:** el modelo va antes del marcador `// initial`, sin DOM, y lo prueba
-  `node --test tapper.test.cjs`. Detrás van el dibujo (canvas de 640×440 ampliado
+  `node --test tapper.test.cjs`. Detrás van el dibujo (canvas de 730×420 ampliado
   sin suavizado) y el panel.
-- **Simplificaciones:** retención por número de comandas (14 por barra, 11 en
-  platos), hash de la clave simplificado y una comanda en curso por partición.
+- **Simplificaciones:** retención por número de mensajes (14 por barra), hash de la
+  clave simplificado y una comanda en curso por partición.
 - **Verificar:** con la pestaña oculta el `requestAnimationFrame` va a ~1 fps y la
   simulación casi no avanza. Sustituye `requestAnimationFrame` y `performance.now`
   antes de cargar el script para avanzar el reloj a mano.
