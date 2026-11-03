@@ -1,0 +1,1827 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Cómo funciona un inodoro</title>
+  <style>
+    :root{
+      --bg:#f3f1ea; --paper:#fffefb; --ink:#20231f; --muted:#6f746b; --line:#d8d6cd;
+      --blue:#176b87; --blue-soft:#dceef3; --green:#28784a; --green-soft:#dff1e5;
+      --red:#b3473e; --red-soft:#f5dfdc; --amber:#a16c15; --amber-soft:#f5e9cc;
+      --water:#4b9cc8; --water-deep:#2f7fae; --water-light:#cfe7f3;
+      --ceramic:#fcfbf7; --ceramic-line:#aaa597; --hollow:#e6ebec;
+      --plastic:#d4dadd; --plastic-line:#77858c; --float:#e3a83c;
+      --shadow:0 18px 48px rgba(38,42,32,.09);
+    }
+    *{box-sizing:border-box}
+    [hidden]{display:none!important}
+    html,body{margin:0}
+    body{background:radial-gradient(circle at 8% 0,#dbeef2 0,transparent 31rem),var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.55}
+    button,select,input{font:inherit}
+    .layout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(340px,1fr);gap:0;max-width:1500px;margin:0 auto}
+
+    /* ---------- sticky simulation ---------- */
+    .viz{position:sticky;top:0;height:100vh;padding:12px 10px 12px 14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+    .bar{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--paper);box-shadow:0 8px 24px rgba(38,42,32,.06)}
+    .bar .sep{width:1px;height:24px;background:var(--line);margin:0 3px}
+    .btn{padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font-size:13px;font-weight:750;cursor:pointer;white-space:nowrap}
+    .btn:hover{background:#f0eee7}
+    .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+    .btn.primary:hover{background:#125a72}
+    .btn.on{background:var(--amber-soft);border-color:var(--amber);color:#6d4709}
+    .bar label{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;font-weight:650}
+    .bar select{padding:5px 6px;border:1px solid var(--line);border-radius:7px;background:var(--paper);font-size:12px}
+    .spacer{flex:1}
+    .stage{position:relative;flex:1;min-height:0;border:1px solid var(--line);border-radius:15px;background:var(--paper);box-shadow:var(--shadow);overflow:hidden}
+    .views{position:absolute;inset:0;display:flex}
+    .views svg{display:block;min-width:0;height:100%}
+    #svgSide{flex:700 1 0;border-right:1px dashed var(--line)}
+    #svgFront{flex:540 1 0}
+    .view-title{font-size:13px;font-weight:850;letter-spacing:.06em;text-transform:uppercase;fill:var(--muted)}
+    .now{padding:7px 11px;border-radius:9px;background:var(--paper);border:1px solid var(--line);font-size:12.5px;min-height:34px}
+    .now b{color:var(--blue)}
+    .phases{display:flex;flex-wrap:wrap;gap:5px}
+    .chip{padding:4px 9px;border:1px solid var(--line);border-radius:999px;background:var(--paper);color:#9a9e95;font-size:11px;font-weight:800;letter-spacing:.02em;transition:all .2s}
+    .chip.on{color:var(--ink);border-color:var(--blue);background:var(--blue-soft)}
+    .chip.on[data-phase="sifon"]{border-color:var(--water-deep);background:var(--water);color:#fff}
+    .chip.on[data-phase="gorgoteo"]{border-color:var(--amber);background:var(--amber-soft)}
+    .chip.on[data-phase="reposo"]{border-color:var(--green);background:var(--green-soft)}
+    .readouts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+    .ro{padding:6px 9px;border:1px solid var(--line);border-radius:9px;background:var(--paper);min-width:0}
+    .ro span{display:block;color:var(--muted);font-size:9.5px;font-weight:850;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ro b{display:block;font:800 15px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:nowrap}
+    .ro.warn{border-color:var(--red);background:var(--red-soft)}
+    .alerts{display:flex;flex-wrap:wrap;gap:6px;min-height:0}
+    .alert{padding:4px 9px;border-radius:7px;background:var(--red-soft);border:1px solid color-mix(in srgb,var(--red) 45%,var(--line));color:#7c2b24;font-size:11.5px;font-weight:700}
+
+    /* ---------- SVG parts ---------- */
+    .ceramic{fill:var(--ceramic);stroke:var(--ceramic-line);stroke-width:2;stroke-linejoin:round}
+    .hollow{fill:var(--hollow)}
+    .bore-wall{fill:none;stroke:var(--ceramic-line);stroke-width:44}
+    .bore{fill:none;stroke:var(--hollow);stroke-width:39}
+    .edge{fill:none;stroke:var(--ceramic-line);stroke-width:2}
+    .water{fill:var(--water);opacity:.82}
+    .water-stroke{fill:none;stroke:var(--water);opacity:.82}
+    .stream{fill:none;stroke:var(--water-deep);stroke-linecap:round}
+    .flow{fill:none;stroke:#fff;stroke-opacity:.75;stroke-dasharray:5 11;stroke-linecap:round;animation:flow var(--flowdur,.5s) linear infinite}
+    .flow.fast{stroke-width:3;animation-duration:calc(var(--flowdur,.5s) * .45)}
+    @keyframes flow{to{stroke-dashoffset:-16}}
+    .plastic{fill:var(--plastic);stroke:var(--plastic-line);stroke-width:1.5}
+    .metal{fill:#b7bec2;stroke:#5f6b72;stroke-width:1.5}
+    .tube-line{fill:none;stroke:var(--plastic-line);stroke-linecap:round}
+    .seal{fill:#33393b}
+    .float{fill:var(--float);stroke:#8f6513;stroke-width:1.5}
+    .lbl text{font-size:11.5px;font-weight:750;fill:var(--ink)}
+    .lbl rect{fill:rgba(255,254,251,.9);stroke:var(--line)}
+    .lbl line{stroke:var(--muted);stroke-width:1;stroke-dasharray:2 2}
+    .labels-off .lbl{display:none}
+    .marker{stroke:var(--amber);stroke-width:1.5;stroke-dasharray:5 4}
+    .marker-text{font-size:10px;font-weight:800;fill:var(--amber)}
+    .over-text{font-size:10px;font-weight:800;fill:var(--red)}
+    .dim-text{font-size:10.5px;font-weight:800;fill:var(--water-deep)}
+    .dim-line{stroke:var(--water-deep);stroke-width:1.5}
+    .clickable{cursor:pointer}
+    .part{transition:filter .2s}
+    .part.on{filter:drop-shadow(0 0 2px rgba(161,108,21,.85)) drop-shadow(0 0 5px rgba(161,108,21,.5))}
+    .part.hover{filter:drop-shadow(0 0 2px #e07b00) drop-shadow(0 0 7px #f09a1a) drop-shadow(0 0 14px #f5b545);animation:hl-pulse .8s ease-in-out infinite alternate}
+    @keyframes hl-pulse{to{opacity:.7}}
+    .hl-outline{fill:none;stroke:none;stroke-width:3;pointer-events:none}
+    .part.on .hl-outline{stroke:var(--amber);stroke-dasharray:6 4}
+    .part.hover .hl-outline{stroke:#e07b00;stroke-width:4.5;stroke-dasharray:none}
+    .air{fill:#fff;stroke:var(--plastic-line);stroke-width:1}
+    .rail{stroke:#5f6b72;stroke-width:1.2;stroke-dasharray:3 3}
+    .stop{fill:#3f4a50}
+    .stop-text{font-size:9.5px;font-weight:800;fill:#3f4a50}
+    .seat{fill:#f7f7f3;stroke:#9aa3a8;stroke-width:1.5}
+    .surface{stroke:#e8f4fa;stroke-width:1.6;opacity:.9}
+    .arrow{fill:none;stroke-width:3;stroke-linecap:round}
+    :root{--f-p:#1f6fb2;--f-w:#5f6b72;--f-b:#28784a;--f-u:#c07a10;--f-h:#8f6513}
+    .forces{padding:7px 11px 8px;border:1px solid var(--line);border-radius:9px;background:var(--paper)}
+    .forces-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin-bottom:5px;font-size:12.5px}
+    .forces-head span{color:var(--ink);font-weight:700}
+    .frows{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 14px}
+    .frow{display:grid;grid-template-columns:150px 1fr 46px;align-items:center;gap:6px;font-size:11.5px}
+    .frow[hidden]{display:none}
+    .frow>*{min-width:0}
+    .fname{color:var(--muted);font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .fbar{height:8px;border-radius:4px;background:#ebe8df;overflow:hidden}
+    .fbar i{display:block;height:100%;width:0;border-radius:4px;transition:width .12s}
+    .frow[data-f="p"] i{background:var(--f-p)} .frow[data-f="w"] i{background:var(--f-w)} .frow[data-f="b"] i{background:var(--f-b)}
+    .frow[data-f="u"] i{background:var(--f-u)} .frow[data-f="h"] i{background:var(--f-h)}
+    .fval{font:800 11.5px ui-monospace,SFMono-Regular,Consolas,monospace;text-align:right}
+    .ghost{opacity:.42}
+    .ghost .plastic,.ghost .float{stroke-dasharray:4 3}
+    .ghost.on,.ghost.hover{opacity:.85}
+    .lbl.on rect{fill:var(--amber-soft);stroke:var(--amber)}
+    .lbl.hover rect{fill:#ffd99a;stroke:#e07b00;stroke-width:2}
+    .bubble{fill:#fff;stroke:var(--water-deep);stroke-width:1;animation:rise .7s ease-in infinite}
+    .bubble:nth-child(2){animation-delay:.2s}.bubble:nth-child(3){animation-delay:.4s}.bubble:nth-child(4){animation-delay:.1s}
+    @keyframes rise{from{transform:translate(0,0);opacity:1}to{transform:translate(-14px,-40px);opacity:0}}
+    .smell{fill:none;stroke:#7a8a3a;stroke-width:2.5;stroke-linecap:round;animation:waft 2s ease-in-out infinite}
+    @keyframes waft{0%{opacity:0;transform:translateY(8px)}50%{opacity:.9}100%{opacity:0;transform:translateY(-16px)}}
+
+    /* ---------- guide (step by step) ---------- */
+    .guide{position:sticky;top:0;height:100vh;padding:14px 16px 12px 6px;display:flex;flex-direction:column;gap:10px;min-width:0}
+    header.top h1{margin:2px 0 0;font-size:24px;letter-spacing:-.04em;line-height:1.1}
+    .kicker{color:var(--blue);font-size:11px;font-weight:850;letter-spacing:.1em;text-transform:uppercase}
+    .track{display:grid;grid-template-columns:2fr 4fr 4fr 4fr;gap:6px}
+    .grp{min-width:0}
+    .grp-name{display:block;margin-bottom:4px;color:var(--muted);font-size:10px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+    .grp.cur .grp-name{color:var(--ink)}
+    .dots{display:flex;gap:3px}
+    .dot{flex:1;height:9px;min-width:0;padding:0;border:0;border-radius:3px;background:#dedbd1;cursor:pointer}
+    .dot:hover{background:#c9c5b8}
+    .dot.done{background:color-mix(in srgb,var(--grp) 45%,#dedbd1)}
+    .dot.cur{background:var(--grp);box-shadow:0 0 0 2px color-mix(in srgb,var(--grp) 30%,transparent)}
+    .grp[data-ph="antes"]{--grp:var(--green)} .grp[data-ph="durante"]{--grp:var(--blue)} .grp[data-ph="despues"]{--grp:var(--amber)} .grp[data-ph="extra"]{--grp:#6c5a8f}
+    .card{flex:1;min-height:0;overflow:auto;padding:16px 18px;border:1px solid var(--line);border-radius:14px;background:var(--paper);box-shadow:var(--shadow);scrollbar-gutter:stable}
+    .card-meta{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:11.5px;font-weight:700}
+    .tag{padding:2px 8px;border-radius:999px;color:#fff;font-size:10.5px;font-weight:850;letter-spacing:.06em;text-transform:uppercase}
+    .tag.antes{background:var(--green)} .tag.durante{background:var(--blue)} .tag.despues{background:var(--amber)} .tag.extra{background:#6c5a8f}
+    .card h2{margin:8px 0 8px;font-size:21px;letter-spacing:-.035em;line-height:1.2}
+    .card p{margin:0 0 9px;font-size:14px}
+    .card ul,.card ol{margin:0 0 9px;padding-left:20px;font-size:14px}
+    .card li{margin:3px 0}
+    .phys{margin:12px 0 10px;padding:11px 13px;border:1px solid color-mix(in srgb,var(--blue) 35%,var(--line));border-radius:10px;background:#f1f7f9}
+    .phys h3{margin:0 0 6px;color:var(--blue);font-size:12px;font-weight:850;letter-spacing:.06em;text-transform:uppercase}
+    .phys p{font-size:13.5px}
+    .phys p:last-child{margin-bottom:0}
+    .formula{display:inline-block;padding:1px 6px;border-radius:5px;background:var(--paper);border:1px solid var(--line);font:750 12.5px ui-monospace,SFMono-Regular,Consolas,monospace;white-space:nowrap}
+    .aside{padding:9px 12px;border-left:4px solid var(--blue);border-radius:0 8px 8px 0;background:#f2f6f6;font-size:13px!important;color:#3d4a4e}
+    .look{margin-top:10px;padding:9px 12px;border-left:4px solid var(--amber);border-radius:0 8px 8px 0;background:#faf4e6;font-size:13px}
+    .look b{display:block;margin-bottom:2px;color:#6d4709;font-size:11px;letter-spacing:.07em;text-transform:uppercase}
+    .look ul{margin:0;padding-left:18px;font-size:13px}
+    .player{display:flex;align-items:center;gap:8px}
+    .player[hidden],.track[hidden],.navbtns[hidden],.pplayer[hidden]{display:none!important}
+    .tabs{display:flex;flex-wrap:wrap;gap:4px}
+    .tab{padding:4px 9px;border:1px solid var(--line);border-radius:999px;background:var(--paper);color:var(--muted);font-size:11.5px;font-weight:750;cursor:pointer}
+    .tab:hover{background:#f0eee7;color:var(--ink)}
+    .tab.on{background:var(--ink);border-color:var(--ink);color:#fff}
+    .tab[data-tab="ciclo"]{border-color:var(--blue);color:var(--blue)}
+    .tab[data-tab="ciclo"].on{background:var(--blue);color:#fff}
+    .tag.pieza{background:#6c5a8f}
+    .variants{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px}
+    .variants .btn{font-size:12.5px;padding:6px 10px}
+    .states{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0 4px}
+    .state{padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:#f7f5ef;transition:all .25s}
+    .state b{display:block;color:var(--muted);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase}
+    .state p{margin:3px 0 0;font-size:13px}
+    .state.on{border-color:var(--blue);background:var(--blue-soft);box-shadow:0 0 0 2px color-mix(in srgb,var(--blue) 25%,transparent)}
+    .state.on b{color:var(--blue)}
+    #stFinal.on{border-color:var(--green);background:var(--green-soft);box-shadow:0 0 0 2px color-mix(in srgb,var(--green) 25%,transparent)}
+    #stFinal.on b{color:var(--green)}
+    .pplayer{display:flex;flex-direction:column;gap:6px}
+    .pbtns{display:flex;gap:6px}
+    .pbtns .btn{flex:1;padding:9px 8px;font-size:13px}
+    .pscrub{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:11px;font-weight:750}
+    .pscrub input{flex:1}
+    .pscrub b{min-width:92px;text-align:right;color:var(--ink);font-size:12px}
+    .focus-mode .part:not(.on):not(.hover){opacity:.25}
+    .focus-mode .lbl:not(.on):not(.hover){opacity:.3}
+    .prog{flex:1;height:6px;border-radius:3px;background:#e2dfd6;overflow:hidden}
+    .prog div{height:100%;width:0;background:var(--blue)}
+    .rate{padding:3px 8px;border-radius:999px;background:var(--blue-soft);color:#0f4f64;font-size:11px;font-weight:800;white-space:nowrap}
+    .navbtns{display:flex;gap:8px}
+    .navbtns .btn{flex:1;padding:10px;font-size:14px}
+    .navbtns .btn:disabled{opacity:.4;cursor:default}
+    .btn.pulse{animation:pulse 1.2s ease-in-out infinite alternate}
+    @keyframes pulse{to{box-shadow:0 0 0 5px color-mix(in srgb,var(--blue) 25%,transparent)}}
+    .term{padding:0 3px;border-radius:4px;background:var(--blue-soft);color:#0f4f64;font-weight:750;cursor:help;border-bottom:1px dotted var(--blue)}
+    .term:hover,.term:focus{background:var(--amber-soft);color:#6d4709;outline:none}
+    .try{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+    .try .btn{font-size:12.5px;padding:6px 10px}
+    .slider{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:13px;color:var(--muted);font-weight:650}
+    .slider input{flex:1}
+    .slider output{min-width:64px;font:800 13px ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--ink)}
+    .facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:8px}
+    .fact{padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:#f7f5ef}
+    .fact b{display:block;font:850 17px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--blue)}
+    .fact span{font-size:12px;color:var(--muted)}
+    .mk line{stroke:var(--amber);stroke-width:1.8;stroke-dasharray:7 4}
+    .mk rect{fill:var(--amber-soft);stroke:var(--amber)}
+    .mk text{font-size:10.5px;font-weight:850;fill:#6d4709}
+    .bar .stepinfo{font-size:12.5px;font-weight:800}
+
+    @media(max-width:980px){
+      .layout{grid-template-columns:minmax(0,1fr);gap:8px;padding:10px 10px 76px}
+      /* interleave drawing and step text on narrow screens */
+      .viz,.guide{display:contents}
+      .guide header.top{order:0} .bar{order:1} .stage{order:2} .now{order:2} .forces{order:2} .track{order:3} .card{order:4} .player{order:5}
+      .phases{order:6} .readouts{order:7} .alerts{order:8}
+      .stage{flex:none}
+      .views{position:static;flex-direction:column}
+      .views svg{width:100%;height:auto}
+      #svgSide{flex:none;aspect-ratio:700/606;border-right:0;border-bottom:1px dashed var(--line)}
+      #svgFront{flex:none;aspect-ratio:540/606}
+      .readouts{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .card{overflow:visible}
+      .pplayer{order:2}
+      .tabs{order:3}
+      .navbtns{position:fixed;left:0;right:0;bottom:0;z-index:5;padding:8px 10px;background:rgba(243,241,234,.96);border-top:1px solid var(--line)}
+    }
+    @media(max-width:520px){
+      .now{font-size:12px}
+      .readouts{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .facts{grid-template-columns:1fr}
+      .states{grid-template-columns:1fr}
+      .track{grid-template-columns:1fr 1fr}
+      .frows{grid-template-columns:1fr}
+      .formula{white-space:normal}
+      .frow{grid-template-columns:140px 1fr 46px}
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <!-- ================= SIMULATION ================= -->
+  <div class="viz">
+    <div class="bar" role="toolbar" aria-label="Controles de la simulación">
+      <span class="stepinfo" id="barStep">Paso 1</span>
+      <span class="rate" id="rateBadge">imagen fija</span>
+      <span class="spacer"></span>
+      <label id="speedWrap" hidden>Velocidad
+        <select id="speed">
+          <option value="0.25">0,25×</option>
+          <option value="0.5">0,5×</option>
+          <option value="1" selected>1× (real)</option>
+          <option value="2">2×</option>
+          <option value="4">4×</option>
+        </select>
+      </label>
+      <button class="btn" type="button" id="pauseBtn">Pausa</button>
+      <button class="btn" type="button" id="labelsBtn">Etiquetas</button>
+    </div>
+
+    <div class="stage" id="stage">
+      <div class="views">
+      <!-- ===== SIDE VIEW: section through the centre. Real proportions, 7 px = 1 cm, floor at y 660, wall at x 700 ===== -->
+      <svg id="svgSide" class="view" viewBox="20 84 700 606" preserveAspectRatio="xMaxYMid meet" aria-label="Vista lateral: corte por el centro del inodoro">
+        <defs>
+          <clipPath id="clipTankS"><rect x="585" y="142" width="98" height="203"/></clipPath>
+          <clipPath id="clipBowl"><path id="bowlClipPath"/></clipPath>
+          <clipPath id="clipRise"><rect id="riseClipRect" x="400" y="500" width="200" height="300"/></clipPath>
+          <pattern id="tiles" width="42" height="42" patternUnits="userSpaceOnUse"><path d="M42 0H0V42" fill="none" stroke="#e6e3da" stroke-width="1"/></pattern>
+          <pattern id="floorTiles" width="56" height="30" patternUnits="userSpaceOnUse"><rect width="56" height="30" fill="#d9d5ca"/><path d="M56 0V30" stroke="#cbc6b9" stroke-width="1"/></pattern>
+          <marker id="ahP" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--f-p)"/></marker>
+          <marker id="ahW" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--f-w)"/></marker>
+          <marker id="ahB" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--f-b)"/></marker>
+          <marker id="ahU" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--f-u)"/></marker>
+        </defs>
+
+        <rect x="20" y="0" width="700" height="660" fill="url(#tiles)"/>
+        <rect x="700" y="0" width="20" height="690" fill="#e2dfd5"/>
+        <line x1="700" y1="0" x2="700" y2="660" stroke="#c9c4b6" stroke-width="1.5"/>
+        <rect x="20" y="660" width="700" height="30" fill="url(#floorTiles)"/>
+        <line x1="20" y1="660" x2="720" y2="660" stroke="#b8b3a5" stroke-width="2"/>
+        <text class="view-title" x="34" y="106">Vista lateral · corte por el centro</text>
+
+        <!-- floor outlet into the soil pipe -->
+        <g class="part" data-part="bajante">
+          <rect x="555" y="660" width="38" height="30" class="hollow" stroke="#b8b3a5"/>
+          <rect id="drainWater" x="555" y="660" width="38" height="30" class="water" style="opacity:0"/>
+          <rect class="hl-outline" x="555" y="660" width="38" height="30"/>
+        </g>
+
+        <!-- ceramic body: bowl, rear deck under the tank, foot -->
+        <path class="ceramic" d="M244 380 L556 380 L566 352 L692 352 L692 420 C692 470 640 500 626 560 L616 660 L336 660 C336 625 322 602 302 590 C262 562 232 478 232 402 Q232 380 244 380 Z"/>
+
+        <!-- rim: a ring channel under the rim lip; the cut shows its front section and the rear inlet -->
+        <g class="part" data-part="borde">
+          <circle class="hollow" cx="246" cy="390" r="8"/>
+          <rect class="hollow" x="458" y="384" width="194" height="14" rx="3"/>
+          <rect class="hollow" x="616" y="352" width="36" height="46"/>
+          <circle id="rimFrontS" class="water" cx="246" cy="390" r="0"/>
+          <path class="hl-outline" d="M238 390 a8 8 0 1 0 16 0 a8 8 0 1 0 -16 0 M616 352 L652 352 L652 398 L458 398 L458 384 L616 384 Z"/>
+        </g>
+        <g class="part" data-part="taza">
+          <path class="hollow" id="bowlHollow"/>
+          <path class="edge" d="M262 380 C258 385 255 389 255 394 C270 480 300 568 340 590 C362 598 405 594 430 573"/>
+          <path class="edge" d="M458 380 C462 385 465 389 465 394 C458 440 448 495 430 535"/>
+          <path class="hl-outline" d="M262 380 C258 385 255 389 255 394 C270 480 300 568 340 590 C362 598 405 594 430 573 M458 380 C462 385 465 389 465 394 C458 440 448 495 430 535"/>
+        </g>
+        <g class="part" data-part="sifon">
+          <path class="bore-wall" id="riseWall"/>
+          <path class="bore-wall" id="descWall"/>
+          <path class="bore" id="riseBore"/>
+          <path class="bore" id="descBore"/>
+        </g>
+
+        <path class="stream" id="curtainFront" d="M258 398 C272 480 300 562 345 588" stroke-width="0"/>
+        <path class="stream" id="curtainRear" d="M463 398 C457 440 447 494 432 530" stroke-width="0"/>
+        <path class="flow" id="curtainFrontFlow" d="M258 398 C272 480 300 562 345 588" stroke-width="1.5" visibility="hidden"/>
+        <path class="flow" id="curtainRearFlow" d="M463 398 C457 440 447 494 432 530" stroke-width="1.5" visibility="hidden"/>
+
+        <rect id="bowlWater" class="water" x="240" y="500" width="240" height="160" clip-path="url(#clipBowl)"/>
+        <line id="surfBowlS" class="surface" x1="240" x2="480" y1="500" y2="500" clip-path="url(#clipBowl)"/>
+        <path id="riseWater" class="water-stroke" stroke-width="39" clip-path="url(#clipRise)"/>
+        <path id="descWater" class="water-stroke" stroke-width="39"/>
+        <path id="trickle" class="stream" stroke-width="0"/>
+        <path id="trickleFlow" class="flow" stroke-width="1.5" visibility="hidden"/>
+        <path id="siphonFlow1" class="flow fast" visibility="hidden"/>
+        <path id="siphonFlow2" class="flow fast" visibility="hidden"/>
+        <g id="bubbles" visibility="hidden">
+          <circle class="bubble" cx="440" cy="548" r="5"/><circle class="bubble" cx="450" cy="558" r="4"/>
+          <circle class="bubble" cx="435" cy="562" r="3.5"/><circle class="bubble" cx="458" cy="545" r="3"/>
+        </g>
+        <g id="smell" visibility="hidden">
+          <path class="smell" d="M360 488 q-8 -10 0 -20 q8 -10 0 -20"/>
+          <path class="smell" d="M385 483 q-8 -10 0 -20 q8 -10 0 -20" style="animation-delay:.6s"/>
+          <path class="smell" d="M335 485 q-8 -10 0 -20 q8 -10 0 -20" style="animation-delay:1.2s"/>
+        </g>
+
+        <path id="conduitWater" class="stream" d="M634 349 L634 391 L462 391" stroke-width="0" stroke-linejoin="round"/>
+        <path id="conduitFlow" class="flow" d="M634 349 L634 391 L462 391" stroke-width="1.5" visibility="hidden"/>
+
+        <g id="sealDim">
+          <line id="sealLine" class="dim-line" x1="412" x2="412" y1="500" y2="535"/>
+          <line class="dim-line" x1="404" x2="420" y1="535" y2="535"/>
+          <line id="sealTop" class="dim-line" x1="404" x2="420" y1="500" y2="500"/>
+          <text id="sealText" class="dim-text" x="400" y="521" text-anchor="end">sello 5,0 cm</text>
+        </g>
+
+        <!-- tank (16 cm deep), sitting on the bowl deck over a rubber gasket -->
+        <rect class="ceramic" x="578" y="138" width="112" height="214" rx="8"/>
+        <rect class="hollow" x="585" y="142" width="98" height="203"/>
+        <rect id="tankWaterS" class="water" x="585" y="229" width="98" height="116" clip-path="url(#clipTankS)"/>
+        <line id="surfTankS" class="surface" x1="585" x2="683" y1="229" y2="229"/>
+        <g class="part" data-part="cisterna"><rect class="hl-outline" x="586" y="143" width="96" height="201"/></g>
+        <rect class="seal" x="612" y="352" width="44" height="4" rx="1"/>
+        <rect class="ceramic" x="572" y="126" width="124" height="16" rx="5"/>
+
+        <!-- fill valve sits beside the flush valve, behind the cut: drawn as a ghost -->
+        <g class="part ghost" data-part="valvula">
+          <rect class="plastic" x="663" y="205" width="10" height="140"/>
+          <rect class="plastic" x="656" y="188" width="24" height="17" rx="4"/>
+        </g>
+        <g class="part ghost" data-part="boya">
+          <rect class="float" id="floatS" x="654" y="214" width="28" height="30" rx="5"/>
+        </g>
+
+        <g id="flushS">
+          <g class="part" data-part="obturador">
+            <path class="plastic" d="M604 345 L664 345 L656 295 L612 295 Z"/>
+            <rect class="air" x="614" y="306" width="9" height="26"/><rect class="air" x="645" y="306" width="9" height="26"/>
+            <rect class="seal" x="600" y="340" width="68" height="6" rx="2"/>
+            <rect x="644" y="224" width="8" height="8" fill="#5f6b72"/>
+          </g>
+          <g class="part" data-part="rebosadero">
+            <rect class="plastic" x="624" y="215" width="20" height="126"/>
+            <rect x="628" y="215" width="12" height="126" fill="#eef1f2"/>
+            <path id="tubeStreamS" class="stream" d="M634 215 L634 345" stroke-width="0"/>
+            <path id="tubeFlowS" class="flow" d="M634 215 L634 345" stroke-width="1.5" visibility="hidden"/>
+          </g>
+        </g>
+        <rect x="596" y="345" width="20" height="6" fill="var(--ceramic-line)"/>
+        <rect x="652" y="345" width="20" height="6" fill="var(--ceramic-line)"/>
+
+        <g class="part" data-part="pulsador">
+          <line id="rodS" x1="648" y1="142" x2="648" y2="228" stroke="#5f6b72" stroke-width="3"/>
+          <rect class="plastic clickable" id="btnSide" x="612" y="121" width="44" height="8" rx="3" data-action="full"/>
+        </g>
+
+        <!-- seat (cut through its front and back) and the raised lid leaning on the tank -->
+        <g class="part" data-part="asiento">
+          <rect class="seat" x="236" y="367" width="48" height="13" rx="5"/>
+          <rect class="seat" x="440" y="367" width="100" height="13" rx="4"/>
+          <rect x="540" y="362" width="20" height="18" rx="3" fill="#9aa3a8" stroke="#5f6b72"/>
+          <path class="seat" d="M538 366 L556 366 L578 150 L563 146 Z"/>
+        </g>
+
+        <g id="forceArrows" visibility="hidden">
+          <path id="arPL" class="arrow" style="stroke:var(--f-p)" marker-end="url(#ahP)"/>
+          <path id="arPR" class="arrow" style="stroke:var(--f-p)" marker-end="url(#ahP)"/>
+          <path id="arW" class="arrow" style="stroke:var(--f-w)" marker-end="url(#ahW)"/>
+          <path id="arBL" class="arrow" style="stroke:var(--f-b)" marker-end="url(#ahB)"/>
+          <path id="arBR" class="arrow" style="stroke:var(--f-b)" marker-end="url(#ahB)"/>
+          <path id="arU" class="arrow" style="stroke:var(--f-u)" marker-end="url(#ahU)"/>
+        </g>
+
+        <g id="bucket" visibility="hidden">
+          <path id="pourStream" class="stream" d="M322 318 C328 340 335 380 335 500" stroke-width="6"/>
+          <path id="pourFlow" class="flow" d="M322 318 C328 340 335 380 335 500" stroke-width="1.5"/>
+          <g transform="rotate(35 290 300)">
+            <path d="M260 278 L320 278 L312 328 L268 328 Z" fill="#8aa7b5" stroke="#3f5b68" stroke-width="2"/>
+            <path d="M264 280 Q290 250 316 280" fill="none" stroke="#3f5b68" stroke-width="2"/>
+          </g>
+        </g>
+
+        <g id="labelsS"></g>
+        <g id="marksS"></g>
+      </svg>
+
+      <!-- ===== FRONT VIEW: tank and bowl cut by a vertical plane facing you (same scale and heights) ===== -->
+      <svg id="svgFront" class="view" viewBox="0 84 540 606" preserveAspectRatio="xMinYMid meet" aria-label="Vista frontal: corte de la cisterna y la taza">
+        <defs>
+          <clipPath id="clipTankF"><rect x="147" y="142" width="246" height="203"/></clipPath>
+          <clipPath id="clipBowlF"><path id="bowlClipPathF" d="M180 380 L360 380 C364 385 366 389 366 394 C362 470 335 548 296 588 L244 588 C205 548 178 470 174 394 C174 389 176 385 180 380 Z"/></clipPath>
+        </defs>
+        <rect x="0" y="0" width="540" height="660" fill="url(#tiles)"/>
+        <rect x="0" y="660" width="540" height="30" fill="url(#floorTiles)"/>
+        <line x1="0" y1="660" x2="540" y2="660" stroke="#b8b3a5" stroke-width="2"/>
+        <text class="view-title" x="14" y="106">Vista frontal · corte</text>
+
+        <!-- supply: angle stop on the wall + flexible hose (runs behind the bowl) -->
+        <g class="part" data-part="llave">
+          <path d="M365 345 L365 392 C365 448 405 470 456 470" fill="none" stroke="var(--plastic-line)" stroke-width="9" stroke-linecap="round"/>
+          <path d="M365 345 L365 392 C365 448 405 470 456 470" fill="none" stroke="#c4ccd0" stroke-width="5" stroke-linecap="round"/>
+          <path id="supplyFlow" class="flow" d="M456 470 C405 470 365 448 365 392 L365 345" stroke-width="2" style="stroke:var(--water-deep)" visibility="hidden"/>
+          <circle cx="484" cy="470" r="13" fill="#d8d4c8" stroke="#a9a496"/>
+          <g class="clickable" id="valveKnob">
+            <circle cx="466" cy="470" r="11" class="metal"/>
+            <rect id="valveHandle" x="462" y="444" width="8" height="26" rx="3" fill="var(--red)" stroke="#6f241e"/>
+          </g>
+        </g>
+
+        <!-- tank (37 cm wide) -->
+        <rect class="ceramic" x="140" y="138" width="260" height="214" rx="8"/>
+        <rect class="hollow" x="147" y="142" width="246" height="203"/>
+        <rect id="tankWaterF" class="water" x="147" y="229" width="246" height="116" clip-path="url(#clipTankF)"/>
+        <line id="surfTankF" class="surface" x1="147" x2="393" y1="229" y2="229"/>
+        <g class="part" data-part="cisterna"><rect class="hl-outline" x="148" y="143" width="244" height="201"/></g>
+        <rect class="seal" x="250" y="352" width="40" height="4" rx="1"/>
+        <rect class="ceramic" x="134" y="126" width="272" height="16" rx="5"/>
+
+        <!-- fill valve: the float slides on the valve body; its rod works a lever in the head -->
+        <g class="part" data-part="boya">
+          <rect id="floatF" class="float" x="343" y="214" width="44" height="30" rx="6"/>
+          <line id="floatRodF" x1="384" y1="194" x2="384" y2="214" stroke="#5f6b72" stroke-width="2.5"/>
+        </g>
+        <g class="part" data-part="valvula">
+          <rect class="plastic" x="357" y="205" width="16" height="148"/>
+          <rect x="362" y="207" width="6" height="134" fill="#eef1f2"/>
+          <rect class="plastic" x="347" y="188" width="36" height="17" rx="4"/>
+          <line x1="385" y1="194" x2="368" y2="186" stroke="#5f6b72" stroke-width="3" stroke-linecap="round"/>
+          <path id="fillStream" class="stream" d="M365 208 L365 340" stroke-width="0"/>
+          <path id="fillFlow" class="flow" d="M365 208 L365 340" stroke-width="1.5" visibility="hidden"/>
+        </g>
+        <g class="part" data-part="boya">
+          <line id="railL" class="rail" x1="353" x2="353" y1="211" y2="324"/>
+          <line id="railR" class="rail" x1="377" x2="377" y1="211" y2="324"/>
+          <rect id="stopTop" class="stop" x="351" y="211" width="28" height="3" rx="1"/>
+          <rect id="stopBot" class="stop" x="351" y="324" width="28" height="3" rx="1"/>
+          <text id="stopTopText" class="stop-text" x="349" y="214" text-anchor="end">tope</text>
+        </g>
+        <g class="part" data-part="rellenado">
+          <path class="tube-line" d="M350 196 C330 166 290 166 274 212" stroke-width="5"/>
+          <path class="tube-line" d="M350 196 C330 166 290 166 274 212" stroke-width="2.5" style="stroke:#c4ccd0"/>
+          <path id="refillFlow" class="flow" d="M350 196 C330 166 290 166 274 212" stroke-width="2" style="stroke:var(--water-deep);stroke-opacity:1" visibility="hidden"/>
+        </g>
+
+        <!-- flush valve -->
+        <g id="flushF">
+          <g class="part" data-part="obturador">
+            <path class="plastic" d="M240 345 L300 345 L292 295 L248 295 Z"/>
+            <rect class="air" x="250" y="306" width="9" height="26"/><rect class="air" x="281" y="306" width="9" height="26"/>
+            <rect class="seal" x="236" y="340" width="68" height="6" rx="2"/>
+            <rect x="280" y="224" width="8" height="8" fill="#5f6b72"/>
+          </g>
+          <g class="part" data-part="rebosadero">
+            <rect class="plastic" x="260" y="215" width="20" height="126"/>
+            <rect x="264" y="215" width="12" height="126" fill="#eef1f2"/>
+            <path id="tubeStreamF" class="stream" d="M270 215 L270 345" stroke-width="0"/>
+            <path id="tubeFlowF" class="flow" d="M270 215 L270 345" stroke-width="1.5" visibility="hidden"/>
+          </g>
+        </g>
+        <g class="part" data-part="media">
+          <line x1="216" y1="236" x2="216" y2="318" stroke="#8f6513" stroke-width="1.5" stroke-dasharray="3 3"/>
+          <rect class="float" x="205" y="264" width="22" height="20" rx="4" id="halfFloat"/>
+          <line x1="227" y1="274" x2="243" y2="330" stroke="#8f6513" stroke-width="2.5" id="halfLink" visibility="hidden"/>
+        </g>
+        <rect x="230" y="345" width="22" height="6" fill="var(--ceramic-line)"/>
+        <rect x="288" y="345" width="22" height="6" fill="var(--ceramic-line)"/>
+        <g class="part" data-part="pulsador">
+          <line id="rodF" x1="284" y1="142" x2="284" y2="228" stroke="#5f6b72" stroke-width="3"/>
+          <rect class="plastic clickable" id="btnHalf" x="238" y="121" width="26" height="8" rx="3" data-action="half"/>
+          <rect class="plastic clickable" id="btnFull" x="266" y="121" width="38" height="8" rx="3" data-action="full"/>
+        </g>
+
+        <!-- bowl (36 cm wide) cut through its middle; the rear deck shows behind it -->
+        <rect class="ceramic" x="190" y="346" width="160" height="38"/>
+        <path class="ceramic" d="M150 380 L390 380 Q400 382 398 398 C394 470 360 550 325 590 L335 660 L205 660 L215 590 C180 550 146 470 142 398 Q140 382 150 380 Z"/>
+        <g class="part" data-part="borde">
+          <rect class="hollow" x="254" y="352" width="32" height="36"/>
+          <circle class="hollow" cx="162" cy="391" r="8"/><circle class="hollow" cx="378" cy="391" r="8"/>
+          <circle id="rimL" class="water" cx="162" cy="391" r="0"/><circle id="rimR" class="water" cx="378" cy="391" r="0"/>
+          <path class="hl-outline" d="M254 352 L286 352 L286 388 L254 388 Z M154 391 a8 8 0 1 0 16 0 a8 8 0 1 0 -16 0 M370 391 a8 8 0 1 0 16 0 a8 8 0 1 0 -16 0"/>
+        </g>
+        <g class="part" data-part="taza">
+          <path class="hollow" d="M180 380 L360 380 C364 385 366 389 366 394 C362 470 335 548 296 588 L244 588 C205 548 178 470 174 394 C174 389 176 385 180 380 Z"/>
+          <path class="edge" d="M180 380 C176 385 174 389 174 394 C178 470 205 548 244 588 L296 588 C335 548 362 470 366 394 C366 389 364 385 360 380"/>
+          <path class="hl-outline" d="M180 380 C176 385 174 389 174 394 C178 470 205 548 244 588 L296 588 C335 548 362 470 366 394 C366 389 364 385 360 380"/>
+        </g>
+        <path id="conduitWaterF" class="stream" d="M270 349 L270 386" stroke-width="0"/>
+        <path id="conduitFlowF" class="flow" d="M270 349 L270 386" stroke-width="1.5" visibility="hidden"/>
+        <path class="stream" id="curtainL" d="M177 398 C181 470 206 545 244 584" stroke-width="0"/>
+        <path class="stream" id="curtainR" d="M363 398 C359 470 334 545 296 584" stroke-width="0"/>
+        <path class="flow" id="curtainLFlow" d="M177 398 C181 470 206 545 244 584" stroke-width="1.5" visibility="hidden"/>
+        <path class="flow" id="curtainRFlow" d="M363 398 C359 470 334 545 296 584" stroke-width="1.5" visibility="hidden"/>
+        <rect id="bowlWaterF" class="water" x="170" y="500" width="200" height="160" clip-path="url(#clipBowlF)"/>
+        <line id="surfBowlF" class="surface" x1="170" x2="370" y1="500" y2="500" clip-path="url(#clipBowlF)"/>
+        <g class="part" data-part="sifon">
+          <ellipse cx="270" cy="556" rx="26" ry="8" fill="#5c7f91" opacity=".55"/>
+        </g>
+        <g class="part" data-part="asiento">
+          <rect class="seat" x="146" y="367" width="44" height="13" rx="5"/>
+          <rect class="seat" x="350" y="367" width="44" height="13" rx="5"/>
+        </g>
+
+        <g id="labelsF"></g>
+        <g id="marksF"></g>
+      </svg>
+      </div>
+    </div>
+    <div class="now" id="now"><b>En reposo.</b></div>
+    <div class="forces" id="forces" hidden>
+      <div class="forces-head"><b>Fuerzas sobre el obturador</b><span id="fRes"></span></div>
+      <div class="frows">
+        <div class="frow" data-f="p"><span class="fname">↓ Presión del agua</span><span class="fbar"><i></i></span><b class="fval">0,0 N</b></div>
+        <div class="frow" data-f="b"><span class="fname">↑ Empuje (cámara de aire)</span><span class="fbar"><i></i></span><b class="fval">0,0 N</b></div>
+        <div class="frow" data-f="w"><span class="fname">↓ Peso</span><span class="fbar"><i></i></span><b class="fval">0,0 N</b></div>
+        <div class="frow" data-f="u"><span class="fname">↑ Tirón del pulsador</span><span class="fbar"><i></i></span><b class="fval">0,0 N</b></div>
+        <div class="frow" data-f="h"><span class="fname">↓ Flotador ½ (enganchado)</span><span class="fbar"><i></i></span><b class="fval">0,0 N</b></div>
+      </div>
+    </div>
+    <div class="phases" id="phases">
+      <span class="chip" data-phase="reposo">Reposo</span>
+      <span class="chip" data-phase="descarga">Descarga</span>
+      <span class="chip" data-phase="cebado">Cebado del sifón</span>
+      <span class="chip" data-phase="sifon">Sifón activo</span>
+      <span class="chip" data-phase="gorgoteo">Gorgoteo</span>
+      <span class="chip" data-phase="recarga">Recarga</span>
+    </div>
+    <div class="readouts">
+      <div class="ro"><span>Cisterna (útil)</span><b id="roTank">6,0 L</b></div>
+      <div class="ro"><span>Llenado</span><b id="roFill">0,00 L/s</b></div>
+      <div class="ro"><span>Descarga</span><b id="roFlush">0,0 L/s</b></div>
+      <div class="ro"><span>Sifón</span><b id="roSiphon">vacío</b></div>
+      <div class="ro" id="roSealBox"><span>Sello</span><b id="roSeal">5,2 cm</b></div>
+      <div class="ro"><span>A la bajante</span><b id="roDrain">0,0 L</b></div>
+    </div>
+    <div class="alerts" id="alerts"></div>
+  </div>
+
+  <!-- ================= NARRATIVE ================= -->
+  <aside class="guide">
+    <header class="top">
+      <div class="kicker">Fontanería · física de andar por casa</div>
+      <h1>Cómo funciona un inodoro</h1>
+    </header>
+    <nav class="tabs" id="tabs" aria-label="Pestañas: ciclo completo y pieza a pieza"></nav>
+    <nav class="track" id="track" aria-label="Pasos"></nav>
+    <article class="card" id="card" aria-live="polite"></article>
+    <div class="player" id="player">
+      <div class="prog"><div id="progBar"></div></div>
+      <button class="btn" type="button" id="replayBtn">↻ Repetir</button>
+    </div>
+    <div class="pplayer" id="pplayer" hidden>
+      <div class="pbtns">
+        <button class="btn" type="button" id="pInit">⏮ Estado inicial</button>
+        <button class="btn primary" type="button" id="pPlay">▶ Reproducir</button>
+        <button class="btn" type="button" id="pFinal">Estado final ⏭</button>
+      </div>
+      <div class="pscrub"><span>inicial</span><input type="range" id="pScrub" min="0" max="1000" value="0" aria-label="Posición de la animación"><span>final</span><b id="pState">Estado inicial</b></div>
+    </div>
+    <div class="navbtns">
+      <button class="btn" type="button" id="prevBtn">← Anterior</button>
+      <button class="btn primary" type="button" id="nextBtn">Siguiente →</button>
+    </div>
+  </aside>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------------- geometry (SVG units; y grows downwards) ----------------
+  // Drawing scale: 7 px = 1 cm, floor at y 660 (a height of h cm sits at y = 660 − 7h).
+  const TANK_BOT = 345;          // inner bottom of the tank (~45 cm above the floor)
+  const OVER_Y = 215;            // mouth of the overflow tube
+  const FULL_CLOSE = 320;        // the bell seats when the level reaches here (~1.6 L dead water)
+  const SET_DEFAULT = 229;       // default closing level of the float: 6 L above FULL_CLOSE
+  const A_T = 6 / (FULL_CLOSE - SET_DEFAULT); // litres per px of tank height (~14 × 33 cm inside)
+  const SEAL_Y = 500;            // trap weir (inner bottom of the crest): ~15 cm below the rim
+  const INLET_TOP = 535;         // top of the trap inlet: air gets in below this
+  const RIM_Y = 396;
+  const BOWL_BOTTOM = 594;
+  const PX_TO_CM = 1 / 7;        // drawing scale
+  // float travel: its top stop IS the closing height (the shut valve stops the rod);
+  // it can drop FLOAT_DOWN below that, but never past the bottom of the tank
+  const FLOAT_DOWN = 80, FLOAT_HALF = 15; // px; FLOAT_HALF = half the float's height
+  const floatLow = setY => Math.min(setY + FLOAT_DOWN, TANK_BOT - FLOAT_HALF - 4);
+  const LIFT_PX = 16;             // the bell rises ~2 cm
+  // forces on the bell: seat Ø5 cm, weight 0.5 N, sealed air chamber (y 298–324 when seated)
+  const SEAT_A = 19.6e-4, BELL_W = 0.5, BUOY_MAX = 1.6, CH_TOP = 306, CH_BOT = 332;
+  // depth the chamber must be submerged for buoyancy = weight (a floating bell rides at this depth)
+  const FLOAT_EQ = BELL_W / BUOY_MAX * (CH_BOT - CH_TOP);
+
+  // ---------------- physics constants (litres, seconds) ----------------
+  const K_FLUSH = 0.2;     // flush valve: q = k * sqrt(head), head = water + drop to the rim
+  const Q_FILL = 0.25;     // fill valve fully open
+  const REFILL_FRAC = 0.25;// share of fill flow diverted to the bowl
+  const LEAK = 0.03;       // worn seal
+  const C_OVER = 0.08;     // overflow tube weir coefficient
+  const CW = 0.0152;       // trap crest weir coefficient
+  const Q_FREE = 1.0;      // flow the down-leg can swallow while mixed with air
+  const V_TRAP = 0.9;      // water needed to fill the down-leg (prime)
+  const Q_SIPHON = 3.0;    // primed siphon throughput
+  const FALLBACK = 0.15;   // water in the up-leg that falls back on break
+  const HYST = 4;          // fill valve hysteresis (px)
+
+  const RISE_D = 'M430 554 C490 554 500 480.5 535 480.5';
+  const DESC_D = 'M535 480.5 C562 480.5 574 498 574 525 L574 662';
+  const BOWL_D = 'M262 380 L458 380 C462 385 465 389 465 394 C458 440 448 495 430 535 L430 573 C405 594 362 598 340 590 C300 568 270 480 255 394 C255 389 258 385 262 380 Z';
+
+  const $ = id => document.getElementById(id);
+  const stage = $('stage');
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const fmt = (v, d) => v.toFixed(d).replace('.', ',');
+
+  // bowl plan area (L per px of height). The table was tuned with the crest at 469
+  // and the trap inlet at 543; levels are remapped segment by segment so that each
+  // segment (rim→crest, crest→inlet, inlet→bottom) keeps the same volume.
+  const AREA = [[402, .032], [440, .028], [470, .022], [500, .017], [520, .0135], [543, .0095], [570, .006], [594, .003]];
+  const KEYS_OLD = [402, 469, 543, 594], KEYS_NEW = [RIM_Y - 2, SEAL_Y, INLET_TOP, 594];
+  function bowlSeg(y) { let i = 0; while (i < 2 && y > KEYS_NEW[i + 1]) i++; return i; }
+  function toOld(y) {
+    const i = bowlSeg(y);
+    return KEYS_OLD[i] + (y - KEYS_NEW[i]) * (KEYS_OLD[i + 1] - KEYS_OLD[i]) / (KEYS_NEW[i + 1] - KEYS_NEW[i]);
+  }
+  function areaBowl(y) {
+    const i = bowlSeg(y);
+    return areaOld(toOld(y)) * (KEYS_OLD[i + 1] - KEYS_OLD[i]) / (KEYS_NEW[i + 1] - KEYS_NEW[i]);
+  }
+  function areaOld(y) {
+    if (y <= AREA[0][0]) return AREA[0][1];
+    for (let i = 1; i < AREA.length; i++) {
+      if (y <= AREA[i][0]) {
+        const [y0, a0] = AREA[i - 1], [y1, a1] = AREA[i];
+        return a0 + (a1 - a0) * (y - y0) / (y1 - y0);
+      }
+    }
+    return AREA[AREA.length - 1][1];
+  }
+
+  // ---------------- state ----------------
+  let S;
+  function initialState(keep) {
+    return {
+      tankY: keep ? keep.setY : SET_DEFAULT, bowlY: SEAL_Y, lift: 0, flushing: false, closeAt: FULL_CLOSE,
+      mode: null, valveOpen: false, prime: 0, siphon: false, gurgle: 0,
+      supply: keep ? keep.supply : true, leak: keep ? keep.leak : false, setY: keep ? keep.setY : SET_DEFAULT,
+      pourL: 0, pourRate: 0, drained: 0, f: {}
+    };
+  }
+  S = initialState();
+
+  function step(dt) {
+    // fill valve driven by the float (with a little hysteresis, like real friction)
+    const ballY = clamp(S.tankY, S.setY, floatLow(S.setY));
+    if (S.valveOpen) { if (ballY <= S.setY) S.valveOpen = false; }
+    else if (ballY > S.setY + HYST) S.valveOpen = true;
+    const opening = S.valveOpen ? clamp((ballY - S.setY) / 12, 0.25, 1) : 0;
+    const qFill = S.supply ? Q_FILL * opening : 0;
+    const qRefill = qFill * REFILL_FRAC;
+    const qTankIn = qFill - qRefill;
+
+    // flush valve: the bell floats. It rests against its stop while the air chamber is deep
+    // enough, then rides down with the level until it seats (at FULL_CLOSE). In a half flush
+    // the hooked half float drags it down as soon as the level passes closeAt.
+    let target = 0;
+    if (S.flushing) {
+      if (S.mode === 'half' && S.tankY >= S.closeAt) S.flushing = false;
+      else {
+        target = clamp((CH_BOT - FLOAT_EQ - S.tankY) / LIFT_PX, 0, 1);
+        if (S.lift >= 0.5) S.up = true;
+        if (!S.up) target = 1; // still being pushed open by the button
+        // near the seat the jet through the narrow gap sucks it shut (Bernoulli): it snaps closed
+        else if (target < 0.25) { target = 0; if (S.lift <= 0.001) S.flushing = false; }
+      }
+    }
+    // the first millimetre is slow (you fight the water pressure), then it floats up
+    S.lift += clamp(target - S.lift, -dt * 6, dt * (S.lift < 0.1 ? 0.5 : 8));
+    const water = TANK_BOT - S.tankY;
+    let qFlush = 0;
+    if (S.lift > 0.02 && water > 0.01) {
+      qFlush = K_FLUSH * Math.sqrt(water + 47) * Math.min(1, S.lift * 1.6);
+      qFlush = Math.min(qFlush, water * A_T / dt);
+    }
+    const qLeak = S.leak && S.lift <= 0.02 && water > 0.5 ? LEAK : 0;
+    const qOver = S.tankY < OVER_Y ? C_OVER * Math.pow(OVER_Y - S.tankY, 1.5) : 0;
+    S.tankY = clamp(S.tankY + (qFlush + qLeak + qOver - qTankIn) / A_T * dt, 72, TANK_BOT);
+
+    // bowl + trap
+    let qPour = 0;
+    if (S.pourL > 0) { qPour = Math.min(S.pourRate, S.pourL / dt); S.pourL -= qPour * dt; }
+    const qIn = qFlush + qLeak + qOver + qRefill + qPour;
+    const dh = toOld(SEAL_Y) - toOld(S.bowlY); // head over the crest, in tuned units
+    const qWeir = dh > 0 ? CW * Math.pow(dh, 1.5) : 0;
+    const qOut = S.siphon ? Q_SIPHON : qWeir;
+    S.bowlY = clamp(S.bowlY - (qIn - qOut) / areaBowl(S.bowlY) * dt, RIM_Y, BOWL_BOTTOM);
+    S.drained += qOut * dt;
+    if (!S.siphon) {
+      S.prime = clamp(S.prime + (qWeir - Q_FREE) / V_TRAP * dt, 0, 1);
+      if (S.prime >= 1) S.siphon = true;
+    } else if (S.bowlY >= INLET_TOP) {
+      // air reaches the inlet: the column breaks and the up-leg water falls back
+      S.siphon = false; S.prime = 0; S.gurgle = 1.2;
+      S.bowlY -= FALLBACK / areaBowl(S.bowlY);
+    }
+    S.gurgle = Math.max(0, S.gurgle - dt);
+    S.f = { qFill, qRefill, qFlush, qLeak, qOver, qPour, qWeir, qOut, ballY, opening,
+            qCond: qFlush + qLeak + qOver + qRefill, qTube: qOver + qRefill };
+  }
+
+  // ---------------- actions (live experiments) ----------------
+  function flush(mode) {
+    if (S.flushing) return;
+    S.mode = mode; S.up = false;
+    S.closeAt = mode === 'half' ? Math.min(FULL_CLOSE, S.setY + 3 / A_T) : FULL_CLOSE;
+    if (TANK_BOT - S.tankY < 3) return; // nothing to release
+    S.flushing = true;
+  }
+  function setSupply(on) { S.supply = on; syncControls(); }
+  function setLeak(on) { S.leak = on; syncControls(); }
+  function setFloat(y) { S.setY = y; syncControls(); }
+  function pour(litres, rate) { S.pourL = litres; S.pourRate = rate; }
+  function setSpeed(v) { speed = v; $('speed').value = String(v); updateFlowSpeed(); }
+  function freshLive() { S = initialState({ setY: SET_DEFAULT, supply: true, leak: false }); syncControls(); }
+
+  const ACTIONS = {
+    full: () => flush('full'),
+    half: () => flush('half'),
+    supply: () => setSupply(!S.supply),
+    leak: () => setLeak(!S.leak),
+    boyaAlta: () => setFloat(OVER_Y - 15),
+    boyaOk: () => setFloat(SET_DEFAULT),
+    pourFast: () => pour(5, 4.2),
+    pourSlow: () => pour(5, 0.35),
+    reset: freshLive,
+  };
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-action]');
+    if (!el) return;
+    const a = el.getAttribute('data-action');
+    // in the guided replay, the push buttons on the drawing jump to the "press" step
+    if (mode === 'part') return;
+    if (mode !== 'live') { if (a === 'full' || a === 'half') goStep(STEPS.findIndex(st => st.id === 'pulsar')); return; }
+    if (ACTIONS[a]) ACTIONS[a]();
+  });
+  $('valveKnob').addEventListener('click', () => { if (mode === 'live') setSupply(!S.supply); });
+
+  // mode: 'replay' plays slices of a recorded flush; 'live' runs the simulation
+  let speed = 1, paused = false, mode = 'replay', rate = 1;
+  function updateFlowSpeed() {
+    const r = mode === 'live' ? speed : rate;
+    stage.style.setProperty('--flowdur', paused ? '1000s' : clamp(0.5 / r, 0.2, 3) + 's');
+  }
+  $('speed').addEventListener('change', e => setSpeed(parseFloat(e.target.value)));
+  $('pauseBtn').addEventListener('click', () => {
+    paused = !paused;
+    $('pauseBtn').textContent = paused ? 'Seguir' : 'Pausa';
+    $('pauseBtn').classList.toggle('on', paused);
+    updateFlowSpeed();
+  });
+  $('labelsBtn').addEventListener('click', () => {
+    stage.classList.toggle('labels-off');
+    $('labelsBtn').classList.toggle('on', stage.classList.contains('labels-off'));
+  });
+  document.addEventListener('input', e => {
+    if (e.target.id === 'setSlider' && mode === 'live') { S.setY = parseInt(e.target.value, 10); syncControls(); }
+  });
+
+  function syncControls() {
+    const with_ = (id, fn) => { const el = $(id); if (el) fn(el); };
+    with_('supplyBtn', el => { el.textContent = 'Llave de paso: ' + (S.supply ? 'abierta' : 'cerrada'); el.classList.toggle('on', !S.supply); });
+    with_('leakBtn', el => { el.textContent = S.leak ? 'Junta que pierde: sí' : 'Junta que pierde: no'; el.classList.toggle('on', S.leak); });
+    with_('setSlider', el => { el.value = S.setY; });
+    with_('setOut', el => { el.textContent = fmt(Math.max(0, FULL_CLOSE - S.setY) * A_T, 1) + ' L'; });
+    $('valveHandle').setAttribute('transform', S.supply ? '' : 'rotate(90 466 470)');
+  }
+
+  // ---------------- static geometry ----------------
+  $('bowlClipPath').setAttribute('d', BOWL_D);
+  $('bowlHollow').setAttribute('d', BOWL_D);
+  ['riseWall', 'riseBore', 'riseWater', 'siphonFlow1'].forEach(id => $(id).setAttribute('d', RISE_D));
+  ['descWall', 'descBore', 'descWater', 'trickle', 'trickleFlow', 'siphonFlow2'].forEach(id => $(id).setAttribute('d', DESC_D));
+  const DESC_LEN = $('descWater').getTotalLength();
+
+  // labels: [view, part, text, x, y, anchor, leaderX, leaderY]   view: S = side, F = front
+  const LABELS = [
+    ['S', 'pulsador', 'Pulsador', 500, 118, 'end', 612, 125],
+    ['S', 'cisterna', 'Cisterna', 612, 166, 'middle'],
+    ['S', 'rebosadero', 'Rebosadero', 520, 225, 'end', 624, 225],
+    ['S', 'valvula', 'Válvula de llenado (detrás)', 520, 262, 'end', 663, 262],
+    ['S', 'obturador', 'Obturador (campana)', 520, 300, 'end', 604, 320],
+    ['S', 'asiento', 'Asiento y tapa', 420, 355, 'middle'],
+    ['S', 'borde', 'Borde: reparte el agua', 60, 412, 'start', 240, 392],
+    ['S', 'taza', 'Taza', 360, 440, 'middle'],
+    ['S', 'sifon', 'Sifón', 535, 444, 'middle'],
+    ['S', 'bajante', 'A la bajante', 520, 645, 'end', 555, 652],
+    ['F', 'rellenado', 'Tubo de rellenado', 215, 166, 'middle'],
+    ['F', 'media', 'Flotador ½ descarga', 20, 300, 'start', 205, 278],
+    ['F', 'valvula', 'Válvula de llenado', 520, 236, 'end', 373, 236],
+    ['F', 'llave', 'Llave de paso', 466, 505, 'middle'],
+    ['F', 'obturador', 'Cámara de aire', 20, 338, 'start', 250, 320],
+    ['F', 'borde', 'Canal del borde', 20, 412, 'start', 156, 394],
+    ['F', 'taza', 'Taza (de frente)', 270, 440, 'middle'],
+    ['F', 'boya', 'Boya', 0, 0, 'end'],
+  ];
+  const labelEls = {};
+  const NS = 'http://www.w3.org/2000/svg';
+  LABELS.forEach(([view, part, text, x, y, anchor, lx, ly]) => {
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('class', 'lbl'); g.dataset.part = part;
+    const l = lx !== undefined ? g.appendChild(document.createElementNS(NS, 'line')) : null;
+    const r = document.createElementNS(NS, 'rect');
+    const t = document.createElementNS(NS, 'text');
+    t.setAttribute('x', x); t.setAttribute('y', y); t.setAttribute('text-anchor', anchor);
+    t.textContent = text;
+    g.appendChild(r); g.appendChild(t);
+    $('labels' + view).appendChild(g);
+    const b = t.getBBox();
+    if (l) {
+      // leader starts at the side of the pill facing its target
+      const ex = lx > b.x + b.width / 2 ? b.x + b.width + 5 : b.x - 5;
+      l.setAttribute('x1', ex); l.setAttribute('y1', y - 4); l.setAttribute('x2', lx); l.setAttribute('y2', ly);
+    }
+    r.setAttribute('x', b.x - 5); r.setAttribute('y', b.y - 2); r.setAttribute('width', b.width + 10); r.setAttribute('height', b.height + 4); r.setAttribute('rx', 5);
+    labelEls[view + part] = { g, t, r };
+  });
+  function moveLabel(key, x, y) {
+    const L = labelEls[key];
+    L.t.setAttribute('x', x); L.t.setAttribute('y', y);
+    const b = L.t.getBBox();
+    L.r.setAttribute('x', b.x - 5); L.r.setAttribute('y', b.y - 2); L.r.setAttribute('width', b.width + 10); L.r.setAttribute('height', b.height + 4);
+  }
+
+  // highlight: the step's parts glow softly ('on'); the hovered part gets a strong pulse ('hover')
+  let stepParts = new Set(), hoverPart = null;
+  function paintPart(part) {
+    const hv = hoverPart === part, on = stepParts.has(part) && !hv;
+    stage.querySelectorAll(`[data-part="${part}"]`).forEach(el => {
+      el.classList.toggle('on', on);
+      el.classList.toggle('hover', hv);
+    });
+  }
+  function setHover(part) {
+    if (part === hoverPart) return;
+    const old = hoverPart;
+    hoverPart = part;
+    if (old) paintPart(old);
+    if (part) paintPart(part);
+  }
+  function setStepParts(parts) {
+    const old = stepParts;
+    stepParts = new Set(parts);
+    new Set([...old, ...stepParts]).forEach(paintPart);
+  }
+  const card = $('card');
+  const termPart = e => { const t = e.target.closest('.term'); return t ? t.dataset.part : null; };
+  ['mouseover', 'focusin'].forEach(ev => card.addEventListener(ev, e => { const p = termPart(e); if (p) setHover(p); }));
+  ['mouseout', 'focusout'].forEach(ev => card.addEventListener(ev, e => { if (termPart(e)) setHover(null); }));
+  // hovering the drawing works too
+  stage.addEventListener('mouseover', e => { const el = e.target.closest('[data-part]'); setHover(el ? el.dataset.part : null); });
+  stage.addEventListener('mouseleave', () => setHover(null));
+
+  // level marks: [id, view, x1, x2, y(), text, textX, anchor]
+  const MARKS = [
+    ['over', 'F', 147, 393, () => OVER_Y, 'boca del rebosadero', 151, 'start'],
+    ['set', 'F', 147, 393, () => S.setY, 'cierre de la boya', 151, 'start', 13],
+    ['closeHalf', 'F', 147, 393, () => Math.min(FULL_CLOSE, S.setY + 3 / A_T), 'cierre ½', 151, 'start'],
+    ['closeFull', 'F', 147, 393, () => FULL_CLOSE, 'el obturador se cierra aquí', 151, 'start'],
+    ['crest', 'S', 262, 545, () => SEAL_Y, 'cresta: máximo de la taza', 266, 'start'],
+    ['inlet', 'S', 262, 440, () => INLET_TOP, 'boca del sifón: mínimo', 268, 'start'],
+    ['crestF', 'F', 176, 364, () => SEAL_Y, 'cresta', 360, 'end'],
+    ['inletF', 'F', 215, 325, () => INLET_TOP, 'boca del sifón', 322, 'end'],
+  ];
+  const markEls = {};
+  MARKS.forEach(([id, view, x1, x2, , text, tx, anchor, dy]) => {
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('class', 'mk'); g.setAttribute('visibility', 'hidden');
+    const l = document.createElementNS(NS, 'line');
+    l.setAttribute('x1', x1); l.setAttribute('x2', x2);
+    const r = document.createElementNS(NS, 'rect');
+    const t = document.createElementNS(NS, 'text');
+    t.setAttribute('x', tx); t.setAttribute('text-anchor', anchor); t.textContent = text;
+    g.append(l, r, t); $('marks' + view).appendChild(g);
+    markEls[id] = { g, l, r, t, lastY: null, dy: dy || -5 };
+  });
+  let activeMarks = new Set();
+  // the bowl marks are shown in both views
+  const markOn = id => activeMarks.has(id) || activeMarks.has(id.replace(/F$/, '')) && /F$/.test(id);
+  function renderMarks() {
+    MARKS.forEach(([id, , , , yf]) => {
+      const m = markEls[id], on = markOn(id);
+      m.g.setAttribute('visibility', on ? 'visible' : 'hidden');
+      if (!on) return;
+      const y = yf();
+      if (y === m.lastY) return;
+      m.lastY = y;
+      m.l.setAttribute('y1', y); m.l.setAttribute('y2', y);
+      m.t.setAttribute('y', y + m.dy);
+      const b = m.t.getBBox();
+      m.r.setAttribute('x', b.x - 4); m.r.setAttribute('y', b.y - 1); m.r.setAttribute('width', b.width + 8); m.r.setAttribute('height', b.height + 2); m.r.setAttribute('rx', 4);
+    });
+  }
+
+  // ---------------- render ----------------
+  function streamWidth(q, k, max) { return q > 0.003 ? clamp(1.5 + q * k, 1.5, max) : 0; }
+  function showFlow(id, on) { $(id).setAttribute('visibility', on ? 'visible' : 'hidden'); }
+  function setLevel(id, y, bottom) { $(id).setAttribute('y', y); $(id).setAttribute('height', Math.max(0, bottom - y)); }
+
+  function render() {
+    const f = S.f;
+    // both views share the vertical scale, so levels apply as-is
+    setLevel('tankWaterS', S.tankY, TANK_BOT);
+    setLevel('tankWaterF', S.tankY, TANK_BOT);
+    setLevel('bowlWater', S.bowlY, 640);
+    setLevel('bowlWaterF', S.bowlY, 640);
+    ['surfTankS', 'surfTankF'].forEach(id => { $(id).setAttribute('y1', S.tankY); $(id).setAttribute('y2', S.tankY); $(id).style.opacity = S.tankY < TANK_BOT - 1 ? '' : 0; });
+    ['surfBowlS', 'surfBowlF'].forEach(id => { $(id).setAttribute('y1', S.bowlY); $(id).setAttribute('y2', S.bowlY); });
+    $('riseClipRect').setAttribute('y', S.siphon ? 0 : S.bowlY);
+    $('riseClipRect').setAttribute('height', 800);
+    const descFill = S.siphon ? DESC_LEN : S.prime * DESC_LEN;
+    $('descWater').setAttribute('stroke-dasharray', descFill + ' ' + DESC_LEN);
+    $('drainWater').style.opacity = (S.siphon || descFill > DESC_LEN * 0.97) ? 0.82 : 0;
+
+    // trickle over the crest when not primed
+    const tw = !S.siphon && f.qWeir > 0.01 ? streamWidth(f.qWeir, 6, 10) : 0;
+    $('trickle').setAttribute('stroke-width', tw); showFlow('trickleFlow', tw > 0);
+    showFlow('siphonFlow1', S.siphon); showFlow('siphonFlow2', S.siphon);
+    $('bubbles').setAttribute('visibility', S.gurgle > 0 ? 'visible' : 'hidden');
+
+    // conduit + rim curtains (both views)
+    const cw = streamWidth(f.qCond, 4.5, 14);
+    $('conduitWater').setAttribute('stroke-width', cw); showFlow('conduitFlow', cw > 0);
+    $('conduitWaterF').setAttribute('stroke-width', cw); showFlow('conduitFlowF', cw > 0);
+    const rw = streamWidth(f.qCond, 2.2, 7);
+    ['curtainFront', 'curtainRear', 'curtainL', 'curtainR'].forEach(id => {
+      $(id).setAttribute('stroke-width', rw); showFlow(id + 'Flow', rw > 0);
+    });
+    const rr = f.qCond > 0.003 ? clamp(3 + f.qCond * 3, 3, 8) : 0;
+    $('rimL').setAttribute('r', rr); $('rimR').setAttribute('r', rr); $('rimFrontS').setAttribute('r', rr);
+
+    // flush valve (moves in both views), overflow tube stream
+    const lift = S.lift * LIFT_PX;
+    $('flushS').setAttribute('transform', `translate(0 ${-lift})`);
+    $('flushF').setAttribute('transform', `translate(0 ${-lift})`);
+    $('rodS').setAttribute('y2', 228 - lift);
+    $('rodF').setAttribute('y2', 228 - lift);
+    const tsw = streamWidth(f.qTube, 14, 6);
+    ['S', 'F'].forEach(v => { $('tubeStream' + v).setAttribute('stroke-width', tsw); showFlow('tubeFlow' + v, tsw > 0); });
+
+    $('valveHandle').setAttribute('transform', S.supply ? '' : 'rotate(90 466 470)');
+    // fill valve streams
+    const fsw = f.qFill > 0.003 ? clamp(1.5 + f.qFill * 14, 1.5, 5) : 0;
+    $('fillStream').setAttribute('stroke-width', fsw); showFlow('fillFlow', fsw > 0);
+    showFlow('refillFlow', f.qRefill > 0.001);
+    showFlow('supplyFlow', f.qFill > 0.003);
+
+    // float slides on the valve body; its rod works the lever at the head
+    const by = f.ballY !== undefined ? f.ballY : S.tankY;
+    $('floatF').setAttribute('y', by - 15);
+    $('floatRodF').setAttribute('y2', by - 15);
+    $('floatS').setAttribute('y', by - 15);
+    moveLabel('Fboya', 337, by + 8);
+    // float stops follow the adjustment: top = closing height, bottom = lowest hang
+    const stopTop = S.setY - FLOAT_HALF - 3, stopBot = floatLow(S.setY) + FLOAT_HALF;
+    $('stopTop').setAttribute('y', stopTop); $('stopBot').setAttribute('y', stopBot);
+    $('stopTopText').setAttribute('y', stopTop + 3);
+    ['railL', 'railR'].forEach(id => { $(id).setAttribute('y1', stopTop + 3); $(id).setAttribute('y2', stopBot); });
+
+    // half-flush float: parked on its guide at the half line; in a half flush a rigid rod
+    // hooks it to the bell, so both move together (and it drags the bell down when it leaves the water)
+    const halfY = Math.min(FULL_CLOSE, S.setY + 3 / A_T);
+    const hooked = S.mode === 'half' && S.lift > 0.001;
+    const hfY = halfY - 10 - (hooked ? lift : 0);
+    $('halfFloat').setAttribute('y', hfY);
+    $('halfLink').setAttribute('y1', hfY + 10);
+    $('halfLink').setAttribute('y2', 330 - lift);
+    $('halfLink').setAttribute('visibility', hooked ? 'visible' : 'hidden');
+
+    renderMarks();
+    $('forceArrows').setAttribute('visibility', showForces ? 'visible' : 'hidden');
+    if (showForces) renderForces(bellForces());
+
+    // push buttons
+    const pressed = S.flushing ? 2 : 0;
+    $('btnHalf').setAttribute('y', 121 + (S.mode === 'half' ? pressed : 0));
+    $('btnFull').setAttribute('y', 121 + (S.mode === 'full' ? pressed : 0));
+    $('btnSide').setAttribute('y', 121 + pressed);
+
+    // bucket
+    $('bucket').setAttribute('visibility', S.pourL > 0 ? 'visible' : 'hidden');
+    $('pourStream').setAttribute('stroke-width', clamp(2 + S.pourRate * 2.2, 2, 11));
+    $('pourStream').setAttribute('d', `M322 318 C328 340 335 380 335 ${S.bowlY}`);
+    $('pourFlow').setAttribute('d', `M322 318 C328 340 335 380 335 ${S.bowlY}`);
+
+    // seal dimension
+    const sealPx = Math.max(0, INLET_TOP - Math.max(S.bowlY, SEAL_Y));
+    const showSeal = !S.siphon && S.bowlY < INLET_TOP;
+    $('sealDim').setAttribute('visibility', showSeal ? 'visible' : 'hidden');
+    const top = Math.max(S.bowlY, SEAL_Y);
+    $('sealLine').setAttribute('y1', top); $('sealTop').setAttribute('y1', top); $('sealTop').setAttribute('y2', top);
+    $('sealText').setAttribute('y', (top + INLET_TOP) / 2 + 4);
+    $('sealText').textContent = 'sello ' + fmt(sealPx * PX_TO_CM, 1) + ' cm';
+    const weak = showSeal && sealPx * PX_TO_CM < 2.7 || S.bowlY >= INLET_TOP && !S.siphon;
+    $('smell').setAttribute('visibility', weak && !S.flushing && S.gurgle === 0 ? 'visible' : 'hidden');
+
+    renderPanel(sealPx, weak);
+  }
+
+  // forces on the flush valve bell, in newtons
+  function bellForces() {
+    const lift = S.lift * LIFT_PX;
+    const head = Math.max(0, TANK_BOT - S.tankY) * PX_TO_CM / 100;
+    // pressure only presses while the seal is (almost) closed: water gets under it as it opens
+    const p = 1000 * 9.8 * head * SEAT_A * clamp(1 - S.lift / 0.1, 0, 1);
+    const b = BUOY_MAX * clamp((CH_BOT - lift - S.tankY) / (CH_BOT - CH_TOP), 0, 1);
+    const w = BELL_W;
+    const hooked = S.mode === 'half' && S.lift > 0.001;
+    const h = hooked && !S.flushing ? Math.max(0, b - w) + 0.3 : 0;
+    const u = S.flushing && S.lift < 0.1 ? p + w - b + 0.3 : 0;
+    return { p, b, w, h, u, hooked };
+  }
+  function forceText(F) {
+    if (F.u > 0) return 'Pulsas: tu dedo vence la presión del agua… solo hasta que entra agua por debajo.';
+    if (S.lift <= 0.001) return F.p > 0.05 ? 'Sellado: presión + peso lo aplastan contra el asiento.' : 'Sellado.';
+    if (S.flushing && F.hooked) return 'Arriba: flota, enganchado al flotador de ½ descarga.';
+    if (S.flushing && S.lift >= 0.98) return 'Flota contra su tope: el empuje de la cámara de aire supera su peso. Nada más lo sujeta.';
+    if (S.flushing) return 'Baja flotando con el nivel: empuje = peso. Cada milímetro que baja el agua, baja la campana.';
+    if (F.h > 0) return 'Cae: el flotador de ½ salió del agua y tira de la campana hacia abajo.';
+    return 'Bajando hacia el asiento.';
+  }
+  function setArrow(id, x, y1, y2, on) {
+    const el = $(id);
+    el.setAttribute('visibility', on ? 'visible' : 'hidden');
+    if (on) el.setAttribute('d', `M${x} ${y1} L${x} ${y2}`);
+  }
+  const arrowLen = n => 6 + n * 7;
+  function renderForces(F) {
+    const lift = S.lift * LIFT_PX, top = 295 - lift, mid = (CH_TOP + CH_BOT) / 2 - lift, bot = 345 - lift;
+    const lp = arrowLen(F.p), lb = arrowLen(F.b);
+    setArrow('arPL', 608, top - lp - 4, top - 4, F.p > 0.05);
+    setArrow('arPR', 660, top - lp - 4, top - 4, F.p > 0.05);
+    setArrow('arW', 634, bot + 2, bot + 2 + arrowLen(F.w + F.h), true);
+    setArrow('arBL', 618.5, mid, mid - lb, F.b > 0.05);
+    setArrow('arBR', 649.5, mid, mid - lb, F.b > 0.05);
+    setArrow('arU', 648, 220 - lift, 220 - lift - arrowLen(F.u), F.u > 0);
+  }
+  let showForces = false;
+
+  let lastPanel = 0;
+  function renderPanel(sealPx, weak) {
+    const now = performance.now();
+    if (now - lastPanel < 90) return;
+    lastPanel = now;
+    const f = S.f;
+    const tankL = Math.max(0, FULL_CLOSE - S.tankY) * A_T;
+    $('roTank').textContent = fmt(tankL, 1) + ' L';
+    $('roFill').textContent = fmt(f.qFill || 0, 2) + ' L/s';
+    $('roFlush').textContent = fmt(f.qFlush || 0, 1) + ' L/s';
+    $('roSiphon').textContent = S.siphon ? 'aspirando' : S.prime > 0.02 ? 'cebando ' + Math.round(S.prime * 100) + ' %' : S.gurgle > 0 ? 'roto' : 'en reposo';
+    $('roSeal').textContent = S.siphon ? '—' : fmt(sealPx * PX_TO_CM, 1) + ' cm';
+    $('roSealBox').classList.toggle('warn', weak);
+    $('roDrain').textContent = fmt(S.drained, 1) + ' L';
+    if (showForces) {
+      const F = bellForces();
+      document.querySelectorAll('#forces .frow').forEach(r => {
+        const v = F[r.dataset.f];
+        r.querySelector('i').style.width = clamp(v / 6, 0, 1) * 100 + '%';
+        r.querySelector('.fval').textContent = fmt(v, 1) + ' N';
+        if (r.dataset.f === 'h') r.hidden = S.mode !== 'half';
+        if (r.dataset.f === 'u') r.style.opacity = v > 0 ? 1 : .45;
+      });
+      $('fRes').textContent = forceText(F);
+    }
+
+    const phases = {
+      descarga: S.lift > 0.02,
+      cebado: !S.siphon && S.prime > 0.02,
+      sifon: S.siphon,
+      gorgoteo: S.gurgle > 0,
+      recarga: (f.qFill || 0) > 0.003,
+    };
+    phases.reposo = !Object.values(phases).some(Boolean) && S.pourL <= 0;
+    document.querySelectorAll('#phases .chip').forEach(c => c.classList.toggle('on', !!phases[c.dataset.phase]));
+
+    const alerts = [];
+    if ((f.qOver || 0) > 0.003) alerts.push('El agua se va por el rebosadero: la boya cierra por encima de su boca');
+    if ((f.qLeak || 0) > 0) alerts.push('Fuga por la junta del obturador');
+    if (!S.supply) alerts.push('Llave de paso cerrada: la cisterna no se recarga');
+    if (weak) alerts.push('Sello débil: pueden subir olores del desagüe');
+    const html = alerts.map(a => `<span class="alert">${a}</span>`).join('');
+    if ($('alerts').innerHTML !== html) $('alerts').innerHTML = html;
+
+    $('now').innerHTML = narrateNow(phases, f);
+  }
+
+  function narrateNow(p, f) {
+    const L = v => fmt(v, 1);
+    if (S.pourL > 0 && !S.siphon) {
+      return S.pourRate > 1
+        ? `<b>Cubo de golpe:</b> entran ${L(S.pourRate)} L/s, más de lo que la cresta deja escapar. El tramo de bajada se está llenando…`
+        : `<b>Cubo despacio:</b> entran ${L(S.pourRate)} L/s. El sobrante resbala por la cresta mezclado con aire; el sifón nunca se ceba.`;
+    }
+    if (p.sifon) return `<b>Sifón activo:</b> la columna de agua que cae por la bajante aspira la taza a ${L(Q_SIPHON)} L/s.`;
+    if (p.gorgoteo) return '<b>¡Gorgoteo!</b> El nivel llegó a la boca del sifón, entró aire y la columna se rompió.';
+    if (p.cebado) return `<b>Cebando:</b> el agua sube por encima de la cresta y llena el tramo de bajada (${Math.round(S.prime * 100)} %).`;
+    if (p.descarga) return `<b>Descarga ${S.mode === 'half' ? 'media' : 'completa'}:</b> el obturador está levantado y caen ${L(f.qFlush)} L/s al borde de la taza.`;
+    if (p.recarga) {
+      if ((f.qOver || 0) > 0.003) return '<b>Rebosando:</b> la boya nunca llega a su altura de cierre, así que la válvula no se cierra y el agua se va por el rebosadero.';
+      if (S.leak && (TANK_BOT - S.tankY) * A_T > 5) return '<b>Descarga fantasma:</b> la fuga ha bajado el nivel lo justo para que la boya reabra la válvula un momento.';
+      return `<b>Recargando:</b> la boya está baja y mantiene abierta la válvula (${fmt(f.qFill, 2)} L/s). Un 25 % va a la taza por el tubo de rellenado.`;
+    }
+    if (S.leak) return '<b>Fuga:</b> un hilillo se escapa por la junta y resbala por la taza; el nivel de la cisterna baja poco a poco.';
+    if (!S.supply && (TANK_BOT - S.tankY) * A_T < 3) return '<b>Sin recarga:</b> la llave está cerrada, la cisterna se queda vacía y la taza sin su sello completo.';
+    return '<b>En reposo.</b> La boya mantiene la válvula cerrada y la taza guarda su sello de agua hasta la cresta.';
+  }
+
+  // ---------------- recorded cycle (guided replay) ----------------
+  // One full flush is simulated once at load; each guided step replays a slice of it.
+  const DT = 1 / 240;
+  const REC = (function record() {
+    const keep = S;
+    S = initialState();
+    const frames = [], ev = { press: 0.5 };
+    let t = 0, pressed = false;
+    for (let i = 0; i < 240 * 120; i++) {
+      if (!pressed && t >= ev.press) { flush('full'); pressed = true; }
+      step(DT); t += DT;
+      frames.push(Object.assign({}, S, { f: Object.assign({}, S.f) }));
+      if (!pressed) continue;
+      if (ev.prime === undefined && S.prime > 0.02) ev.prime = t;
+      if (ev.siphon === undefined && S.siphon) ev.siphon = t;
+      if (ev.brk === undefined && S.gurgle > 0) ev.brk = t;
+      if (ev.top === undefined && S.lift >= 0.999) ev.top = t;
+      if (ev.top !== undefined && ev.closeStart === undefined && S.lift < 0.98) ev.closeStart = t;
+      if (ev.closeStart !== undefined && ev.closed === undefined && S.lift <= 0) ev.closed = t;
+      if ((S.f.qFill || 0) > 0.003) ev.fillEnd = t;
+      if (ev.closed !== undefined && S.f.qFill === 0 && t > ev.fillEnd + 1.5) break;
+    }
+    ev.end = t;
+    ev.drained = S.drained;
+    S = keep;
+    return { frames, ev };
+  })();
+  function frameAt(t) {
+    const fr = REC.frames;
+    return fr[clamp(Math.round(t / DT) - 1, 0, fr.length - 1)];
+  }
+
+  // ---------------- steps ----------------
+  const T = (part, txt) => `<span class="term" data-part="${part}" tabindex="0">${txt}</span>`;
+  const F = txt => `<span class="formula">${txt}</span>`;
+  const PH = { antes: 'Antes', durante: 'Durante', despues: 'Después', extra: 'Y además' };
+
+  const STEPS = [
+    {
+      id: 'listo', ph: 'antes', title: 'Cisterna llena: todo en equilibrio',
+      hold: () => 0.2, parts: ['cisterna', 'boya', 'valvula'], marks: ['set', 'over'],
+      html: `<p>Antes de pulsar, la ${T('cisterna', 'cisterna')} guarda unos 6 litros, unos 30 cm por encima del agua de la taza. La ${T('llave', 'llave de paso')} está abierta: el agua de la red empuja a 2–4 bar contra la ${T('valvula', 'válvula de llenado')}… y aun así no entra ni una gota.</p>
+             <p>Quien la mantiene cerrada es la ${T('boya', 'boya')}: un flotador que sube y baja por el cuerpo de la válvula. Ahora está <b>arriba del todo, apoyada en su tope</b>: no puede subir más, porque esa es justo la posición que cierra la válvula.</p>
+             <p>El dibujo tiene dos vistas a la misma escala de alturas: a la izquierda, el inodoro cortado de perfil; a la derecha, de frente. En el perfil la válvula de llenado queda detrás del corte, por eso se ve en gris. Pasa el ratón por cualquier pieza para resaltarla en las dos.</p>`,
+      phys: {
+        q: '¿Por qué dejó de llenarse justo aquí?',
+        a: `<p><b>Arquímedes.</b> La boya recibe un empuje hacia arriba igual al peso del agua que desaloja. Cuanto más se hunde, más empuja.</p>
+            <p><b>Palanca.</b> La boya tira de una varilla que mueve una pequeña palanca en la cabeza de la válvula; el brazo largo de la palanca y el corto, junto al orificio, multiplican el empuje (unas 10 veces). Un orificio de ~2,5 mm a 3 bar empuja con ${F('F = p·A ≈ 300 000 Pa × 5 mm² ≈ 1,5 N')}. A la boya le bastan ~0,15 N, y los consigue hundiéndose unos milímetros más.</p>
+            <p>El llenado se para en el nivel exacto en el que <b>empuje × palanca = presión × área del orificio</b>. Por eso, si cambias la posición de la boya, cambias el nivel (línea «cierre de la boya»).</p>`
+      },
+      look: ['En la vista frontal, la boya pegada a su tope superior (la barra oscura sobre el cuerpo de la válvula). La guía discontinua marca todo su recorrido.', 'La línea «cierre de la boya» queda por debajo de la «boca del rebosadero»: es el margen de seguridad. La cabeza de la válvula va aún más arriba a propósito, para que el agua de la cisterna nunca pueda volver a la red.', 'El panel «Fuerzas sobre el obturador»: la presión del agua (azul) lo tiene aplastado contra su asiento. Por eso no gotea.'],
+      forces: true,
+    },
+    {
+      id: 'taza', ph: 'antes', title: 'La taza: agua quieta a la altura de la cresta',
+      hold: () => 0.2, parts: ['taza', 'sifon'], marks: ['crest', 'inlet'],
+      html: `<p>Detrás de la ${T('taza', 'taza')}, escondido en la cerámica, hay un conducto que <b>sube</b> hasta una cresta y luego <b>baja</b> hacia la ${T('bajante', 'bajante')}: el ${T('sifon', 'sifón')}.</p>
+             <p>El agua de la taza está quieta justo a la altura de la cresta y tapa la boca del conducto.</p>`,
+      phys: {
+        q: '¿Por qué la taza no se llena más ni se vacía?',
+        a: `<p><b>Vasos comunicantes.</b> La taza y el tramo de subida del sifón son el mismo recipiente. En reposo, la superficie está a la misma altura en los dos lados.</p>
+            <p><b>Vertedero.</b> El punto más bajo de la cresta funciona como el borde de una presa. Si echas un vaso de agua, el nivel sube un pelo y el sobrante se derrama hacia la bajante hasta volver a la cresta. El nivel de reposo no depende de cuánta agua eches: <b>lo fija la forma de la cerámica</b>.</p>
+            <p><b>Sello hidráulico.</b> Entre la cresta y la boca del sifón quedan ~5 cm de agua. Para que el aire del desagüe subiera al baño tendría que empujar esa columna: ${F('p = ρ·g·h ≈ 1000 × 9,8 × 0,05 ≈ 490 Pa')}, más de lo que suele variar la presión en una bajante bien ventilada.</p>`
+      },
+      look: ['La cota «sello 5,0 cm» entre las dos líneas.', 'El tramo de bajada del sifón está vacío: solo hay aire.'],
+    },
+    {
+      id: 'pulsar', ph: 'durante', title: 'Pulsas: solo cuesta el primer milímetro',
+      seg: ev => [ev.press - 0.25, ev.press + 0.6], rate: 0.2, parts: ['pulsador', 'obturador'], marks: ['closeFull'], forces: true,
+      html: `<p>El ${T('pulsador', 'pulsador')} tira de una varilla que levanta el ${T('obturador', 'obturador')}: una campana con una junta de goma abajo y una <b>cámara de aire</b> dentro (en blanco). Se abre un hueco de ~5 cm en el fondo de la cisterna y el agua cae por el conducto hasta el ${T('borde', 'borde de la taza')}.</p>
+             <p>Mira las flechas sobre el obturador en la vista lateral y el panel de fuerzas bajo el dibujo.</p>`,
+      phys: {
+        q: '¿Por qué cuesta al principio y luego ya no?',
+        a: `<p><b>1 · Sellado.</b> Debajo del obturador hay aire (el conducto vacío hacia la taza) y encima ~17 cm de agua. Esa diferencia lo aplasta contra el asiento: ${F('F = ρ·g·h·A ≈ 1000 × 9,8 × 0,17 × 0,002 m² ≈ 3,3 N')}, como sostener un tercio de kilo.</p>
+            <p><b>2 · El primer milímetro.</b> Tu dedo tiene que vencer esa fuerza solo mientras la junta se despega. En cuanto entra agua por debajo, la presión es la misma arriba y abajo y <b>la fuerza que lo aplastaba desaparece</b>.</p>
+            <p><b>3 · Sube solo.</b> Sin esa presión solo quedan su peso (~0,5 N) y el empuje de su cámara de aire (~1,6 N mientras está sumergida). Gana el empuje: la campana sube hasta su tope y ya no necesita el pulsador.</p>
+            <p><b>Torricelli.</b> El agua sale a ${F('v = √(2·g·h)')}, unos 2 m/s con los ~24 cm que hay de la superficie al borde de la taza. Por un hueco de ~5 cm, eso son 2–3 litros por segundo.</p>`
+      },
+      look: ['Cámara lenta (0,2×).', 'La flecha azul (presión) se encoge en cuanto la junta se despega.', 'La flecha ámbar (tu dedo) solo aparece al principio; después la verde (empuje) gana a la gris (peso).'],
+    },
+    {
+      id: 'flota', ph: 'durante', title: '¿Por qué el obturador aguanta arriba?',
+      seg: ev => [ev.prime, ev.closeStart - 0.15], rate: 0.5, parts: ['obturador', 'cisterna'], marks: ['closeFull'], forces: true,
+      html: `<p>Ya has soltado el botón y nada lo sujeta: ni muelle ni enganche. Aun así, el ${T('obturador', 'obturador')} sigue arriba mientras la ${T('cisterna', 'cisterna')} se vacía.</p>`,
+      phys: {
+        q: 'Flota gracias a su cámara de aire',
+        a: `<p>La campana es hueca: lleva una cámara cerrada llena de aire (en blanco en el dibujo). Sumergida, desaloja unos 160 cm³ de agua, así que recibe un empuje de ~1,6 N (Arquímedes) y solo pesa ~0,5 N. <b>Empuje mayor que peso</b>: flota contra su tope.</p>
+            <p>Lo único que cambia mientras tanto es el nivel, que baja hacia la cámara de aire. Mientras la cubra, el obturador seguirá arriba.</p>
+            <p>Por eso <b>la altura de esa cámara decide cuánta agua sale</b>: marca la línea «el obturador se cierra aquí».</p>`
+      },
+      look: ['Cámara lenta (0,5×).', 'La flecha verde (empuje) es más larga que la gris (peso).', 'El nivel de la cisterna acercándose a la cámara de aire.'],
+    },
+    {
+      id: 'cebado', ph: 'durante', title: 'Cebado: entra más agua de la que puede salir',
+      seg: ev => [ev.prime - 0.05, ev.siphon + 0.05], rate: 0.25, parts: ['sifon', 'taza'], marks: ['crest'],
+      html: `<p>El agua entra en la taza a 2–3 L/s. El nivel sube por encima de la cresta y empieza a derramarse por el tramo de bajada del ${T('sifon', 'sifón')}… pero no da abasto: el tubo se va llenando de agua hasta quedar taponado.</p>`,
+      phys: {
+        q: '¿Por qué la taza sube por encima de su máximo?',
+        a: `<p>Un vertedero solo deja pasar más caudal si el agua sube más sobre su borde: ${F('Q ∝ h<sup>3/2</sup>')}. Para tragar 2–3 L/s, la taza tiene que subir unos centímetros por encima de la cresta.</p>
+            <p>Ese chorro cae por el tramo de bajada. Si fuera poco (menos de ~1 L/s en este modelo), bajaría pegado a la pared con aire alrededor. Como es mucho, <b>ocupa toda la sección del tubo y expulsa el aire</b>: el sifón queda <b>cebado</b>.</p>`
+      },
+      look: ['El nivel de la taza, por encima de la línea «cresta».', 'El tramo de bajada llenándose de azul (la lectura «Sifón» marca el %).'],
+    },
+    {
+      id: 'sifon', ph: 'durante', title: 'Sifón: la taza se vacía sola',
+      seg: ev => [ev.siphon, ev.brk], rate: 0.35, parts: ['sifon', 'taza', 'bajante'], marks: ['crest', 'inlet'],
+      html: `<p>Con el tubo lleno de agua, el ${T('sifon', 'sifón')} empieza a <b>aspirar</b>. La taza se vacía a ~3 L/s, más deprisa de lo que entra, y el nivel baja <b>por debajo</b> de la cresta, algo imposible sin sifón.</p>
+             <p>Mientras tanto la cisterna sigue vaciándose, cada vez con menos fuerza.</p>
+             <p class="aside"><b>¿Todos los inodoros hacen esto?</b> No. Este es un inodoro <b>sifónico</b>, con un sifón largo pensado para cebarse; es el habitual en Norteamérica. En España y el resto de Europa abundan los de <b>arrastre</b>: el sifón es más corto y ancho, y la descarga empuja el contenido por encima de la cresta a base de caudal, con poco sifonaje (por eso apenas gorgotean). La cisterna, la boya, el obturador y el sello hidráulico funcionan igual en los dos.</p>`,
+      phys: {
+        q: '¿Qué tira del agua? ¿Hasta dónde vacía?',
+        a: `<p>Ahora hay una columna continua de agua a cada lado de la cresta. La de bajada (hasta el suelo, ~25 cm) es mucho más alta que la de subida (desde la superficie de la taza hasta la cresta, unos centímetros). La columna larga pesa más y cae, y al caer deja en la cresta una presión <b>menor que la atmosférica</b>. El aire, que aprieta sobre la superficie de la taza, empuja el agua hacia arriba y por encima de la cresta. Así funciona cualquier sifón.</p>
+            <p><b>¿Hasta dónde?</b> Mientras la boca del sifón siga bajo el agua, la columna no se rompe. Por eso el sifón vacía la taza justo hasta la línea «boca del sifón».</p>
+            <p>La cisterna se vacía cada vez más despacio porque ${F('v = √(2·g·h)')}: al bajar el nivel, baja la velocidad. La válvula de llenado ya está abierta, pero aporta ~0,25 L/s frente a los 2–3 L/s que salen.</p>`
+      },
+      look: ['Las rayas blancas corriendo por todo el sifón.', 'El nivel de la taza acercándose a la línea «boca del sifón».', 'La lectura «A la bajante»: los litros suben deprisa.'],
+    },
+    {
+      id: 'gorgoteo', ph: 'durante', title: '¡Gorgoteo! Entra aire y el sifón se corta',
+      seg: ev => [ev.brk - 0.3, ev.brk + 1.3], rate: 0.4, parts: ['sifon', 'taza'], marks: ['inlet', 'crest'],
+      html: `<p>El nivel ha llegado a la boca del ${T('sifon', 'sifón')}. Por ahí se cuela aire, el agua del tubo se rompe en burbujas y suena el típico gorgoteo. La aspiración se acaba de golpe.</p>`,
+      phys: {
+        q: '¿Por qué se para justo ahí? ¿Por qué queda algo de agua?',
+        a: `<p>El sifón solo funciona con una columna de agua <b>continua</b>. Cuando entra aire por la boca, la columna se parte: ya no hay un peso de agua tirando desde la bajante y la presión en la cresta vuelve a ser la atmosférica. Se acabó la succión.</p>
+            <p>El agua que había en el tramo de subida ya no tiene quien la empuje por encima de la cresta y <b>cae de vuelta a la taza</b>. Por eso, justo después de tirar, la taza nunca queda seca: queda un charco bajo.</p>`
+      },
+      look: ['Las burbujas en la boca del sifón.', 'El nivel de la taza sube un poco al volver el agua del tramo de subida.'],
+    },
+    {
+      id: 'cierre', ph: 'despues', title: 'El obturador baja con el agua y sella',
+      seg: ev => [ev.closeStart - 0.4, ev.closed + 0.6], rate: 0.3, parts: ['obturador', 'media'], marks: ['closeFull'], forces: true,
+      html: `<p>El nivel ha llegado a la cámara de aire del ${T('obturador', 'obturador')}. A partir de aquí la campana ya no puede seguir contra su tope: <b>baja flotando, acompañando al agua</b>, hasta que la junta se posa en el asiento y la cisterna queda cerrada.</p>`,
+      phys: {
+        q: '¿Por qué baja justo ahí? ¿Por qué no se vacía hasta el fondo?',
+        a: `<p><b>El empuje se va perdiendo.</b> Cada milímetro que baja el agua deja otra parte de la cámara de aire fuera. El empuje solo cuenta la parte sumergida, así que mengua: 1,6 N… 1 N… Cuando llega a ~0,5 N (su peso), deja de apretarla contra el tope.</p>
+            <p><b>Baja flotando.</b> Desde ese momento la campana flota como un corcho con un tercio de la cámara sumergida: si el agua baja un milímetro, ella baja un milímetro. Así llega hasta el asiento, siempre a la misma altura: la línea «el obturador se cierra aquí».</p>
+            <p><b>El último milímetro, de golpe.</b> Muy cerca del asiento, el agua pasa a toda velocidad por una rendija estrecha; ahí su presión baja (Bernoulli) y la succión pega la campana contra el asiento. Por eso el cierre final es un «clac» y no un goteo que se va apagando.</p>
+            <p><b>Se sella sola.</b> En cuanto toca el asiento, debajo vuelve a haber aire y encima agua: reaparece la presión que la aplasta (la flecha azul), y crece a medida que la cisterna se rellena. Cierre estanco, sin muelles.</p>
+            <p><b>Fondo muerto.</b> El agua por debajo de esa línea (aquí ~1,5 L) nunca sale. En la media descarga, el botón pequeño engancha la campana al ${T('media', 'flotador de ½ descarga')}, colocado más arriba: cuando el agua lo deja al aire, pesa y tira de la campana hacia abajo con ~3 L.</p>`
+      },
+      look: ['La flecha verde (empuje) se encoge hasta igualar a la gris (peso), y entonces la campana baja con el nivel.', 'Al tocar el asiento vuelve la flecha azul (presión).'],
+    },
+    {
+      id: 'recarga', ph: 'despues', title: 'Recarga: grifo abierto y taza rellenándose',
+      seg: ev => [ev.closed, ev.closed + 12], rate: 2, parts: ['valvula', 'rellenado', 'rebosadero', 'taza'], marks: ['crest'],
+      html: `<p>Con el obturador cerrado, la cisterna empieza a llenarse por la ${T('valvula', 'válvula de llenado')}. No toda el agua se queda en la cisterna: el ${T('rellenado', 'tubo de rellenado')} desvía una parte (aquí, un 25 %) a la boca del ${T('rebosadero', 'rebosadero')}, que la baja directa a la taza.</p>
+             <p>Así la ${T('taza', 'taza')} sube desde el charco que dejó el sifón hasta la cresta y recupera su sello.</p>`,
+      phys: {
+        q: '¿Por qué la taza deja de subir en la cresta?',
+        a: `<p>Es el mismo vertedero del paso 2: en cuanto el agua alcanza la cresta, el sobrante se derrama hacia la bajante.</p>
+            <p>Ese sobrante es un hilo (décimas de litro por segundo), muy lejos del caudal que hace falta para cebar el sifón, así que la taza no se vuelve a vaciar: <b>el sifón solo se dispara con un golpe de agua</b>. Por eso el tubo de rellenado se calibra para dar algo más de lo justo: lo que sobra se va sin hacer daño.</p>`
+      },
+      look: ['Acelerado 2×.', 'El chorrito del tubo de rellenado entrando en el rebosadero.', 'La taza llegando a la línea «cresta» y la cota del sello creciendo.'],
+    },
+    {
+      id: 'subida', ph: 'despues', title: 'La cisterna sube a ritmo constante',
+      seg: ev => [ev.closed + 12, ev.fillEnd - 8], rate: 4, parts: ['boya', 'valvula', 'llave'], marks: ['set'],
+      html: `<p>La ${T('boya', 'boya')} cuelga en lo más bajo de su recorrido, así que la ${T('valvula', 'válvula')} está abierta del todo. El agua sale por un tubo que llega hasta el fondo de la cisterna para hacer menos ruido.</p>`,
+      phys: {
+        q: '¿Por qué sube a ritmo constante (y el vaciado no)?',
+        a: `<p>El caudal lo fijan la presión de la red y el tamaño del orificio de la válvula, <b>no</b> el nivel de la cisterna: la boya está abajo del todo y la válvula, abierta al máximo.</p>
+            <p>La cisterna es casi un prisma (la misma sección a cualquier altura), así que ${F('velocidad de subida = caudal ÷ área')} es constante: el nivel sube como una línea recta.</p>
+            <p>El vaciado era al revés: la salida depende de la altura del agua (${F('v = √(2·g·h)')}) y por eso se iba frenando.</p>`
+      },
+      look: ['Acelerado 4×: la recarga real dura más de medio minuto.', 'La lectura «Llenado» se mantiene fija.', 'La boya aún no toca el agua: cuelga en el tope inferior de su recorrido.'],
+    },
+    {
+      id: 'cierreBoya', ph: 'despues', title: 'La boya cierra el grifo',
+      seg: ev => [ev.fillEnd - 8, ev.fillEnd + 0.6], rate: 1, parts: ['boya', 'valvula'], marks: ['set', 'over'],
+      html: `<p>El agua alcanza la ${T('boya', 'boya')} y la levanta hasta su tope superior. Al subir, su varilla mueve la palanca de la cabeza y va cerrando la ${T('valvula', 'válvula')}: el caudal disminuye en los últimos centímetros y se corta en la línea «cierre de la boya».</p>`,
+      phys: {
+        q: '¿Por qué deja de llenar? ¿Y si fallara?',
+        a: `<p>Es una <b>retroalimentación negativa</b>, como un termostato: el resultado (el nivel) actúa sobre la causa (el caudal). Cuanto más sube el agua, más se hunde la boya, más empuja y más aprieta la válvula, hasta que <b>empuje × palanca</b> iguala la fuerza del agua de la red sobre el orificio.</p>
+            <p>Es un equilibrio estable: si el nivel baja un poco (evaporación, una fuga), la válvula se abre un poco; si sube, aprieta más. No hace falta ningún sensor.</p>
+            <p>Si la válvula fallara y no cerrara, el nivel subiría hasta la «boca del rebosadero» y no más: el sobrante se iría a la taza. La cisterna no puede desbordarse.</p>`
+      },
+      look: ['Tiempo real (1×).', 'La lectura «Llenado» bajando hasta 0,00 L/s.', 'La boya, ya flotando en la superficie.'],
+    },
+    {
+      id: 'fin', ph: 'despues', title: 'Otra vez en reposo',
+      hold: ev => ev.end, parts: [], marks: ['set', 'crest', 'inlet', 'closeFull'],
+      html: ev => `<p>Todo ha vuelto al estado del paso 1 sin un solo componente eléctrico. El ciclo que acabas de ver:</p>
+        <div class="facts">
+          <div class="fact"><b>${fmt(ev.closed - ev.press, 1)} s</b><span>con el obturador abierto</span></div>
+          <div class="fact"><b>${fmt(ev.brk - ev.siphon, 1)} s</b><span>con el sifón aspirando</span></div>
+          <div class="fact"><b>${Math.round(ev.fillEnd - ev.press)} s</b><span>hasta que la boya cerró el grifo</span></div>
+          <div class="fact"><b>${fmt(ev.drained, 1)} L</b><span>a la bajante: lo que soltó la cisterna más lo que sobró al rellenar la taza</span></div>
+        </div>`,
+      phys: {
+        q: 'Resumen: qué detiene cada cosa',
+        a: `<ul>
+              <li><b>La cisterna se llena</b> hasta que empuje de la boya × palanca = presión de la red × orificio.</li>
+              <li><b>La cisterna se vacía</b> hasta que el obturador, que baja flotando con el nivel, se posa en su asiento (línea «el obturador se cierra aquí»).</li>
+              <li><b>La taza se llena</b> hasta la cresta: lo que sobra rebosa como en una presa.</li>
+              <li><b>La taza se vacía</b> hasta la boca del sifón: ahí entra aire y la columna se rompe.</li>
+              <li><b>Nada se desborda</b>: el rebosadero limita la cisterna y la cresta limita la taza.</li>
+            </ul>`
+      },
+    },
+    {
+      id: 'media', ph: 'extra', title: 'Experimento: media descarga',
+      live: { enter: () => flush('half') }, parts: ['media', 'obturador'], marks: ['closeHalf', 'closeFull'], forces: true,
+      html: `<p>A partir de aquí la simulación va en vivo. El botón pequeño levanta el ${T('obturador', 'obturador')} igual que el grande, pero además lo engancha al ${T('media', 'flotador de ½ descarga')} (en la vista frontal se ve la varilla que los une). Cuando el nivel baja de la línea «cierre ½», ese flotador queda al aire, pesa y tira de la campana hacia abajo aunque su cámara de aire siga sumergida: salen ~3 L.</p>
+             <div class="try"><button class="btn primary" type="button" data-action="half">Media descarga</button><button class="btn" type="button" data-action="full">Descarga completa</button><button class="btn" type="button" data-action="reset">Reiniciar</button></div>`,
+      phys: {
+        q: '¿Por qué con 3 L también se ceba el sifón?',
+        a: `<p>Lo que ceba el sifón es el <b>caudal</b>, no el volumen. Al principio de cualquier descarga la cisterna está llena y el agua sale a 2–3 L/s, de sobra para taponar el tubo. La media descarga dura menos, pero arranca igual de fuerte.</p>`
+      },
+      look: ['La pieza amarilla de la vista frontal es el flotador de ½. En reposo y en la descarga completa está suelto en su guía, a la altura «cierre ½», y no hace nada.', 'Con el botón pequeño, una varilla rígida lo une a la campana: suben juntos y, cuando el agua lo deja al aire, pesa y la arrastra hacia abajo.', 'En el panel de fuerzas aparece su tirón (↓ Flotador ½) justo cuando se cierra.'],
+    },
+    {
+      id: 'cubo', ph: 'extra', title: 'Experimento: el mismo cubo, deprisa o despacio',
+      live: {}, parts: ['sifon'], marks: ['crest', 'inlet'],
+      html: `<p>Echa 5 litros directamente en la taza, como en un corte de agua. Mismo volumen, dos velocidades:</p>
+             <div class="try"><button class="btn primary" type="button" data-action="pourFast">Cubo de golpe</button><button class="btn" type="button" data-action="pourSlow">Cubo despacio</button><button class="btn" type="button" data-action="reset">Reiniciar</button></div>`,
+      phys: {
+        q: '¿Por qué importa la velocidad?',
+        a: `<p>Despacio, el sobrante se derrama por la cresta y baja por el tubo mezclado con aire: el nivel apenas se mueve y no pasa nada. De golpe, la cresta no da abasto (${F('Q ∝ h<sup>3/2</sup>')}), el tubo se llena, el sifón se ceba y vacía la taza.</p>
+            <p>Fíjate en cómo queda la taza tras el cubo de golpe: baja y con poco sello, porque no hay tubo de rellenado que la reponga.</p>`
+      },
+    },
+    {
+      id: 'boya', ph: 'extra', title: 'Experimento: ajusta la boya',
+      live: {}, parts: ['boya'], marks: ['set', 'over', 'closeFull'],
+      html: `<p>Mueve la altura a la que cierra la ${T('boya', 'boya')} y descarga. El volumen de cada descarga es ${F('área de la cisterna × (cierre de la boya − línea del obturador)')}.</p>
+             <div class="slider"><span>Altura de cierre</span><input type="range" id="setSlider" min="200" max="300" step="1" value="229"><output id="setOut">6,0 L</output></div>
+             <div class="try"><button class="btn primary" type="button" data-action="full">Descarga completa</button><button class="btn" type="button" data-action="reset">Reiniciar</button></div>`,
+      phys: {
+        q: '¿Qué pasa en los extremos?',
+        a: `<p><b>Muy baja</b> (menos de ~2,5 L aquí): al empezar la descarga hay poca altura de agua, el caudal es menor y dura poco, así que el tramo de bajada no llega a llenarse. La taza sube y vuelve a bajar sin gorgoteo: <b>no se ceba el sifón</b>.</p>
+            <p><b>Por encima del rebosadero</b>: el nivel nunca llega a la altura de cierre, porque el rebosadero se lo lleva antes. La válvula no cierra jamás y el agua corre sin parar hacia la taza.</p>`
+      },
+    },
+    {
+      id: 'averias', ph: 'extra', title: 'Experimento: averías típicas',
+      live: {}, parts: ['obturador', 'boya', 'llave'], marks: ['set', 'over'],
+      html: `<p>Con el mecanismo en la cabeza, casi todas las averías se diagnostican mirando:</p>
+             <div class="try"><button class="btn" type="button" id="leakBtn" data-action="leak">Junta que pierde: no</button><button class="btn" type="button" data-action="boyaAlta">Boya demasiado alta</button><button class="btn" type="button" data-action="boyaOk">Boya bien</button><button class="btn" type="button" id="supplyBtn" data-action="supply">Llave de paso: abierta</button></div>
+             <div class="try"><button class="btn primary" type="button" data-action="full">Descarga completa</button><button class="btn" type="button" data-action="reset">Reiniciar</button></div>`,
+      phys: {
+        q: 'La física de cada síntoma',
+        a: `<p><b>Junta que pierde → «se rellena sola».</b> Un hilillo escapa a la taza, el nivel baja unos milímetros y la boya reabre la válvula un momento. La válvula tiene algo de rozamiento (histéresis), así que no gotea continuamente: hace ciclos cortos, la «descarga fantasma». Prueba: unas gotas de colorante en la cisterna; si aparece en la taza sin pulsar, pierde.</p>
+            <p><b>Boya alta → agua corriendo sin parar.</b> El rebosadero marca el techo, el nivel no llega nunca al cierre y la válvula no cierra.</p>
+            <p><b>Llave cerrada → taza con sello débil.</b> Sin agua de la red, el tubo de rellenado no repone la taza tras el sifón y queda poca agua entre la cresta y la boca: pueden subir olores. Lo mismo pasa en un baño que no se usa en meses, por evaporación.</p>`
+      },
+    },
+  ];
+
+  // ---------------- step navigation ----------------
+  let cur = 0, playT = 0, seg = null, segDone = false, holdT = 0;
+
+  function buildTrack() {
+    const groups = {};
+    STEPS.forEach((st, i) => { (groups[st.ph] = groups[st.ph] || []).push(i); });
+    $('track').innerHTML = Object.keys(groups).map(ph =>
+      `<div class="grp" data-ph="${ph}"><span class="grp-name">${PH[ph]}</span><div class="dots">${
+        groups[ph].map(i => `<button class="dot" type="button" data-i="${i}" title="${i + 1}. ${STEPS[i].title}" aria-label="Paso ${i + 1}: ${STEPS[i].title}"></button>`).join('')
+      }</div></div>`).join('');
+  }
+  $('track').addEventListener('click', e => { const d = e.target.closest('.dot'); if (d) goStep(+d.dataset.i); });
+
+  function goStep(i) {
+    cur = clamp(i, 0, STEPS.length - 1);
+    const st = STEPS[cur];
+    if (st.live) {
+      mode = 'live'; seg = null; segDone = true;
+      freshLive();
+      if (st.live.enter) st.live.enter();
+    } else {
+      mode = 'replay';
+      if (st.seg) { seg = st.seg(REC.ev); rate = st.rate; playT = seg[0]; segDone = false; }
+      else { seg = null; rate = 1; playT = st.hold(REC.ev); segDone = true; }
+      S = frameAt(playT);
+    }
+    holdT = 0;
+    showForces = !!st.forces;
+    $('forces').hidden = !showForces;
+    lastPanel = 0;
+    activeMarks = new Set(st.marks || []);
+    Object.values(markEls).forEach(m => { m.lastY = null; });
+    setStepParts(st.parts || []);
+    renderCard(st);
+    updateChrome(st);
+    updateFlowSpeed();
+    syncControls();
+    tab = 'ciclo'; part = null;
+    setZoom(null);
+    setTabUI();
+  }
+
+  function renderCard(st) {
+    const ev = REC.ev;
+    let h = `<div class="card-meta"><span class="tag ${st.ph}">${PH[st.ph]}</span><span>Paso ${cur + 1} de ${STEPS.length}</span></div>
+             <h2>${st.title}</h2>${typeof st.html === 'function' ? st.html(ev) : st.html}`;
+    if (st.phys) h += `<div class="phys"><h3>La física · ${st.phys.q}</h3>${st.phys.a}</div>`;
+    if (st.look) h += `<div class="look"><b>Fíjate en</b><ul>${st.look.map(x => `<li>${x}</li>`).join('')}</ul></div>`;
+    card.innerHTML = h;
+    card.scrollTop = 0;
+  }
+
+  const rateText = r => (r < 1 ? 'cámara lenta ' : r > 1 ? 'acelerado ' : 'tiempo real ') + String(r).replace('.', ',') + '×';
+  function updateChrome(st) {
+    $('barStep').textContent = `${PH[st.ph]} · paso ${cur + 1} de ${STEPS.length}`;
+    $('rateBadge').textContent = st.live ? 'simulación en vivo' : seg ? rateText(rate) : 'imagen fija';
+    $('speedWrap').hidden = !st.live;
+    $('player').style.visibility = seg ? 'visible' : 'hidden';
+    $('prevBtn').disabled = cur === 0;
+    $('nextBtn').disabled = cur === STEPS.length - 1;
+    $('nextBtn').classList.remove('pulse');
+    document.querySelectorAll('#track .dot').forEach(d => {
+      const i = +d.dataset.i;
+      d.classList.toggle('cur', i === cur);
+      d.classList.toggle('done', i < cur);
+    });
+    document.querySelectorAll('#track .grp').forEach(g => g.classList.toggle('cur', g.dataset.ph === st.ph));
+  }
+
+  $('prevBtn').addEventListener('click', () => goStep(cur - 1));
+  $('nextBtn').addEventListener('click', () => goStep(cur + 1));
+  $('replayBtn').addEventListener('click', () => { if (seg) { playT = seg[0]; segDone = false; holdT = 0; } });
+  document.addEventListener('keydown', e => {
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+    const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    if (!d) return;
+    e.preventDefault();
+    if (tab === 'ciclo') goStep(cur + d); else openPart(clamp(tab + d, 0, PARTS.length - 1), 0);
+  });
+
+  // ---------------- part-by-part tabs ----------------
+  // Each tab replays its own scenario from an initial to a final state, zoomed on its part.
+
+  // Record a scripted scenario with the same physics. events: [[t, fn]], fn acts on S.
+  function recordScenario({ events = [], until, maxT = 60, every = 1 }) {
+    const keep = S;
+    S = initialState();
+    const frames = [], m = {}, evs = events.slice();
+    let t = 0;
+    for (let i = 0; i < 240 * maxT; i++) {
+      while (evs.length && t >= evs[0][0]) evs.shift()[1]();
+      step(DT); t += DT;
+      if (m.up === undefined && S.lift >= 0.5) m.up = t;
+      if (m.up !== undefined && m.closed === undefined && S.lift <= 0) m.closed = t;
+      if (m.siphon === undefined && S.siphon) m.siphon = t;
+      if (m.brk === undefined && S.gurgle > 0) m.brk = t;
+      if ((S.f.qFill || 0) > 0.003) m.fillEnd = t;
+      if (i % every === 0) frames.push(Object.assign({}, S, { f: Object.assign({}, S.f) }));
+      if (until && until(m, t)) break;
+    }
+    m.end = t;
+    S = keep;
+    return { frames, fps: 240 / every, m };
+  }
+  const MAIN = { frames: REC.frames, fps: 240, m: REC.ev };
+  const frameOf = (src, t) => src.frames[clamp(Math.round(t * src.fps) - 1, 0, src.frames.length - 1)];
+
+  const PARTS = [
+    {
+      id: 'llave', tab: 'Llave de paso', kind: 'Pieza', parts: ['llave', 'valvula'], marks: ['set'],
+      zoom: { F: [400, 330, 1.7] },
+      variants: [{
+        rec: () => recordScenario({ events: [[0, () => { S.supply = false; }], [0.3, () => flush('full')], [6, () => { S.supply = true; }]],
+          until: (m, t) => t > 8 && m.fillEnd !== undefined && t > m.fillEnd + 1.5, maxT: 70, every: 4 }),
+        seg: m => [5.5, m.fillEnd + 1], rate: 4,
+      }],
+      what: `La ${T('llave', 'llave de paso')} (llave de escuadra) es el grifo de la pared que da o corta el agua de la red a la cisterna. Un latiguillo flexible la une con la ${T('valvula', 'válvula de llenado')}.`,
+      init: 'Llave cerrada (maneta girada) después de una descarga: la cisterna se ha quedado vacía. La válvula de llenado está abierta, pero no le llega agua.',
+      fin: 'Llave abierta: el agua sube por el latiguillo, la cisterna se llena y la boya cierra la válvula.',
+      phys: {
+        q: '¿Qué controla y qué no?',
+        a: `<p>La llave solo decide <b>si llega</b> agua, no <b>cuánta</b> entra en la cisterna: eso lo decide la boya. Abierta, la red empuja a 2–4 bar contra la válvula; cerrada, la presión se queda en la pared.</p>
+            <p>Por eso sirve para reparar: ciérrala, descarga, y tendrás la cisterna vacía y sin presión para trabajar.</p>`
+      },
+      look: ['La maneta roja: girada 90°, cerrada.', 'Las rayas en el latiguillo: agua en movimiento solo con la llave abierta y la válvula pidiendo agua.'],
+    },
+    {
+      id: 'boya', tab: 'Boya y válvula', kind: 'Pieza', parts: ['boya', 'valvula'], marks: ['set'],
+      zoom: { F: [330, 265, 2.0] },
+      variants: [{ src: MAIN, seg: m => [m.closed, m.fillEnd + 0.8], rate: 4 }],
+      what: `La ${T('valvula', 'válvula de llenado')} deja pasar el agua de la red. La gobierna la ${T('boya', 'boya')}, un flotador que sube y baja por su cuerpo entre dos topes y que, con una varilla y una pequeña palanca, abre o tapa un orificio de pocos milímetros.`,
+      init: 'Justo después de descargar: cisterna casi vacía, boya colgando en su tope inferior y válvula abierta del todo (~0,25 L/s).',
+      fin: 'Cisterna llena: la boya ha subido hasta su tope superior y la válvula está cerrada. Caudal cero.',
+      phys: {
+        q: '¿Por qué empieza a llenar y por qué se para?',
+        a: `<p><b>Empieza</b> porque, al bajar el agua, la boya deja de flotar y su peso abre la válvula. Mientras cuelga, el caudal es constante (lo fijan la presión de la red y el orificio), así que el nivel sube en línea recta.</p>
+            <p><b>Se para</b> porque en los últimos centímetros el agua levanta la boya. Su empuje (Arquímedes), multiplicado unas 10 veces por la palanca, va tapando el orificio: el caudal baja y se corta cuando ${F('empuje × palanca = presión × área')} (~1,5 N con un orificio de 2,5 mm a 3 bar). Ese punto es su tope superior.</p>`
+      },
+      look: ['La lectura «Llenado»: fija casi todo el rato, cae al final.', 'La boya despegándose del tope inferior cuando el agua la alcanza.'],
+    },
+    {
+      id: 'rebosadero', tab: 'Rebosadero', kind: 'Pieza de seguridad', parts: ['rebosadero', 'boya'], marks: ['over', 'set'],
+      zoom: { F: [290, 250, 1.8], S: [560, 330, 1.3] },
+      variants: [{
+        rec: () => recordScenario({ events: [[0.2, () => { S.setY = OVER_Y - 15; }]], maxT: 26, every: 4 }),
+        seg: () => [0, 25], rate: 2.5,
+      }],
+      what: `El ${T('rebosadero', 'rebosadero')} es un tubo abierto por arriba que baja directo a la taza: la salida de emergencia de la cisterna. El agua nunca puede pasar de su boca.`,
+      init: 'Alguien ha ajustado la boya demasiado alta: su línea de cierre queda por encima de la boca del rebosadero. La cisterna está a su nivel normal y la válvula empieza a abrir.',
+      fin: 'El nivel se ha quedado clavado en la boca del rebosadero. El agua entra por la válvula y se va por el tubo a la taza, sin parar: la boya nunca llega a su cierre.',
+      phys: {
+        q: '¿Por qué el nivel no sube más?',
+        a: `<p>La boca del rebosadero funciona como un vertedero: en cuanto el agua la alcanza, todo lo que entra se derrama por ella. Para tragar los 0,25 L/s de la válvula basta con que el nivel la supere un par de milímetros.</p>
+            <p>Por eso la boya debe cerrar ~2 cm por debajo. Si cierra por encima, la válvula no cierra nunca y corre agua a la taza día y noche: un hilillo que no se ve pero se paga.</p>`
+      },
+      look: ['El chorro dentro del rebosadero y el hilillo que llega a la taza.', 'La lectura «Llenado»: nunca vuelve a cero.'],
+    },
+    {
+      id: 'obturador', tab: 'Pulsador y obturador', kind: 'Pieza', parts: ['pulsador', 'obturador'], marks: ['closeFull'], forces: true,
+      zoom: { S: [632, 285, 2.6], F: [270, 280, 1.5] },
+      variants: [{ src: MAIN, seg: m => [m.press - 0.3, m.closed + 0.6], rate: 0.3 }],
+      what: `El ${T('obturador', 'obturador')} (campana) tapa el agujero del fondo de la cisterna: junta de goma abajo y cámara de aire dentro. El ${T('pulsador', 'pulsador')} lo levanta con una varilla.`,
+      init: 'Sellado con la cisterna llena: la presión del agua (~3 N) lo aplasta contra su asiento.',
+      fin: 'Sellado otra vez, con la cisterna vaciada hasta la línea «el obturador se cierra aquí».',
+      phys: {
+        q: '¿Por qué se abre, aguanta y se cierra solo?',
+        a: `<p><b>Abrir:</b> el dedo solo vence la presión el primer milímetro; en cuanto entra agua por debajo, la presión se iguala.</p>
+            <p><b>Aguantar:</b> flota. Su cámara de aire da ~1,6 N de empuje frente a ~0,5 N de peso, y nada más lo sujeta.</p>
+            <p><b>Cerrar:</b> cuando el nivel alcanza la cámara, el empuje baja hasta igualar el peso y la campana desciende con el agua. El último milímetro se cierra de golpe (succión de Bernoulli) y la presión del agua lo vuelve a sellar.</p>`
+      },
+      look: ['Las flechas sobre el obturador en la vista lateral y el panel de fuerzas.', 'Cámara lenta (0,3×).'],
+    },
+    {
+      id: 'media', tab: 'Media descarga', kind: 'Pieza', parts: ['media', 'obturador', 'pulsador'], marks: ['closeHalf', 'closeFull'], forces: true,
+      zoom: { F: [255, 265, 2.0] },
+      variants: [{
+        rec: () => recordScenario({ events: [[0.5, () => flush('half')]], until: (m, t) => m.closed !== undefined && t > m.closed + 1, maxT: 12 }),
+        seg: m => [0.3, m.closed + 0.6], rate: 0.4,
+      }],
+      what: `El botón pequeño levanta el mismo obturador, pero además lo engancha con una varilla rígida al ${T('media', 'flotador de ½ descarga')}, que está más arriba.`,
+      init: 'Cisterna llena. El flotador de ½ está suelto en su guía, a la altura «cierre ½».',
+      fin: 'Han salido ~3 L: el obturador se ha cerrado en la línea «cierre ½» y la cisterna conserva la otra mitad.',
+      phys: {
+        q: '¿Por qué se cierra antes?',
+        a: `<p>Mientras el flotador de ½ está bajo el agua, su empuje compensa su peso y no tira de nada. Cuando el nivel baja de él deja de flotar, y su peso arrastra la campana hacia abajo aunque la cámara de aire del obturador siga sumergida (en el panel: ↓ Flotador ½).</p>
+            <p>Lo que decide cuántos litros salen es la altura de ese flotador: más alto, menos agua.</p>`
+      },
+      look: ['La varilla que une flotador y campana: solo existe con el botón pequeño.', 'El flotador de ½ quedando al aire justo antes del cierre.'],
+    },
+    {
+      id: 'borde', tab: 'Borde de la taza', kind: 'Pieza', parts: ['borde', 'taza'], marks: [],
+      zoom: { S: [380, 430, 1.5], F: [270, 440, 1.4] },
+      variants: [{ src: MAIN, seg: m => [m.press, m.press + 1.6], rate: 0.25 }],
+      what: `El agua de la cisterna no cae a la taza directamente: entra en un ${T('borde', 'canal hueco')} que rodea el borde por dentro y sale por agujeros repartidos bajo el reborde.`,
+      init: 'Antes de pulsar: el canal del borde está vacío y las paredes de la taza, secas.',
+      fin: 'El agua baja como una cortina por todas las paredes y la taza sube por encima de la cresta.',
+      phys: {
+        q: '¿Para qué tanto rodeo?',
+        a: `<p>Repartir el agua por toda la pared limpia la taza entera, no solo el fondo. Los agujeros están inclinados para que el agua gire y frote.</p>
+            <p>Y hay que meterla deprisa (2–3 L/s) para cebar el sifón. Si la cal tapa los agujeros, entra más despacio: limpia peor y el sifón puede no cebarse.</p>`
+      },
+      look: ['En la vista frontal, el canal cortado a ambos lados (círculos) llenándose.', 'Las cortinas de agua por la pared delantera y trasera.'],
+    },
+    {
+      id: 'sifon', tab: 'Sifón', kind: 'Concepto', parts: ['sifon', 'taza', 'bajante'], marks: ['crest', 'inlet'],
+      zoom: { S: [440, 520, 1.5] },
+      variants: [{ src: MAIN, seg: m => [m.press - 0.1, m.brk + 1.0], rate: 0.35 }],
+      what: `El ${T('sifon', 'sifón')} es el conducto en forma de S invertida que hay detrás de la taza: sube hasta una cresta y baja a la ${T('bajante', 'bajante')}.`,
+      init: 'Taza en reposo: agua quieta a la altura de la cresta y tramo de bajada vacío.',
+      fin: 'Tras aspirar, la taza se ha vaciado hasta la boca del sifón y ha gorgoteado.',
+      phys: {
+        q: '¿Qué arranca la succión y qué la detiene?',
+        a: `<p><b>Arranca</b> cuando el agua entra más deprisa de lo que la cresta puede verter: el tramo de bajada se llena (cebado).</p>
+            <p><b>Aspira</b> porque la columna que cae (~25 cm) pesa más que la de subida y deja la cresta por debajo de la presión atmosférica. El aire, que aprieta la superficie de la taza, empuja el agua por encima de la cresta.</p>
+            <p><b>Se detiene</b> cuando el nivel llega a la boca: entra aire, la columna se rompe y suena el gorgoteo.</p>
+            <p class="aside">En España abundan los inodoros de <b>arrastre</b>, que vacían la taza empujando con caudal y apenas hacen sifón. Este modelo es <b>sifónico</b>, el típico de Norteamérica.</p>`
+      },
+      look: ['La lectura «Sifón»: cebando %, aspirando, roto.', 'El nivel cruzando la cresta hacia abajo: imposible sin sifón.'],
+    },
+    {
+      id: 'caudal', tab: 'Caudal y cebado', kind: 'Concepto', parts: ['sifon', 'taza'], marks: ['crest', 'inlet'],
+      zoom: { S: [420, 470, 1.4] },
+      variants: [
+        { label: 'Cubo de golpe', rec: () => recordScenario({ events: [[0.5, () => pour(5, 4.2)]], maxT: 8 }), seg: () => [0.3, 7.5], rate: 0.6,
+          fin: 'El sifón se ha cebado y ha vaciado la taza. Queda poca agua, porque aquí nadie la repone.' },
+        { label: 'Cubo despacio', rec: () => recordScenario({ events: [[0.5, () => pour(5, 0.35)]], maxT: 20, every: 2 }), seg: () => [0.3, 19], rate: 2,
+          fin: 'No ha pasado nada: el sobrante se ha ido por la cresta y la taza sigue a su nivel.' },
+      ],
+      what: 'El mismo volumen, 5 litros, echado en la taza a dos velocidades distintas. Elige cómo:',
+      init: 'Taza en reposo, con el agua a la altura de la cresta.',
+      phys: {
+        q: '¿Por qué importa la velocidad y no la cantidad?',
+        a: `<p>La cresta funciona como un vertedero: deja pasar más caudal cuanto más sube el agua sobre ella (${F('Q ∝ h<sup>3/2</sup>')}).</p>
+            <p><b>Despacio</b> (0,35 L/s), el sobrante resbala por el tramo de bajada mezclado con aire y nunca lo llena. <b>De golpe</b> (4 L/s), la cresta no da abasto, la taza sube, el tramo de bajada se llena entero y el sifón se ceba.</p>`
+      },
+      look: ['La lectura «Sifón»: con el cubo despacio nunca pasa de «en reposo».'],
+    },
+    {
+      id: 'sello', tab: 'Rellenado y sello', kind: 'Concepto', parts: ['rellenado', 'rebosadero', 'taza'], marks: ['crest', 'inlet'],
+      zoom: { S: [400, 505, 1.8] },
+      variants: [
+        { label: 'Con tubo de rellenado', src: MAIN, seg: m => [m.brk + 0.3, m.closed + 16], rate: 2.5,
+          fin: 'La taza ha vuelto a la cresta: ~5 cm de sello entre la superficie y la boca del sifón.' },
+        { label: 'Sin rellenado (cubo en un corte de agua)', rec: () => recordScenario({ events: [[0.5, () => pour(5, 4.2)]], maxT: 9 }), seg: m => [m.brk + 0.1, 8.5], rate: 1,
+          fin: 'La taza se queda baja, con apenas 2–3 cm de sello: pueden subir olores del desagüe hasta que alguien eche agua.' },
+      ],
+      what: `Después del gorgoteo la taza queda baja. El ${T('rellenado', 'tubo de rellenado')} desvía parte del agua de la válvula (aquí un 25 %) a la boca del ${T('rebosadero', 'rebosadero')}, que la lleva directa a la taza.`,
+      init: 'Justo después del gorgoteo: la taza se ha quedado baja, con poco sello.',
+      phys: {
+        q: '¿Por qué la taza se para en la cresta?',
+        a: `<p>Es un vertedero: al llegar a la cresta, el sobrante se derrama hacia la bajante. Ese sobrante es un hilo, muy lejos del caudal que cebaría el sifón, así que la taza no se vuelve a vaciar.</p>
+            <p>El sello hidráulico, los ~5 cm de agua entre la cresta y la boca, tapa el paso a los gases del alcantarillado: para colarse tendrían que empujar ${F('ρ·g·h ≈ 490 Pa')}.</p>`
+      },
+      look: ['La cota «sello» creciendo.', 'Sin rellenado: el aviso «Sello débil» y el olor.'],
+    },
+    {
+      id: 'fuga', tab: 'Fuga', kind: 'Avería', parts: ['obturador', 'boya', 'valvula'], marks: ['set'],
+      zoom: { F: [300, 275, 1.6] },
+      variants: [{
+        rec: () => recordScenario({ events: [[0.2, () => { S.leak = true; }]], maxT: 45, every: 4 }),
+        seg: () => [0, 44], rate: 4,
+      }],
+      what: 'Una junta del obturador gastada o con cal deja escapar un hilillo de agua hacia la taza.',
+      init: 'Cisterna llena y en reposo, pero con la junta dañada.',
+      fin: 'La cisterna se ha rellenado sola varias veces: cada vez que el nivel baja unos milímetros, la boya reabre la válvula un momento.',
+      phys: {
+        q: '¿Por qué se rellena a golpes y no poco a poco?',
+        a: `<p>La fuga baja el nivel muy despacio. La válvula tiene algo de rozamiento (histéresis): no reabre hasta que la boya ha bajado unos milímetros, y entonces repone el agua y vuelve a cerrar. Es la «descarga fantasma».</p>
+            <p>Prueba del colorante: echa unas gotas en la cisterna y no tires en media hora. Si el color aparece en la taza, la junta pierde.</p>`
+      },
+      look: ['La lectura «Llenado» encendiéndose a ratos.', 'El hilillo constante por la pared de la taza.'],
+    },
+  ];
+
+  // ---- zoom: each view eases toward a target viewBox (same aspect ratio as the base one)
+  const VIEWS = { S: { el: $('svgSide'), x: 20, y: 84, w: 700, h: 606 }, F: { el: $('svgFront'), x: 0, y: 84, w: 540, h: 606 } };
+  Object.values(VIEWS).forEach(v => { v.cur = { x: v.x, y: v.y, w: v.w, h: v.h }; v.tgt = { ...v.cur }; });
+  function setZoom(spec) {
+    ['S', 'F'].forEach(k => {
+      const v = VIEWS[k], z = spec && spec[k];
+      if (!z) { v.tgt = { x: v.x, y: v.y, w: v.w, h: v.h }; return; }
+      const [cx, cy, f] = z, w = v.w / f, h = v.h / f;
+      v.tgt = { x: clamp(cx - w / 2, v.x, v.x + v.w - w), y: clamp(cy - h / 2, v.y, v.y + v.h - h), w, h };
+    });
+  }
+  function stepZoom(dt) {
+    const a = Math.min(1, dt * 5);
+    Object.values(VIEWS).forEach(v => {
+      let moved = false;
+      ['x', 'y', 'w', 'h'].forEach(k => {
+        const d = v.tgt[k] - v.cur[k];
+        if (Math.abs(d) > 0.05) { v.cur[k] += d * a; moved = true; } else v.cur[k] = v.tgt[k];
+      });
+      if (moved || v.dirty !== false) { v.el.setAttribute('viewBox', `${v.cur.x} ${v.cur.y} ${v.cur.w} ${v.cur.h}`); v.dirty = moved; }
+    });
+  }
+
+  // ---- part playback
+  let tab = 'ciclo', part = null, pv = 0, pSrc = null, pSeg = null, pPlaying = false, pAuto = 0;
+
+  function buildTabs() {
+    $('tabs').innerHTML = `<button class="tab" type="button" data-tab="ciclo">Ciclo completo</button>` +
+      PARTS.map((p, i) => `<button class="tab" type="button" data-tab="${i}">${p.tab}</button>`).join('');
+  }
+  $('tabs').addEventListener('click', e => {
+    const b = e.target.closest('.tab');
+    if (!b) return;
+    if (b.dataset.tab === 'ciclo') goStep(cur); else openPart(+b.dataset.tab, 0);
+  });
+
+  function setTabUI() {
+    document.querySelectorAll('#tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.tab === String(tab)));
+    const cycle = tab === 'ciclo';
+    $('track').hidden = !cycle;
+    document.querySelector('.navbtns').hidden = !cycle;
+    $('player').hidden = !cycle;
+    $('pplayer').hidden = cycle;
+    stage.classList.toggle('focus-mode', !cycle);
+  }
+
+  function openPart(i, variant) {
+    tab = i; part = PARTS[i]; pv = variant || 0;
+    const v = part.variants[pv];
+    if (!v.cache) v.cache = v.src || v.rec();
+    pSrc = v.cache;
+    pSeg = v.seg(pSrc.m);
+    mode = 'part'; rate = v.rate; seg = null;
+    playT = pSeg[0]; pPlaying = false; pAuto = 1.3;
+    S = frameOf(pSrc, playT);
+    showForces = !!part.forces;
+    $('forces').hidden = !showForces;
+    lastPanel = 0;
+    activeMarks = new Set(part.marks || []);
+    Object.values(markEls).forEach(m => { m.lastY = null; });
+    setStepParts(part.parts);
+    setZoom(part.zoom);
+    renderPartCard();
+    lastStateKey = '';
+    setTabUI();
+    $('barStep').textContent = `${part.tab} · ${part.kind}`;
+    $('rateBadge').textContent = rateText(rate);
+    $('speedWrap').hidden = true;
+    updateFlowSpeed();
+    syncControls();
+    updatePartUI();
+  }
+
+  function renderPartCard() {
+    const v = part.variants[pv];
+    let h = `<div class="card-meta"><span class="tag pieza">${part.kind}</span><span>${PARTS.indexOf(part) + 1} de ${PARTS.length}</span></div>
+             <h2>${part.tab}</h2><p>${part.what}</p>`;
+    if (part.variants.length > 1) {
+      h += `<div class="variants">${part.variants.map((x, i) => `<button class="btn${i === pv ? ' primary' : ''}" type="button" data-variant="${i}">${x.label}</button>`).join('')}</div>`;
+    }
+    h += `<div class="states">
+            <div class="state" id="stInit"><b>Estado inicial</b><p>${v.init || part.init}</p></div>
+            <div class="state" id="stFinal"><b>Estado final</b><p>${v.fin || part.fin}</p></div>
+          </div>`;
+    h += `<div class="phys"><h3>La física · ${part.phys.q}</h3>${part.phys.a}</div>`;
+    if (part.look) h += `<div class="look"><b>Fíjate en</b><ul>${part.look.map(x => `<li>${x}</li>`).join('')}</ul></div>`;
+    card.innerHTML = h;
+    card.scrollTop = 0;
+  }
+  card.addEventListener('click', e => { const b = e.target.closest('[data-variant]'); if (b && part) openPart(tab, +b.dataset.variant); });
+
+  function partFrac() { return clamp((playT - pSeg[0]) / (pSeg[1] - pSeg[0]), 0, 1); }
+  let lastStateKey = '';
+  function updatePartUI() {
+    const f = partFrac();
+    $('pScrub').value = Math.round(f * 1000);
+    const key = f < 0.005 ? 'init' : f > 0.995 ? 'fin' : 'mid';
+    $('pPlay').textContent = pPlaying ? '❚❚ Pausa' : f > 0.995 ? '↻ Repetir' : '▶ Reproducir';
+    if (key !== lastStateKey) {
+      lastStateKey = key;
+      $('stInit').classList.toggle('on', key === 'init');
+      $('stFinal').classList.toggle('on', key === 'fin');
+      $('pState').textContent = key === 'init' ? 'Estado inicial' : key === 'fin' ? 'Estado final' : 'En curso…';
+    }
+  }
+  function seekPart(f) { playT = pSeg[0] + f * (pSeg[1] - pSeg[0]); S = frameOf(pSrc, playT); }
+  $('pInit').addEventListener('click', () => { pPlaying = false; pAuto = 0; seekPart(0); updatePartUI(); });
+  $('pFinal').addEventListener('click', () => { pPlaying = false; pAuto = 0; seekPart(1); updatePartUI(); });
+  $('pPlay').addEventListener('click', () => {
+    pAuto = 0;
+    if (pPlaying) pPlaying = false;
+    else { if (partFrac() > 0.995) seekPart(0); pPlaying = true; }
+    updatePartUI();
+  });
+  $('pScrub').addEventListener('input', e => { pPlaying = false; pAuto = 0; seekPart(+e.target.value / 1000); updatePartUI(); });
+
+  function stepPart(dt) {
+    if (pAuto > 0 && (pAuto -= dt) <= 0) pPlaying = true; // show the initial state for a moment, then play
+    if (!pPlaying) return;
+    playT = Math.min(pSeg[1], playT + dt * rate);
+    S = frameOf(pSrc, playT);
+    if (playT >= pSeg[1]) pPlaying = false; // stop on the final state
+    updatePartUI();
+  }
+
+  // ---------------- loop ----------------
+  let last = performance.now();
+  function frame(ts) {
+    const dt = Math.min(0.1, (ts - last) / 1000);
+    last = ts;
+    if (!paused) {
+      if (mode === 'live') {
+        let sim = dt * speed;
+        while (sim > 1e-9) { const d = Math.min(DT, sim); step(d); sim -= d; }
+      } else if (mode === 'part') {
+        stepPart(dt);
+      } else if (seg) {
+        if (!segDone) {
+          playT = Math.min(seg[1], playT + dt * rate);
+          S = frameAt(playT);
+          if (playT >= seg[1]) { segDone = true; holdT = 0; $('nextBtn').classList.add('pulse'); }
+        } else if ((holdT += dt) > 1.6) {
+          // loop the slice so the step can be watched again
+          playT = seg[0]; segDone = false;
+        }
+      }
+    }
+    if (seg) $('progBar').style.width = clamp((playT - seg[0]) / (seg[1] - seg[0]), 0, 1) * 100 + '%';
+    stepZoom(dt);
+    render();
+    requestAnimationFrame(frame);
+  }
+  buildTrack();
+  buildTabs();
+  goStep(0);
+  requestAnimationFrame(frame);
+
+  // debugging hook (read-only use from the console)
+  window.inodoroSim = { get state() { return S; }, step, REC, goStep, openPart, PARTS, get step_() { return cur; },
+    seek(t) { playT = t; S = frameAt(t); render(); renderPanel(0, false); } };
+})();
+</script>
+</body>
+</html>

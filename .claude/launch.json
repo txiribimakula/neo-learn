@@ -84,6 +84,18 @@
         "kubernetes"
       ],
       "port": 8130
+    },
+    {
+      "name": "fontaneria",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8131",
+        "--directory",
+        "fontaneria"
+      ],
+      "port": 8131
     }
   ]
 }
