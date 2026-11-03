@@ -1,0 +1,1000 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Kafka en el bar</title>
+<style>
+  :root{
+    --bg:#17100b;
+    --panel:#24170f;
+    --panel-2:#2f1f14;
+    --line:#5a3a22;
+    --ink:#f3e6c8;
+    --muted:#b9a584;
+    --amber:#f0b232;
+    --red:#ff6b4a;
+    --green:#8fd694;
+    --c1:#ffd23f;
+    --c2:#4fd1ff;
+    --c3:#ff7ac6;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink)}
+  body{font:14px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  button,select,input{font:inherit;color:inherit}
+  .page{max-width:1500px;margin:0 auto;padding:14px 16px 40px}
+  header{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;margin-bottom:10px}
+  h1{margin:0;font-size:20px;letter-spacing:.06em;text-transform:uppercase;color:var(--amber)}
+  header p{margin:0;color:var(--muted)}
+  header a{color:var(--muted);margin-left:auto}
+  .layout{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+  @media (min-width:1240px){.layout{grid-template-columns:minmax(0,1fr) 360px;align-items:start}}
+  .stage{min-width:0}
+  .cabinet{background:#000;border:4px solid var(--line);box-shadow:0 0 0 2px #000,0 0 0 4px var(--amber);overflow-x:auto}
+  canvas{display:block;width:100%;min-width:640px;aspect-ratio:16/9}
+  .controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:10px 12px;margin-top:12px;background:var(--panel);border:1px solid var(--line)}
+  .field{display:flex;align-items:center;gap:8px}
+  .field>span{color:var(--muted)}
+  .field output{min-width:3ch;text-align:right;color:var(--amber)}
+  input[type=range]{width:120px;accent-color:var(--amber)}
+  button{background:var(--panel-2);border:1px solid var(--line);padding:4px 10px;cursor:pointer}
+  button:hover{border-color:var(--amber)}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
+  button[aria-pressed=true]{background:var(--amber);border-color:var(--amber);color:#1b1006;font-weight:700}
+  .primary{background:var(--amber);border-color:var(--amber);color:#1b1006;font-weight:700}
+  .seg{display:inline-flex}
+  .seg button+button{border-left:0}
+  .cooks{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));margin-top:12px}
+  .cook{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--cook);padding:8px 10px}
+  .cook.off{opacity:.65}
+  .cook h3{margin:0;font-size:14px;color:var(--cook)}
+  .cook .status{margin:2px 0 8px;min-height:2.9em;color:var(--muted)}
+  .cook .actions{display:flex;gap:6px}
+  aside{display:grid;gap:14px;min-width:0}
+  section{background:var(--panel);border:1px solid var(--line);padding:10px 12px}
+  h2{margin:0 0 8px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--amber)}
+  .try{padding:8px 0;border-top:1px solid var(--line)}
+  .try:first-of-type{border-top:0;padding-top:0}
+  .try b{display:block;margin-bottom:2px}
+  .try p{margin:0 0 6px;color:var(--muted)}
+  .try .actions{display:flex;flex-wrap:wrap;gap:6px}
+  dl{display:grid;grid-template-columns:max-content 1fr;gap:3px 10px;margin:0}
+  dt{color:var(--ink)}
+  dd{margin:0;color:var(--muted)}
+  ol.log{list-style:none;margin:0;padding:0;height:13.5em;overflow:hidden;color:var(--muted)}
+  ol.log li{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  ol.log li.warn{color:var(--red)}
+  ol.log li.key{color:var(--amber)}
+  ol.log time{color:#7d6a4f;margin-right:6px}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>Kafka en el bar</h1>
+    <p>Las comandas viajan por tres barras; los platos vuelven por una sola.</p>
+    <a href="kafka.html">Simulador completo</a>
+  </header>
+
+  <div class="layout">
+    <div class="stage">
+      <div class="cabinet">
+        <canvas id="scene" width="1920" height="1080" role="img"
+          aria-label="Bar estilo arcade: los clientes a la izquierda mandan comandas por tres barras, tres cocineros las leen y dejan los platos en una barra vertical a la derecha, de la que el camarero los lleva a la sala."></canvas>
+      </div>
+
+      <div class="controls">
+        <button id="pause" type="button" class="primary">Pausa</button>
+        <div class="seg" role="group" aria-label="Velocidad">
+          <button type="button" data-speed="1" aria-pressed="true">x1</button>
+          <button type="button" data-speed="2" aria-pressed="false">x2</button>
+          <button type="button" data-speed="4" aria-pressed="false">x4</button>
+        </div>
+        <label class="field"><span>Pedidos/min</span>
+          <input id="rate" type="range" min="0" max="120" step="5" value="40" />
+          <output id="rateOut">40</output>
+        </label>
+        <div class="field"><span>Reparto</span>
+          <div class="seg" role="group" aria-label="Cómo elige barra el cliente">
+            <button type="button" data-mode="rr" aria-pressed="true">Por turnos</button>
+            <button type="button" data-mode="key" aria-pressed="false">Clave = cliente</button>
+          </div>
+        </div>
+        <button id="addOrder" type="button">+ Pedido</button>
+        <button id="restart" type="button">Reiniciar</button>
+      </div>
+
+      <div class="cooks" id="cooks"></div>
+    </div>
+
+    <aside>
+      <section>
+        <h2>Prueba esto</h2>
+        <div class="try">
+          <b>Un cocinero va lento</b>
+          <p>Su triángulo se queda atrás y la barra acumula comandas encendidas. Los otros dos no pueden ayudarle: dentro del grupo, cada barra tiene un solo dueño.</p>
+          <div class="actions"><button type="button" data-try="slow">Poner lento a C2</button></div>
+        </div>
+        <div class="try">
+          <b>Un cocinero se va</b>
+          <p>Rebalance: nadie coge comandas nuevas hasta que el grupo se reparte las barras. Lo que dejó a medias no estaba confirmado, así que otro lo vuelve a leer.</p>
+          <div class="actions"><button type="button" data-try="leave">Sacar a C3</button></div>
+        </div>
+        <div class="try">
+          <b>Clave por cliente</b>
+          <p>Cada cliente cae siempre en la misma barra, y sus pedidos se cocinan en orden. Por turnos se reparte mejor, pero un pedido suyo puede adelantar a otro anterior.</p>
+          <div class="actions"><button type="button" data-try="key">Cambiar el reparto</button></div>
+        </div>
+        <div class="try">
+          <b>Leer no borra</b>
+          <p>Las comandas leídas se apagan, pero siguen en la barra. Rebobinar mueve el triángulo atrás: se vuelve a cocinar todo y sobran platos.</p>
+          <div class="actions">
+            <button type="button" data-seek="0">Rebobinar barra 0</button>
+            <button type="button" data-seek="1">Barra 1</button>
+            <button type="button" data-seek="2">Barra 2</button>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Qué es cada cosa</h2>
+        <dl>
+          <dt>Cliente</dt><dd>Producer</dd>
+          <dt>Comanda</dt><dd>Mensaje</dd>
+          <dt>Barra de comandas</dt><dd>Partición del topic <code>comandas</code></dd>
+          <dt>Número bajo la comanda</dt><dd>Offset</dd>
+          <dt>Triángulo</dt><dd>Offset confirmado del grupo</dd>
+          <dt>Comanda apagada</dt><dd>Ya leída, pero retenida (14 por barra)</dd>
+          <dt>Cocinero</dt><dd>Consumer del grupo <code>cocina</code> y producer de <code>platos</code></dd>
+          <dt>Barra de platos</dt><dd>Topic <code>platos</code> con 1 partición</dd>
+          <dt>Camarero</dt><dd>Consumer del grupo <code>sala</code></dd>
+        </dl>
+      </section>
+
+      <section>
+        <h2>Lo que va pasando</h2>
+        <ol class="log" id="log"></ol>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ---- Kafka model: no DOM here, so the tests can drive it directly ----
+
+  const W = 640, H = 360;
+  const PARTITIONS = 3;
+  const BAR_RETENTION = 14, PASS_RETENTION = 11;
+  const BAR_START = 78, BAR_END = 456, SLOT_W = 24;
+  const PASS_X = 544, PASS_END_Y = 288, SLOT_H = 22;
+  const COOK_X = 468, CUSTOMER_FRONT_X = 66, CUSTOMER_GAP = 14, CUSTOMER_LEAVE_X = -18;
+  const LANE_Y = 330, LANE_START_X = 576, LANE_END_X = 70;
+  const SLIDE_SPEED = 300, COOK_ROWS_PER_S = 2.2, WALK_SPEED = 90;
+  const SLOW_FACTOR = 5;
+  const REBALANCE_MIN_S = 1.6;
+  const WAITER_TAKE_S = 0.45, DELIVERY_S = 1.2, PLATE_TOSS_S = 0.22;
+  const LETTERS = 'ABCDEF';
+  const ITEMS = {
+    burger:{cook:1.4}, pizza:{cook:2.0}, fries:{cook:0.8}, hotdog:{cook:1.0}, drink:{cook:0.4}
+  };
+  const ITEM_NAMES = Object.keys(ITEMS);
+
+  const rowTop = row => 24 + row * 92;
+  const barTop = row => rowTop(row) + 52;
+  const slotX = (end, offset) => BAR_END - 36 - (end - 1 - offset) * SLOT_W;
+  const passSlotY = (end, offset) => PASS_END_Y - SLOT_H - (end - 1 - offset) * SLOT_H;
+  const lagOf = p => p.end - p.committed;
+
+  function mulberry32(seed){
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function makePartition(){
+    return {log:[], end:0, earliest:0, committed:0, position:0, busy:false, owner:null};
+  }
+
+  function createSim(seed = 7){
+    const S = {
+      time:0, random:mulberry32(seed), rate:40, mode:'rr', spawnIn:0.4, roundRobin:0,
+      nextOrder:1,
+      comandas:Array.from({length:PARTITIONS}, makePartition),
+      platos:makePartition(),
+      cooks:[0, 1, 2].map(id => ({id, name:`C${id + 1}`, active:true, slow:false, pos:id, partitions:[], cursor:0, walking:false, job:null})),
+      waiter:{job:null},
+      customers:[], tickets:[], plates:[], deliveries:[],
+      rebalance:null, generation:1,
+      stats:{ordered:0, served:0, lost:0, duplicates:0, rebalances:0},
+      events:[], eventSeq:0
+    };
+    assignPartitions(S);
+    return S;
+  }
+
+  function logEvent(S, text, kind = ''){
+    S.eventSeq++;
+    S.events.unshift({id:S.eventSeq, time:S.time, text, kind});
+    if(S.events.length > 30) S.events.pop();
+  }
+
+  function partitionFor(S, letter){
+    if(S.mode === 'key') return LETTERS.indexOf(letter) % PARTITIONS;
+    const row = S.roundRobin;
+    S.roundRobin = (S.roundRobin + 1) % PARTITIONS;
+    return row;
+  }
+
+  function addCustomer(S, letter){
+    const who = letter || LETTERS[Math.floor(S.random() * LETTERS.length)];
+    const count = S.random() < 0.45 ? 2 : 1;
+    const items = Array.from({length:count}, () => ITEM_NAMES[Math.floor(S.random() * ITEM_NAMES.length)]);
+    const partition = partitionFor(S, who);
+    const order = {id:S.nextOrder++, letter:who, items, key:S.mode === 'key' ? who : null, partition, orderedAt:S.time, cooked:false, delivering:false};
+    S.customers.push({order, letter:who, row:partition, x:CUSTOMER_LEAVE_X, state:'enter', timer:0, walkPhase:S.random() * 6});
+    S.stats.ordered++;
+    return order;
+  }
+
+  // Range assignor: sorted partitions split over sorted members, first members get the remainder.
+  function assignPartitions(S){
+    const active = S.cooks.filter(c => c.active);
+    S.cooks.forEach(c => { c.partitions = []; c.cursor = 0; });
+    S.comandas.forEach(p => { p.owner = null; });
+    if(active.length){
+      const base = Math.floor(PARTITIONS / active.length), extra = PARTITIONS % active.length;
+      let next = 0;
+      active.forEach((c, i) => {
+        for(let n = base + (i < extra ? 1 : 0); n > 0; n--){
+          c.partitions.push(next);
+          S.comandas[next].owner = c.id;
+          next++;
+        }
+      });
+    }
+    // A new owner always resumes from the group's committed offset.
+    S.comandas.forEach(p => { p.position = p.committed; });
+  }
+
+  function triggerRebalance(S, why){
+    S.stats.rebalances++;
+    S.rebalance = {elapsed:0, why};
+    logEvent(S, `Rebalance: ${why}. Nadie coge comandas nuevas.`, 'warn');
+  }
+
+  function stepRebalance(S, dt){
+    if(!S.rebalance) return;
+    S.rebalance.elapsed += dt;
+    const allRejoined = S.cooks.every(c => !c.active || !c.job);
+    if(S.rebalance.elapsed < REBALANCE_MIN_S || !allRejoined) return;
+    S.rebalance = null;
+    S.generation++;
+    assignPartitions(S);
+    const summary = S.cooks.filter(c => c.active).map(c => `${c.name}→${c.partitions.join(',')}`).join('  ');
+    logEvent(S, `Generación ${S.generation}: ${summary || 'sin cocineros'}`, 'key');
+  }
+
+  function setCookActive(S, id, active){
+    const c = S.cooks[id];
+    if(c.active === active) return;
+    c.active = active;
+    if(active){
+      c.pos = id;
+    } else if(c.job){
+      // Nothing was committed, so the next owner re-reads this offset.
+      const p = S.comandas[c.job.part];
+      p.busy = false;
+      p.position = p.committed;
+      logEvent(S, `${c.name} deja a medias el offset ${c.job.offset} de la barra ${c.job.part}, sin confirmar.`, 'warn');
+      c.job = null;
+    }
+    if(!active) { c.partitions = []; c.walking = false; }
+    triggerRebalance(S, active ? `vuelve ${c.name}` : `se va ${c.name}`);
+  }
+
+  function setCookSlow(S, id, slow){ S.cooks[id].slow = slow; }
+
+  function seekToEarliest(S, part){
+    const p = S.comandas[part];
+    p.committed = p.earliest;
+    p.position = p.earliest;
+    S.cooks.forEach(c => { if(c.job && c.job.part === part) c.job.stale = true; });
+    logEvent(S, `Rebobinado: la barra ${part} vuelve al offset ${p.earliest}.`, 'key');
+  }
+
+  function loseOrder(S, order){
+    S.stats.lost++;
+    const customer = S.customers.find(c => c.order.id === order.id && c.state !== 'leave');
+    if(customer){ customer.state = 'leave'; customer.angry = true; }
+    logEvent(S, `Retención: se borra el pedido ${order.letter}${order.id} sin que nadie lo haya leído.`, 'warn');
+  }
+
+  function appendToLog(S, p, order, retention, alreadyHandled){
+    const offset = p.end++;
+    p.log.push({offset, order, at:S.time});
+    while(p.log.length > retention){
+      const gone = p.log.shift();
+      p.earliest = gone.offset + 1;
+      if(gone.offset >= p.position && !alreadyHandled(gone.order)) loseOrder(S, gone.order);
+    }
+    if(p.position < p.earliest) p.position = p.earliest;
+    if(!p.busy && p.committed < p.earliest) p.committed = p.earliest;
+    return offset;
+  }
+
+  function pickPartition(S, c){
+    for(let i = 0; i < c.partitions.length; i++){
+      const part = c.partitions[(c.cursor + i) % c.partitions.length];
+      const p = S.comandas[part];
+      if(!p.busy && p.position < p.end) return {part, index:(c.cursor + i) % c.partitions.length};
+    }
+    return null;
+  }
+
+  function startFetch(S, c, pick){
+    const p = S.comandas[pick.part];
+    const offset = p.position;
+    const entry = p.log[offset - p.earliest];
+    const fromX = slotX(p.end, offset);
+    p.position++;
+    p.busy = true;
+    c.cursor = pick.index + 1;
+    c.job = {part:pick.part, offset, order:entry.order, stale:false, phase:'fetch', timer:0, dur:Math.max(0.15, (COOK_X - fromX) / 500), fromX};
+  }
+
+  function finishJob(S, c){
+    const {part, offset, order, stale} = c.job;
+    const p = S.comandas[part];
+    const rowY = barTop(part) + 8;
+    order.cooked = true;
+    S.plates.push({order, row:part, t:0, dur:(PASS_END_Y - rowY) / 260 + 0.2});
+    if(!stale){
+      p.committed = Math.max(p.committed, offset + 1, p.earliest);
+      logEvent(S, `${c.name} deja el plato y confirma el offset ${offset} de la barra ${part}.`);
+    }
+    p.busy = false;
+    c.job = null;
+  }
+
+  function stepCook(S, c, dt){
+    if(!c.active) return;
+    c.walking = false;
+    if(c.job){
+      const job = c.job;
+      job.timer += job.phase === 'cook' && c.slow ? dt / SLOW_FACTOR : dt;
+      if(job.timer < job.dur) return;
+      if(job.phase === 'fetch'){
+        job.phase = 'cook'; job.timer = 0;
+        job.dur = job.order.items.reduce((sum, item) => sum + ITEMS[item].cook, 0);
+      } else if(job.phase === 'cook'){
+        job.phase = 'plate'; job.timer = 0; job.dur = PLATE_TOSS_S;
+      } else {
+        finishJob(S, c);
+      }
+      return;
+    }
+    if(S.rebalance) return;
+    const pick = pickPartition(S, c);
+    const here = Math.round(c.pos);
+    const goal = pick ? pick.part : (c.partitions.includes(here) ? here : c.partitions[0]);
+    if(goal === undefined) return;
+    if(c.pos !== goal){
+      const delta = COOK_ROWS_PER_S * dt;
+      c.pos = Math.abs(goal - c.pos) <= delta ? goal : c.pos + Math.sign(goal - c.pos) * delta;
+      c.walking = true;
+    }
+    if(pick && c.pos === pick.part) startFetch(S, c, pick);
+  }
+
+  function stepWaiter(S, dt){
+    const w = S.waiter, p = S.platos;
+    if(w.job){
+      w.job.timer += dt;
+      if(w.job.timer < WAITER_TAKE_S) return;
+      S.deliveries.push({order:w.job.order, t:0});
+      p.committed = Math.max(p.committed, w.job.offset + 1, p.earliest);
+      p.busy = false;
+      w.job = null;
+      return;
+    }
+    if(p.position < p.end){
+      const offset = p.position;
+      const entry = p.log[offset - p.earliest];
+      entry.order.delivering = true;
+      w.job = {offset, order:entry.order, timer:0, fromY:passSlotY(p.end, offset)};
+      p.position++;
+      p.busy = true;
+    }
+  }
+
+  function stepCustomers(S, dt){
+    const seen = [0, 0, 0];
+    S.customers = S.customers.filter(c => {
+      if(c.state === 'leave'){
+        c.x -= WALK_SPEED * dt;
+        return c.x > CUSTOMER_LEAVE_X;
+      }
+      const target = Math.max(8, CUSTOMER_FRONT_X - seen[c.row] * CUSTOMER_GAP);
+      c.spot = seen[c.row]++;
+      if(Math.abs(c.x - target) > 0.5) c.x += Math.sign(target - c.x) * Math.min(Math.abs(target - c.x), WALK_SPEED * dt);
+      if(c.state === 'enter' && Math.abs(c.x - target) <= 0.5){
+        c.state = 'order'; c.timer = 0.55;
+      } else if(c.state === 'order'){
+        c.timer -= dt;
+        if(c.timer <= 0){
+          S.tickets.push({order:c.order, part:c.row, x0:c.x, t:0, dur:(BAR_END - 36 - c.x) / SLIDE_SPEED});
+          c.state = 'wait';
+        }
+      } else if(c.state === 'eat'){
+        c.timer -= dt;
+        if(c.timer <= 0) c.state = 'leave';
+      }
+      return true;
+    });
+  }
+
+  function stepFlights(S, dt){
+    S.tickets = S.tickets.filter(ticket => {
+      ticket.t += dt / ticket.dur;
+      if(ticket.t < 1) return true;
+      const p = S.comandas[ticket.part];
+      const offset = appendToLog(S, p, ticket.order, BAR_RETENTION, order => order.cooked);
+      logEvent(S, `${ticket.order.letter}${ticket.order.id} → barra ${ticket.part}, offset ${offset}${ticket.order.key ? ` (clave ${ticket.order.key})` : ''}`);
+      return false;
+    });
+    S.plates = S.plates.filter(plate => {
+      plate.t += dt / plate.dur;
+      if(plate.t < 1) return true;
+      appendToLog(S, S.platos, plate.order, PASS_RETENTION, order => order.delivering);
+      return false;
+    });
+    S.deliveries = S.deliveries.filter(delivery => {
+      delivery.t += dt / DELIVERY_S;
+      if(delivery.t < 1) return true;
+      const customer = S.customers.find(c => c.order.id === delivery.order.id && c.state === 'wait');
+      if(customer){
+        customer.state = 'eat'; customer.timer = 1.1;
+        S.stats.served++;
+      } else {
+        S.stats.duplicates++;
+        logEvent(S, `Sobra un plato de ${delivery.order.letter}${delivery.order.id}: ya se había servido.`, 'warn');
+      }
+      return false;
+    });
+  }
+
+  function stepSim(S, dt){
+    S.time += dt;
+    if(S.rate > 0){
+      S.spawnIn -= dt;
+      if(S.spawnIn <= 0){
+        addCustomer(S);
+        S.spawnIn = 60 / S.rate * (0.6 + S.random() * 0.8);
+      }
+    }
+    stepCustomers(S, dt);
+    stepFlights(S, dt);
+    stepRebalance(S, dt);
+    S.cooks.forEach(c => stepCook(S, c, dt));
+    stepWaiter(S, dt);
+  }
+
+  // initial
+  // ---- Rendering: scene drawn at 640x360, blitted without smoothing ----
+
+  const COLORS = {
+    customers:{A:'#e4572e', B:'#3f88c5', C:'#58b368', D:'#a05cc9', E:'#f39c12', F:'#1abc9c'},
+    cooks:['#ffd23f', '#4fd1ff', '#ff7ac6']
+  };
+
+  const FONT = {
+    ' ':[0,0,0,0,0],'!':[0,0,0x5F,0,0],'#':[0x14,0x7F,0x14,0x7F,0x14],'+':[8,8,0x3E,8,8],',':[0,0x80,0x70,0x30,0],'-':[8,8,8,8,8],
+    '.':[0,0,0x60,0x60,0],'/':[0x20,0x10,8,4,2],':':[0,0,0x14,0,0],'>':[0,0x41,0x22,0x14,8],'·':[0,0x18,0x18,0,0],
+    0:[0x3E,0x51,0x49,0x45,0x3E],1:[0,0x42,0x7F,0x40,0],2:[0x72,0x49,0x49,0x49,0x46],3:[0x21,0x41,0x49,0x4D,0x33],4:[0x18,0x14,0x12,0x7F,0x10],
+    5:[0x27,0x45,0x45,0x45,0x39],6:[0x3C,0x4A,0x49,0x49,0x31],7:[0x41,0x21,0x11,9,7],8:[0x36,0x49,0x49,0x49,0x36],9:[0x46,0x49,0x49,0x29,0x1E],
+    A:[0x7C,0x12,0x11,0x12,0x7C],B:[0x7F,0x49,0x49,0x49,0x36],C:[0x3E,0x41,0x41,0x41,0x22],D:[0x7F,0x41,0x41,0x41,0x3E],E:[0x7F,0x49,0x49,0x49,0x41],
+    F:[0x7F,9,9,9,1],G:[0x3E,0x41,0x41,0x51,0x73],H:[0x7F,8,8,8,0x7F],I:[0,0x41,0x7F,0x41,0],J:[0x20,0x40,0x41,0x3F,1],K:[0x7F,8,0x14,0x22,0x41],
+    L:[0x7F,0x40,0x40,0x40,0x40],M:[0x7F,2,0x1C,2,0x7F],N:[0x7F,4,8,0x10,0x7F],O:[0x3E,0x41,0x41,0x41,0x3E],P:[0x7F,9,9,9,6],Q:[0x3E,0x41,0x51,0x21,0x5E],
+    R:[0x7F,9,0x19,0x29,0x46],S:[0x26,0x49,0x49,0x49,0x32],T:[3,1,0x7F,1,3],U:[0x3F,0x40,0x40,0x40,0x3F],V:[0x1F,0x20,0x40,0x20,0x1F],W:[0x3F,0x40,0x38,0x40,0x3F],
+    X:[0x63,0x14,8,0x14,0x63],Y:[3,4,0x78,4,3],Z:[0x61,0x59,0x49,0x4D,0x43]
+  };
+  const ACCENTED = {'Á':'A','É':'E','Í':'I','Ó':'O','Ú':'U','Ñ':'N'};
+
+  const ICON_COLORS = {y:'#e8a33d', g:'#5bb04a', b:'#6b3a1e', r:'#d6402b', w:'#ffffff', o:'#f0c14b', c:'#3b2a1a', m:'#f4d03f', t:'#c98a3c', f:'#f7d65a', s:'#4da6ff'};
+  const ICON_MAPS = {
+    burger:['..yyyy..','.yyyyyy.','yyyyyyyy','gggggggg','bbbbbbbb','oooooooo','yyyyyyyy','.yyyyyy.'],
+    pizza:['tttttttt','oooooooo','.orooro.','.oooooo.','..orro..','..oooo..','...oo...','...oo...'],
+    fries:['.f.ff.f.','.ffffff.','.ffffff.','rrrrrrrr','.rwrrwr.','.rrrrrr.','.rrrrrr.','..rrrr..'],
+    hotdog:['........','..yyyyy.','.ybbbbby','ybmbmbmy','ybbbbbby','.yyyyyy.','........','........'],
+    drink:['...wr...','...wr...','.ssssss.','.cccccc.','.cccccc.','.cccccc.','.cccccc.','..cccc..']
+  };
+
+  const canvas = document.getElementById('scene');
+  const screen = canvas.getContext('2d');
+  screen.imageSmoothingEnabled = false;
+  const low = document.createElement('canvas');
+  low.width = W; low.height = H;
+  const g = low.getContext('2d');
+
+  function R(x, y, w, h, color){
+    g.fillStyle = color;
+    g.fillRect(Math.round(x), Math.round(y), w, h);
+  }
+
+  function text(str, x, y, color, align = 'left', target = g){
+    const s = String(str).toUpperCase();
+    let cx = Math.round(align === 'right' ? x - (s.length * 6 - 1) : align === 'center' ? x - (s.length * 6 - 1) / 2 : x);
+    const top = Math.round(y);
+    target.fillStyle = color;
+    for(const ch of s){
+      const glyph = FONT[ACCENTED[ch] || ch];
+      if(glyph){
+        glyph.forEach((col, i) => {
+          for(let bit = 0; bit < 7; bit++) if(col & (1 << bit)) target.fillRect(cx + i, top + bit, 1, 1);
+        });
+      }
+      if(ch in ACCENTED) target.fillRect(ch === 'Ñ' ? cx + 1 : cx + 2, top - 2, ch === 'Ñ' ? 3 : 2, 1);
+      cx += 6;
+    }
+  }
+
+  const iconCache = {};
+  function icon(name){
+    if(iconCache[name]) return iconCache[name];
+    const c = document.createElement('canvas');
+    c.width = 8; c.height = 8;
+    const ctx = c.getContext('2d');
+    ICON_MAPS[name].forEach((row, y) => [...row].forEach((ch, x) => {
+      if(ch === '.') return;
+      ctx.fillStyle = ICON_COLORS[ch];
+      ctx.fillRect(x, y, 1, 1);
+    }));
+    return iconCache[name] = c;
+  }
+
+  function drawItems(items, cx, y){
+    const width = items.length * 8 + (items.length - 1);
+    items.forEach((item, i) => g.drawImage(icon(item), Math.round(cx - width / 2 + i * 9), Math.round(y)));
+  }
+
+  const background = buildBackground();
+
+  function buildBackground(){
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    const rect = (x, y, w, h, color) => { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); };
+
+    rect(0, 0, W, H, '#20130b');
+    for(let row = 0; row < PARTITIONS; row++){
+      const top = rowTop(row);
+      rect(0, top, 458, 92, '#4a2a16');
+      for(let x = 0; x < 458; x += 22) rect(x, top, 1, 52, '#3d2211');
+      rect(0, top + 30, 458, 2, '#2d1809');
+      for(let x = 92; x < 440; x += 37){
+        const hue = ['#3f7a4d', '#7a3f3f', '#8a6b2a', '#3f5e7a'][(x + row * 3) % 4];
+        rect(x, top + 19, 4, 11, hue);
+        rect(x + 1, top + 15, 2, 4, hue);
+      }
+      // Swing doors the customers walk through.
+      rect(0, top + 54, 4, 34, '#8c5a2b');
+      rect(0, top + 60, 4, 2, '#f0b232');
+      rect(0, top + 76, 4, 2, '#f0b232');
+      // Customer floor.
+      rect(4, top + 72, 74, 16, '#2c1a0e');
+      // Bar surface and front panel.
+      const bt = barTop(row);
+      rect(BAR_START, bt, BAR_END - BAR_START, 18, '#b5692e');
+      rect(BAR_START, bt, BAR_END - BAR_START, 2, '#e8a763');
+      rect(BAR_START, bt + 18, BAR_END - BAR_START, 16, '#6e3817');
+      for(let x = BAR_START; x < BAR_END; x += SLOT_W) rect(x, bt + 18, 1, 16, '#55290f');
+      rect(BAR_START, bt + 32, BAR_END - BAR_START, 2, '#d4a93a');
+      // Kitchen tiles and stove.
+      for(let y = top; y < top + 92; y += 8){
+        for(let x = 458; x < 518; x += 8) rect(x, y, 8, Math.min(8, top + 92 - y), ((x + y) / 8) % 2 ? '#2f3b45' : '#39485a');
+      }
+      rect(486, bt - 2, 30, 36, '#7f8a94');
+      rect(486, bt - 2, 30, 3, '#b8c2cb');
+      rect(490, bt + 8, 22, 16, '#2a3036');
+      rect(492, bt + 18, 18, 3, '#d6402b');
+    }
+    // Pass bar: the single partition of the platos topic.
+    rect(518, 24, 122, 276, '#3a2112');
+    rect(PASS_X - 24, 34, 48, 266, '#b5692e');
+    rect(PASS_X - 24, 34, 2, 266, '#e8a763');
+    rect(PASS_X + 22, 34, 2, 266, '#6e3817');
+    for(let y = 44; y < 300; y += SLOT_H) rect(PASS_X - 24, y, 48, 1, '#96551f');
+    // Dining-room floor and delivery lane.
+    for(let x = 0; x < W; x += 28) rect(x, 300, 1, 60, '#2c1a0e');
+    rect(0, 300, W, 2, '#000');
+    rect(LANE_END_X - 6, LANE_Y - 4, LANE_START_X - LANE_END_X + 12, 14, '#6e3817');
+    rect(LANE_END_X - 6, LANE_Y - 4, LANE_START_X - LANE_END_X + 12, 2, '#a86a34');
+    // HUD strip.
+    rect(0, 0, W, 22, '#000');
+    return c;
+  }
+
+  // ---- Characters are procedural so colors and walk frames stay parametric ----
+
+  function drawPerson(x, feet, o){
+    const f = Math.round(feet), cx = Math.round(x);
+    const stride = o.walking ? Math.floor(o.phase * 6) % 2 : 0;
+    const pants = o.pants || '#2c2c3a';
+    R(cx - 4, f - 7, 3, stride ? 5 : 7, pants);
+    R(cx + 1, f - 7, 3, stride ? 7 : 5, pants);
+    R(cx - 4, f - 1 - (stride ? 2 : 0), 3, 1, '#111');
+    R(cx + 1, f - 1 - (stride ? 0 : 2), 3, 1, '#111');
+    R(cx - 5, f - 16, 10, 9, o.shirt);
+    R(cx - 7, f - 15, 2, o.armUp ? 4 : 7, o.shirt);
+    R(cx + 5, f - 15, 2, o.armUp ? 4 : 7, o.shirt);
+    if(o.apron) R(cx - 3, f - 13, 6, 9, '#f2f2f2');
+    if(o.scarf) R(cx - 5, f - 16, 10, 2, o.scarf);
+    if(o.bow){ R(cx - 2, f - 16, 4, 2, '#d6402b'); }
+    R(cx - 4, f - 24, 8, 8, o.skin || '#f1c27d');
+    R(cx - 4, f - 25, 8, 3, o.hair || '#3a2413');
+    const lookX = o.face === 'right' ? 1 : o.face === 'left' ? -1 : 0;
+    R(cx - 2 + lookX, f - 20, 1, 2, '#111');
+    R(cx + 1 + lookX, f - 20, 1, 2, '#111');
+    if(o.hat){
+      R(cx - 4, f - 33, 8, 7, '#fff');
+      R(cx - 5, f - 26, 10, 2, '#d8d8d8');
+    }
+  }
+
+  function drawTicket(cx, top, order, opts = {}){
+    const x = Math.round(cx - 10), y = Math.round(top);
+    g.globalAlpha = opts.dim ? 0.5 : 1;
+    R(x + 1, y + 22, 20, 1, 'rgba(0,0,0,.35)');
+    R(x, y, 20, 22, '#f6efd8');
+    R(x, y, 20, 9, COLORS.customers[order.letter]);
+    text(order.letter, x + 7, y + 1, '#111');
+    drawItems(order.items, x + 10, y + 11);
+    g.globalAlpha = 1;
+    if(opts.fresh || opts.outline){
+      const color = opts.outline || '#fff';
+      R(x - 1, y - 1, 22, 1, color); R(x - 1, y + 22, 22, 1, color);
+      R(x - 1, y - 1, 1, 24, color); R(x + 20, y - 1, 1, 24, color);
+    }
+  }
+
+  function drawPlate(cx, cy, order, dim){
+    const x = Math.round(cx), y = Math.round(cy);
+    g.globalAlpha = dim ? 0.55 : 1;
+    R(x - 10, y + 5, 20, 3, '#e9e3cf');
+    R(x - 8, y + 8, 16, 1, COLORS.customers[order.letter]);
+    drawItems(order.items, x, y - 3);
+    g.globalAlpha = 1;
+  }
+
+  function drawPointer(cx, y, color){
+    const x = Math.round(cx), top = Math.round(y);
+    R(x - 3, top, 7, 1, color);
+    R(x - 2, top + 1, 5, 1, color);
+    R(x - 1, top + 2, 3, 1, color);
+    R(x, top + 3, 1, 1, color);
+  }
+
+  // ---- Scene ----
+
+  let S = createSim(Math.floor(Math.random() * 1e6));
+  let paused = false, speed = 1;
+  const view = {ends:[0, 0, 0], passEnd:0};
+
+  function updateView(realDt){
+    const k = Math.min(1, realDt * 10);
+    S.comandas.forEach((p, i) => { view.ends[i] += (p.end - view.ends[i]) * k; });
+    view.passEnd += (S.platos.end - view.passEnd) * k;
+  }
+
+  function drawBars(){
+    S.comandas.forEach((p, row) => {
+      const top = barTop(row), end = view.ends[row];
+      const owner = p.owner == null ? '#8a7a66' : COLORS.cooks[p.owner];
+      text(`Comandas · partición ${row}`, 82, rowTop(row) + 4, '#e8d7ae');
+      const lag = lagOf(p);
+      text(`LAG ${lag}`, 452, rowTop(row) + 4, lag >= 8 ? '#ff6b4a' : lag >= 3 ? '#f0b232' : '#8fd694', 'right');
+      p.log.forEach(entry => {
+        const x = slotX(end, entry.offset);
+        if(x < BAR_START + 6) return;
+        const read = entry.offset < p.committed;
+        const inProgress = !read && entry.offset < p.position;
+        drawTicket(x, top - 8, entry.order, {dim:read, fresh:S.time - entry.at < 0.3, outline:inProgress ? owner : null});
+        text(entry.offset, x, top + 21, read ? '#c49468' : '#fff4d6', 'center');
+      });
+      const pointerX = Math.max(BAR_START + 6, slotX(end, Math.max(p.committed, p.earliest)));
+      drawPointer(pointerX, top - 14, owner);
+    });
+  }
+
+  function drawPassBar(){
+    const p = S.platos;
+    text('PLATOS', PASS_X, 26, '#e8d7ae', 'center');
+    p.log.forEach(entry => {
+      const y = passSlotY(view.passEnd, entry.offset);
+      if(y < 36) return;
+      const read = entry.offset < p.committed;
+      drawPlate(PASS_X - 8, y, entry.order, read);
+      text(entry.offset, PASS_X + 21, y, read ? '#6e3817' : '#fff', 'right');
+    });
+    const pointerY = Math.max(40, passSlotY(view.passEnd, Math.max(p.committed, p.earliest)));
+    R(PASS_X + 26, pointerY + 3, 1, 1, '#fff');
+    R(PASS_X + 27, pointerY + 2, 1, 3, '#fff');
+    R(PASS_X + 28, pointerY + 1, 1, 5, '#fff');
+    R(PASS_X + 29, pointerY, 1, 7, '#fff');
+    text('LAG ' + lagOf(p), 574, 36, lagOf(p) >= 4 ? '#f0b232' : '#8fd694');
+    text('PARTICIÓN 0', 574, 46, '#b9a584');
+  }
+
+  function drawCustomers(){
+    const hidden = [0, 0, 0];
+    S.customers.forEach(c => {
+      if(c.spot >= 5 && c.state !== 'leave'){ hidden[c.row]++; return; }
+      const feet = rowTop(c.row) + 84;
+      c.walkPhase += 0.016;
+      drawPerson(c.x, feet, {shirt:COLORS.customers[c.letter], walking:c.state === 'enter' || c.state === 'leave', phase:c.walkPhase * 2, face:c.state === 'leave' ? 'left' : 'right', armUp:c.state === 'order'});
+      text(c.letter, c.x, feet - 14, '#fff', 'center');
+      if(c.state === 'order'){
+        const w = c.order.items.length * 9 + 5, x = Math.round(c.x - w / 2);
+        R(x, feet - 42, w, 12, '#fff');
+        R(c.x - 1, feet - 30, 3, 2, '#fff');
+        drawItems(c.order.items, c.x, feet - 40);
+      }
+      if(c.state === 'eat') text('+', c.x + 8, feet - 30, '#8fd694');
+      if(c.angry) text('!', c.x + 7, feet - 32, '#ff6b4a');
+    });
+    hidden.forEach((n, row) => { if(n) text(`+${n}`, 6, rowTop(row) + 38, '#f0b232'); });
+  }
+
+  function drawFlights(){
+    S.tickets.forEach(ticket => {
+      const target = BAR_END - 36;
+      const x = ticket.x0 + (target - ticket.x0) * ticket.t;
+      drawTicket(x, barTop(ticket.part) - 11, ticket.order);
+    });
+  }
+
+  function drawKitchen(){
+    text('COCINA', 487, 26, '#e8d7ae', 'center');
+    S.cooks.forEach(c => {
+      if(!c.active){
+        text(`${c.name} FUERA`, 487, rowTop(c.id) + 20, '#8a7a66', 'center');
+        return;
+      }
+      const feet = rowTop(0) + c.pos * 92 + 84;
+      const job = c.job;
+      const atStove = job && job.phase !== 'fetch';
+      c.phase = (c.phase || 0) + 0.016;
+      drawPerson(COOK_X, feet, {shirt:'#e9e9e9', pants:'#3b3b4f', apron:true, hat:true, scarf:COLORS.cooks[c.id], walking:c.walking, phase:c.phase * 2, face:atStove ? 'right' : 'left', armUp:!!atStove});
+      text(c.name, COOK_X, feet - 42, COLORS.cooks[c.id], 'center');
+      if(c.slow) text('LENTO', COOK_X + 5, feet - 51, '#ff6b4a', 'center');
+      if(!job) return;
+      const row = job.part, bt = barTop(row);
+      if(job.phase === 'fetch'){
+        const x = job.fromX + (COOK_X - 6 - job.fromX) * (job.timer / job.dur);
+        drawTicket(x, bt - 11, job.order);
+      } else if(job.phase === 'cook'){
+        drawItems(job.order.items, 501, bt + 9);
+        R(487, bt - 10, 28, 4, '#000');
+        R(488, bt - 9, 26 * Math.min(1, job.timer / job.dur), 2, c.slow ? '#ff6b4a' : '#8fd694');
+        text(`#${job.offset}`, 501, bt - 19, job.stale ? '#f0b232' : '#f3e6c8', 'center');
+        if(Math.floor(S.time * 8) % 2) R(494 + (S.time * 13) % 14, bt + 4, 1, 2, '#fff');
+      } else {
+        drawPlate(504, bt, job.order);
+      }
+    });
+    // Plates tossed by the cooks: over the stove, then down the pass to the log end.
+    S.plates.forEach(plate => {
+      const startY = barTop(plate.row) + 8, split = 0.18;
+      const x = plate.t < split ? 516 + (PASS_X - 8 - 516) * (plate.t / split) : PASS_X - 8;
+      const y = plate.t < split ? startY - Math.sin(plate.t / split * Math.PI) * 10 : startY + (PASS_END_Y - SLOT_H + 22 - startY) * ((plate.t - split) / (1 - split));
+      drawPlate(x, Math.min(y, PASS_END_Y - SLOT_H + 22), plate.order);
+    });
+  }
+
+  function drawWaiter(){
+    const w = S.waiter;
+    const take = w.job ? w.job.timer / WAITER_TAKE_S : 0;
+    drawPerson(600, 298, {shirt:'#1f2430', pants:'#111', bow:true, skin:'#e0ac69', hair:'#1b1b1b', face:'left', armUp:!!w.job});
+    text('CAMARERO', 574, 252, '#e8d7ae');
+    text('GRUPO SALA', 574, 262, '#b9a584');
+    if(w.job){
+      const x = PASS_X - 8 + (590 - (PASS_X - 8)) * take;
+      const y = w.job.fromY + (284 - w.job.fromY) * take;
+      drawPlate(x, y, w.job.order);
+    }
+    S.deliveries.forEach(d => {
+      const split = 0.8;
+      const customer = S.customers.find(c => c.order.id === d.order.id && c.state === 'wait');
+      if(d.t < split){
+        drawPlate(LANE_START_X + (LANE_END_X - LANE_START_X) * (d.t / split), LANE_Y - 6, d.order);
+      } else {
+        const tx = customer ? customer.x : 40, ty = customer ? rowTop(customer.row) + 70 : H - 8;
+        const k = (d.t - split) / (1 - split);
+        drawPlate(LANE_END_X + (tx - LANE_END_X) * k, LANE_Y - 6 + (ty - LANE_Y + 6) * k, d.order);
+      }
+    });
+    text('SALA', 40, LANE_Y + 14, '#8a6b4a', 'center');
+  }
+
+  function pad(n, width){ return String(n).padStart(width, '0'); }
+
+  function drawHud(){
+    const st = S.stats;
+    const totalLag = S.comandas.reduce((sum, p) => sum + lagOf(p), 0);
+    text(`PEDIDOS ${pad(st.ordered, 3)}`, 8, 7, '#fff');
+    text(`SERVIDOS ${pad(st.served, 3)}`, 92, 7, '#8fd694');
+    text(`LAG ${pad(totalLag, 2)}`, 182, 7, totalLag >= 8 ? '#ff6b4a' : '#f0b232');
+    text(`PERDIDOS ${pad(st.lost, 2)}`, 236, 7, st.lost ? '#ff6b4a' : '#8a7a66');
+    text(`SOBRAN ${pad(st.duplicates, 2)}`, 320, 7, st.duplicates ? '#f0b232' : '#8a7a66');
+    text(`GRUPO COCINA · GEN ${S.generation}`, 632, 7, '#e8d7ae', 'right');
+  }
+
+  function drawBanner(lines, color){
+    const width = 300, height = 14 + lines.length * 11;
+    const x = 120, y = 136;
+    R(x - 2, y - 2, width + 4, height + 4, color);
+    R(x, y, width, height, '#000');
+    lines.forEach((line, i) => text(line, x + width / 2, y + 8 + i * 11, i ? '#f3e6c8' : color, 'center'));
+  }
+
+  function drawOverlays(){
+    if(S.rebalance){
+      const color = Math.floor(S.time * 4) % 2 ? '#f0b232' : '#ff6b4a';
+      const waiting = S.cooks.filter(c => c.active && c.job).map(c => c.name);
+      drawBanner(['REBALANCE', waiting.length ? `ESPERANDO A ${waiting.join(' Y ')}` : 'REPARTIENDO LAS BARRAS'], color);
+    } else if(!S.cooks.some(c => c.active)){
+      drawBanner(['SIN COCINEROS', 'LAS COMANDAS SE ACUMULAN'], '#ff6b4a');
+    }
+    if(paused) drawBanner(['PAUSA'], '#f0b232');
+  }
+
+  function draw(){
+    g.drawImage(background, 0, 0);
+    drawHud();
+    drawBars();
+    drawPassBar();
+    drawCustomers();
+    drawFlights();
+    drawKitchen();
+    drawWaiter();
+    drawOverlays();
+    screen.drawImage(low, 0, 0, canvas.width, canvas.height);
+  }
+
+  // ---- Panel ----
+
+  const $ = id => document.getElementById(id);
+  const cooksEl = $('cooks'), logEl = $('log');
+
+  cooksEl.innerHTML = S.cooks.map(c => `
+    <div class="cook" data-cook="${c.id}" style="--cook:var(--c${c.id + 1})">
+      <h3>${c.name}</h3>
+      <p class="status"></p>
+      <div class="actions">
+        <button type="button" data-action="slow" aria-pressed="false">Lento</button>
+        <button type="button" data-action="presence">Se va</button>
+      </div>
+    </div>`).join('');
+
+  function cookStatus(c){
+    if(!c.active) return 'Fuera del grupo.';
+    if(S.rebalance && !c.job) return 'Esperando el reparto de barras.';
+    const bars = c.partitions.length > 1 ? `Barras ${c.partitions.join(', ')}` : `Barra ${c.partitions[0]}`;
+    const lag = c.partitions.reduce((sum, part) => sum + lagOf(S.comandas[part]), 0);
+    const doing = !c.job ? 'sin comandas' :
+      c.job.phase === 'fetch' ? `lee el offset ${c.job.offset}` :
+      c.job.phase === 'cook' ? `cocina el offset ${c.job.offset}` : `deja el plato`;
+    return `${bars} · lag ${lag} · ${doing}.`;
+  }
+
+  let shownEvent = -1;
+  function refreshPanel(){
+    S.cooks.forEach(c => {
+      const card = cooksEl.querySelector(`[data-cook="${c.id}"]`);
+      card.classList.toggle('off', !c.active);
+      card.querySelector('.status').textContent = cookStatus(c);
+      card.querySelector('[data-action=slow]').setAttribute('aria-pressed', String(c.slow));
+      card.querySelector('[data-action=presence]').textContent = c.active ? 'Se va' : 'Vuelve';
+    });
+    document.querySelector('[data-try=slow]').textContent = S.cooks[1].slow ? 'Devolverle el ritmo a C2' : 'Poner lento a C2';
+    document.querySelector('[data-try=leave]').textContent = S.cooks[2].active ? 'Sacar a C3' : 'Que vuelva C3';
+    document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === S.mode)));
+    if(S.eventSeq !== shownEvent){
+      shownEvent = S.eventSeq;
+      logEl.innerHTML = '';
+      S.events.slice(0, 9).forEach(e => {
+        const li = document.createElement('li');
+        if(e.kind) li.className = e.kind;
+        const time = document.createElement('time');
+        time.textContent = `${Math.floor(S.time - e.time)}s`;
+        li.append(time, e.text);
+        logEl.append(li);
+      });
+    }
+  }
+
+  function setMode(mode){
+    if(S.mode === mode) return;
+    S.mode = mode;
+    logEvent(S, mode === 'key' ? 'Reparto: clave = cliente (A y D a la 0, B y E a la 1, C y F a la 2).' : 'Reparto: por turnos, sin clave.', 'key');
+  }
+
+  document.querySelector('.controls').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if(!b) return;
+    if(b.dataset.speed){
+      speed = Number(b.dataset.speed);
+      document.querySelectorAll('[data-speed]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    } else if(b.dataset.mode){
+      setMode(b.dataset.mode);
+    } else if(b.id === 'pause'){
+      paused = !paused;
+      b.textContent = paused ? 'Seguir' : 'Pausa';
+    } else if(b.id === 'addOrder'){
+      addCustomer(S);
+    } else if(b.id === 'restart'){
+      const {rate, mode} = S;
+      S = createSim(Math.floor(Math.random() * 1e6));
+      S.rate = rate; S.mode = mode;
+      view.ends = [0, 0, 0]; view.passEnd = 0; shownEvent = -1;
+    }
+    refreshPanel();
+  });
+
+  $('rate').addEventListener('input', e => {
+    S.rate = Number(e.target.value);
+    S.spawnIn = Math.min(S.spawnIn, S.rate ? 60 / S.rate : 0);
+    $('rateOut').textContent = S.rate;
+  });
+
+  cooksEl.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if(!b) return;
+    const c = S.cooks[Number(b.closest('.cook').dataset.cook)];
+    if(b.dataset.action === 'slow') setCookSlow(S, c.id, !c.slow);
+    else setCookActive(S, c.id, !c.active);
+    refreshPanel();
+  });
+
+  document.querySelector('aside').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if(!b) return;
+    if(b.dataset.try === 'slow') setCookSlow(S, 1, !S.cooks[1].slow);
+    if(b.dataset.try === 'leave') setCookActive(S, 2, !S.cooks[2].active);
+    if(b.dataset.try === 'key') setMode(S.mode === 'key' ? 'rr' : 'key');
+    if(b.dataset.seek) seekToEarliest(S, Number(b.dataset.seek));
+    refreshPanel();
+  });
+
+  // ---- Loop: fixed simulation step, independent of the frame rate ----
+
+  const STEP = 1 / 60;
+  let last = performance.now(), accumulator = 0, sincePanel = 0;
+  function frame(now){
+    const real = Math.min(0.1, (now - last) / 1000);
+    last = now;
+    if(!paused){
+      accumulator += real * speed;
+      while(accumulator >= STEP){ stepSim(S, STEP); accumulator -= STEP; }
+    }
+    updateView(real);
+    draw();
+    sincePanel += real;
+    if(sincePanel > 0.2){ sincePanel = 0; refreshPanel(); }
+    requestAnimationFrame(frame);
+  }
+  refreshPanel();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

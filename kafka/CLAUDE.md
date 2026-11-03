@@ -5,6 +5,27 @@ message brokers. Empezó como simulador de Kafka; ahora cubre también **Azure
 Service Bus Queues** y la idea es seguir añadiendo modelos. Hermano de
 `../kubernetes/scheduler.html` y `../graphics/camera.html` (mismo estilo).
 
+## Hermano: `tapper.html` (Kafka en el bar)
+
+Comparativa Kafka vs Azure Service Bus con estética del arcade Tapper; de momento
+solo está Kafka. Es otra página de un solo HTML, con su propia estética oscura, y
+no comparte código con `kafka.html`.
+
+- **Analogía:** cliente = producer; comanda = mensaje; 3 barras = particiones de
+  `comandas`; cocineros = grupo `cocina`, y a la vez producers de `platos`
+  (1 partición, barra vertical); camarero = grupo `sala`.
+- **Lo que no hay que perder:** leer no borra (la comanda se apaga y solo cae por
+  retención), cada barra tiene un solo dueño y el triángulo marca el offset
+  confirmado, que sobrevive al rebalance.
+- **Código:** el modelo va antes del marcador `// initial`, sin DOM, y lo prueba
+  `node --test tapper.test.cjs`. Detrás van el dibujo (canvas de 640×360 ampliado
+  sin suavizado) y el panel.
+- **Simplificaciones:** retención por número de comandas (14 por barra, 11 en
+  platos), hash de la clave simplificado y una comanda en curso por partición.
+- **Verificar:** con la pestaña oculta el `requestAnimationFrame` va a ~1 fps y la
+  simulación casi no avanza. Sustituye `requestAnimationFrame` y `performance.now`
+  antes de cargar el script para avanzar el reloj a mano.
+
 ## Filosofía (no romper)
 
 - **Un solo HTML**, vanilla JS dentro de un IIFE en `'use strict'`. Sin build, sin
