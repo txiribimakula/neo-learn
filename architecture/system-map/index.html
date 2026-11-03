@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7f9">
+  <title>Atlas · Arquitectura en movimiento</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="model.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="Atlas, inicio"><span class="brand-mark">a</span> atlas <span class="brand-divider"></span><span class="brand-caption">arquitectura en movimiento</span></a>
+    <div class="top-actions"><span id="save-status" role="status">Guardado local</span><button id="model-button">Editar modelo</button><button id="export-button">Exportar ↗</button><button id="import-button">Importar</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>
+  </header>
+  <section class="projectbar">
+    <div><div class="eyebrow">ESPACIO DE ARQUITECTURA <span id="example-badge">EJEMPLO</span></div><h1 id="project-name"></h1><p id="project-description"></p></div>
+    <div class="project-actions"><label class="transport-label">TRANSPORTE<select id="transport-select" aria-label="Transporte de mensajería"><option value="kafka">Apache Kafka</option><option value="servicebus">Azure Service Bus</option></select></label><button class="primary" id="add-node">＋ Añadir componente</button></div>
+  </section>
+  <main class="workspace">
+    <section class="map-area" aria-label="Mapa de arquitectura">
+      <div class="map-toolbar"><div class="segmented" aria-label="Nivel de detalle"><button id="overview-button" class="selected">Vista general</button><button id="detail-button">Detalle</button></div><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Buscar componente…" aria-label="Buscar componente"></label><span id="component-count"></span></div>
+      <div id="viewport" tabindex="0" aria-label="Mapa interactivo. Arrastra el fondo para mover; usa la rueda para zoom. Flechas para desplazar, más y menos para zoom.">
+        <div id="world"><div id="zones" aria-hidden="true"></div><svg id="connections" aria-label="Conexiones entre componentes"></svg><div id="nodes"></div></div>
+        <div class="canvas-note"><span class="live-dot"></span> Modelo de ejemplo · sin conexión a infraestructura</div>
+        <div class="map-bottom"><div class="legend"><span><i class="dot http"></i>HTTP</span><span><i class="dot async"></i>Mensajería</span><span><i class="dot storage"></i>Datos y ficheros</span></div><div class="zoom-controls"><button id="zoom-out" aria-label="Alejar">−</button><output id="zoom-label">100%</output><button id="zoom-in" aria-label="Acercar">＋</button><button id="fit-button" title="Ajustar todo el mapa" aria-label="Ajustar todo el mapa">⛶</button></div></div>
+      </div>
+      <footer class="map-footer"><span>Arrastra para explorar · rueda para zoom · mueve los componentes</span><span>Las flechas indican el movimiento de datos <span title="En una lectura o descarga, los datos viajan del almacén al servicio que los solicita.">ⓘ</span></span></footer>
+    </section>
+    <aside class="sidebar">
+      <div class="tabs" role="tablist" aria-label="Panel lateral"><button id="flow-tab" role="tab" aria-selected="true" aria-controls="flow-panel">Recorridos</button><button id="inspect-tab" role="tab" aria-selected="false" aria-controls="inspect-panel">Inspector <span id="inspect-dot"></span></button></div>
+      <section id="flow-panel" role="tabpanel" aria-labelledby="flow-tab">
+        <div class="panel-heading"><span class="eyebrow">SIGUE UNA PETICIÓN</span><span class="tiny-tag">SIMULACIÓN</span></div>
+        <label class="sr-only" for="flow-select">Recorrido</label><select id="flow-select"></select><div class="flow-edit-actions"><button id="edit-flow">Editar recorrido</button><button id="add-flow">＋ Nuevo</button></div><p class="flow-description" id="flow-description"></p>
+        <div class="flow-summary"><span><strong id="step-count"></strong> pasos</span><span><strong id="duration-count"></strong> ilustrativos</span></div>
+        <div class="play-controls"><button id="play-button" class="primary">▶ Reproducir</button><button id="step-button" title="Avanzar un paso">Paso →</button><button id="reset-button" aria-label="Reiniciar recorrido" title="Reiniciar recorrido">↺</button></div>
+        <div class="play-meta"><span id="play-state" role="status">Listo para explorar</span><label>Velocidad <select id="speed-select" aria-label="Velocidad de reproducción"><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label></div>
+        <div class="progress-track"><div id="progress"></div></div>
+        <div id="timeline" class="timeline"></div>
+        <div class="panel-note" id="transport-note"></div><div class="panel-note">Los tiempos son orientativos. Este recorrido explica el orden de las operaciones; no mide rendimiento ni reproduce la concurrencia del sistema.</div>
+      </section>
+      <section id="inspect-panel" role="tabpanel" aria-labelledby="inspect-tab" hidden></section>
+    </aside>
+  </main>
+  <div id="toast" role="status" hidden></div>
+  <dialog id="editor-dialog"><form id="editor-form"><div class="dialog-heading"><div><span class="eyebrow" id="editor-kicker">MODELO</span><h2 id="editor-title"></h2></div><button type="button" class="close-dialog" aria-label="Cerrar">✕</button></div><div id="editor-fields"></div><p id="editor-error" role="alert"></p><div class="dialog-actions"><button type="button" class="close-dialog">Cancelar</button><button type="submit" class="primary">Guardar cambios</button></div></form></dialog>
+  <script>/* Classic local scripts deliberately support file:// without a build. */</script>
+</body>
+</html>
