@@ -107,13 +107,6 @@
         <button id="addOrder" type="button">+ Cliente</button>
         <button id="restart" type="button">Reiniciar</button>
         <button id="fullscreen" type="button">Pantalla completa</button>
-        <div class="field"><span>Guiños</span>
-          <div class="seg" role="group" aria-label="Pedir un guiño: lo hace el primer cocinero que quede libre">
-            <button type="button" data-gag="beer">Caña</button>
-            <button type="button" data-gag="tentacles">Tentáculos</button>
-            <button type="button" data-gag="cat">Gato</button>
-          </div>
-        </div>
       </div>
     <div class="cooks" id="cooks"></div>
   </div>
@@ -270,7 +263,7 @@
       trayWaiters:TRAY_WAITER_HOMES.map(spot => ({home:spot, x:spot.x, y:spot.y, state:'idle', timer:0, plate:null, faceLeft:false, walkPhase:0})),
       barWaiters:ORDER_WAITER_HOMES.map(spot => ({home:spot, x:spot.x, y:spot.y, state:'idle', timer:0, customer:null, letter:null, row:null, toSend:[], faceLeft:false, walkPhase:0})),
       customers:[], tickets:[], plates:[], counter:[],
-      rebalance:null, generation:1, lastBeerEnd:-Infinity, forcedGag:null,
+      rebalance:null, generation:1, lastBeerEnd:-Infinity,
       stats:{ordered:0, served:0, duplicates:0, rebalances:0},
       events:[], eventSeq:0
     };
@@ -560,19 +553,6 @@
     if(c.idleFor === 0){
       c.beerIn = null;
       return;
-    }
-    // Asked for from the panel: the first cook free does it, without waiting for its turn.
-    if(S.forcedGag && !S.cooks.some(other => other.beer !== null || other.oven !== null)){
-      if(S.forcedGag === 'beer'){
-        c.beer = 0;
-      } else if(c.active && c.x === COOK_X){
-        c.oven = 0;
-        c.ovenKind = S.forcedGag;
-      }
-      if(c.beer !== null || c.oven !== null){
-        S.forcedGag = null;
-        return;
-      }
     }
     if(c.idleFor < BEER_WAIT_S) return;
     if(c.beerIn === null) c.beerIn = pickBeerIn(S, BEER_FIRST);
@@ -1935,7 +1915,6 @@
     });
     document.querySelector('[data-try=slow]').textContent = S.cooks[1].slow ? 'Devolverle el ritmo a C2' : 'Poner lento a C2';
     document.querySelector('[data-try=leave]').textContent = S.cooks[0].active ? 'Sacar a C1' : 'Que vuelva C1';
-    document.querySelectorAll('[data-gag]').forEach(button => { button.disabled = !!S.forcedGag; });
     const tableFree = freeTable(S) !== undefined, free = freeLetters(S);
     $('addOrder').disabled = !tableFree || !free.length;
     const burst = document.querySelector('[data-try=burst]');
@@ -1961,8 +1940,6 @@
     if(b.dataset.speed){
       speed = Number(b.dataset.speed);
       document.querySelectorAll('[data-speed]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-    } else if(b.dataset.gag){
-      S.forcedGag = b.dataset.gag;
     } else if(b.id === 'pause'){
       paused = !paused;
       b.textContent = paused ? 'Seguir' : 'Pausa';

@@ -129,43 +129,6 @@ test('the oven gag is rarer than a beer and never overlaps with another gag', ()
   assert.ok(beers > ovens, `${beers} beers, ${ovens} ovens`);
 });
 
-test('a gag asked for from the panel starts as soon as a cook is free', () => {
-  for(const [kind, field] of [['beer', 'beer'], ['tentacles', 'oven'], ['cat', 'oven']]){
-    const S = manualSim();
-    api.stepSim(S, 1 / 60);
-    S.forcedGag = kind;
-    run(S, 0.1);
-    assert.equal(S.forcedGag, null);
-    const cooks = S.cooks.filter(c => c[field] !== null);
-    assert.equal(cooks.length, 1, kind);
-    if(field === 'oven') assert.equal(cooks[0].ovenKind, kind);
-  }
-});
-
-test('a gag asked for while every cook is busy waits for one to be free', () => {
-  const S = manualSim();
-  api.addCustomer(S, 'A', 2);
-  api.addCustomer(S, 'B', 2);
-  for(let i = 0; i < 60 * 30 && !S.cooks.every(c => c.job); i++) api.stepSim(S, 1 / 60);
-  assert.ok(S.cooks.every(c => c.job));
-  S.forcedGag = 'cat';
-  api.stepSim(S, 1 / 60);
-  assert.equal(S.forcedGag, 'cat');
-  run(S, 60);
-  assert.equal(S.forcedGag, null);
-});
-
-test('tentacles asked for skip a cook outside the group, who is not by the stove', () => {
-  const S = manualSim();
-  api.setCookActive(S, 0, false);
-  run(S, 4);
-  S.cooks.forEach(c => { c.beerIn = 100; });
-  S.forcedGag = 'tentacles';
-  run(S, 0.5);
-  assert.equal(S.cooks[0].oven, null);
-  assert.notEqual(S.cooks[1].oven, null);
-});
-
 test('the oven holds either tentacles or a cat, the tentacles more often', () => {
   const kinds = {tentacles:0, cat:0};
   for(let seed = 1; seed <= 12; seed++){

@@ -65,8 +65,7 @@ estética con `kafka.html`.
   no le toquen y la cierra. Cerrar es lo inverso de abrir: se acerca, coge la puerta y avanza
   con ella en la mano (`ovenBodyOffset`). No significa nada en Kafka: es
   un chiste, y comparte las reglas de la caña para no solaparse con ella.
-  El panel tiene botones para pedir cualquiera de los dos (`S.forcedGag`): salen en cuanto un
-  cocinero esté libre, sin esperar su turno.
+  Solo ocurren de forma natural: no hay manera de pedirlos desde el panel.
 - **Comensal impaciente:** tras `IMPATIENT_S` sin comida tiene brotes de unos segundos
   (`FIT_S`, separados por `CALM_S`) en los que se pone rojo y da puñetazos en la mesa, con el
   codo apoyado, en recuerdo de los clientes del original. Es el coste del lag visto desde la mesa:
