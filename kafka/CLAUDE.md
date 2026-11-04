@@ -11,46 +11,85 @@ Comparativa Kafka vs Azure Service Bus que imita la pantalla del arcade Tapper; 
 momento solo está Kafka. Es otra página de un solo HTML y no comparte código ni
 estética con `kafka.html`.
 
+- **Pantalla:** la escena ocupa toda la ventana. Controles y explicación son dos paneles
+  laterales (`.drawer`) que salen por encima con una pestaña, y se cierran con Escape.
+- **Sin textos en la escena:** Pablo quiere probar si se entiende sola, así que no hay
+  marcador, rótulos, números ni carteles; esos datos están en los paneles. La única excepción es
+  el letrero «QUEUER» de la pared del fondo, que es el nombre del restaurante. La clave de cada
+  mensaje es el color del comensal (en el código sigue siendo una letra, y `KEY_NAMES` la
+  traduce en el panel).
 - **Aspecto:** paleta sacada de la pantalla original (`PAL`), figuras a 2x con contorno
   negro y cocinas con fuego en lugar de barriles. No uses el logotipo de la cerveza del
   original.
-- **Escena de izquierda a derecha:** comedor con 6 mesas individuales de color liso,
+- **Escena de izquierda a derecha:** comedor con 3 mesas de color liso,
   hilos y cocineros. De arriba abajo: hilo de comandas partición 0, mostrador de platos,
-  hilo de comandas partición 1. Los dos hilos miden lo mismo y no tienen barra debajo.
+  hilo de comandas partición 1. Los dos hilos miden lo mismo y no tienen barra debajo. Las
+  cocinas están contra la pared derecha.
 - **Solo las comandas son Kafka:** cuelgan con pinzas del hilo y siguen ahí tras leerlas.
-  El mostrador central es una cola normal: el plato desaparece al recogerlo. Pablo quiso
-  dos camareros de platos, y con un topic de una partición solo podría leer uno.
-- **Analogía:** camarero con bloc = producer; letra del comensal = clave del mensaje, que
+  El mostrador central es una cola normal: el plato desaparece al recogerlo.
+- **Analogía:** camarero con bloc = producer; color del comensal = clave del mensaje, que
   fija siempre el hilo; comanda = mensaje con un solo plato; 2 hilos = particiones de
   `comandas`; cocineros = grupo `cocina`.
-- **Una letra es un comensal:** no puede estar dos veces en el comedor. Cada visita es un
+- **Un color es un comensal:** no puede estar dos veces en el comedor, y las 6 personas se
+  turnan en las 3 mesas, así que para entrar hace falta una libre. Cada visita es un
   menú de 1 a 4 mensajes, uno por plato y siempre en orden: primero, segundo, postre y
-  café. Comandas y platos llevan la letra y el color del comensal, sin más números que
-  el offset bajo la comanda. Dos letras de un hilo se intercalan en el log, pero cada
-  una conserva su orden, así que el postre nunca llega antes que el primero.
+  café. La cabecera de la comanda y el propio plato son del color del comensal, sin más números que
+  el offset bajo la comanda. Cada color conserva su orden dentro de su hilo, así que
+  el postre nunca llega antes que el primero.
 - **Recorrido:** el comensal entra y se sienta; un camarero con bloc le toma nota en la
-  mesa, va al borde izquierdo del hilo de esa letra, manda las comandas y vuelve. Uno
-  con bandeja recoge los platos de uno en uno en el borde del mostrador y se los lleva.
+  mesa, va al borde izquierdo del hilo de ese color, manda las comandas y vuelve. Uno
+  con bandeja va hasta el plato, pone la bandeja debajo (el mostrador tiene su misma altura)
+  y se lo lleva, de uno en uno.
   El comensal los come por orden de llegada,
   con su menú en iconos sobre la cabeza que se apagan al comer, y solo entonces se va.
-- **Plantilla fija:** 2 camareros con bloc y 2 con bandeja, siempre visibles y siempre con
+- **Plantilla fija:** 1 camarero con bloc y 1 con bandeja, siempre visibles y siempre con
   ese objeto en la mano. Nunca aparecen de la nada: esperan en su sitio y, si están
-  ocupados, el comensal espera. Un plato no sale mientras otro camarero lleva uno del mismo
-  comensal, para que no se adelanten entre sí.
+  ocupados, el comensal espera.
+- **El cocinero se mueve por cada mensaje:** se pone justo debajo de la comanda, de espaldas
+  a nosotros y mirando hacia arriba, para leerla; vuelve a la cocina, cocina, va a la barra del
+  medio para dejar el plato y vuelve (cada cambio de fila copia las capturas de Tapper que pasó
+  Pablo: piernas cruzadas como en el original, inclinado y con brazos de corredor, sale casi al instante y deja unas
+  volutas claras donde estaba) y regresa al mismo sitio para confirmar (commit): levanta un sello, da un saltito y lo
+  aprieta contra la comanda en lo más alto, con un brazo de codo y largo fijo. La marca se
+  queda en la comanda. Sin textos en la escena para estas acciones. Si sale del grupo entre
+  el plato y el commit, otro la recocina y sobra un plato: es at-least-once. Fuera del
+  grupo sigue visible al lado de su sitio. `BASE_SPEED` fija la velocidad de x1.
+- **Cocina:** al cocinar solo se enciende el fuego de arriba; el horno nunca se ilumina, para
+  que no parezca que lo que hay dentro se está asando.
+- **Guiño a Tapper:** un cocinero que lleva un rato parado (1,5-14 s de simulación seguidos,
+  tras un margen de 1,5 s) se toma una caña y se limpia el bigote; volver a trabajar reinicia
+  la espera. Si sigue parado, la siguiente tarda 18-40 s. Nunca los dos a la vez, y entre una
+  y otra pasan al menos 5 s.
+- **El horno:** a veces, en vez de la caña (`OVEN_CHANCE`), un cocinero parado ve temblar la
+  puerta un instante, la abre, salen tentáculos cortos de golpe o una pata de gato que intenta arañarle (`CAT_CHANCE`), fuera lo que duran 3 zarpazos (arriba, abajo, arriba), retrocede lo bastante para que
+  no le toquen y la cierra. Cerrar es lo inverso de abrir: se acerca, coge la puerta y avanza
+  con ella en la mano (`ovenBodyOffset`). No significa nada en Kafka: es
+  un chiste, y comparte las reglas de la caña para no solaparse con ella.
+  El panel tiene botones para pedir cualquiera de los dos (`S.forcedGag`): salen en cuanto un
+  cocinero esté libre, sin esperar su turno.
+- **Comensal impaciente:** tras `IMPATIENT_S` sin comida tiene brotes de unos segundos
+  (`FIT_S`, separados por `CALM_S`) en los que se pone rojo y da puñetazos en la mesa, con el
+  codo apoyado, en recuerdo de los clientes del original. Es el coste del lag visto desde la mesa:
+  debe ser raro con el ritmo normal y frecuente con un cocinero lento.
+- **Parados pero vivos:** cada persona respira, parpadea y, cocineros y comensales, mira de
+  reojo, con un ritmo propio (`breathLift`, `isBlinking`, `isGlancing`) para que no se muevan
+  a la vez. Va con el tiempo de simulación, así que se detiene en pausa.
 - **Lo que no hay que perder:** leer no borra (la comanda se apaga y solo cae por
   retención), cada hilo tiene un solo dueño y el triángulo marca el offset
   confirmado, que sobrevive al rebalance.
-- **Población cerrada:** con 6 letras, el lag de un hilo no pasa de 12, así que la
-  retención (18) no llega a borrar nada sin leer. Por simplicidad, además, solo
-  borra lo ya confirmado. Para enseñar esa pérdida haría falta otra fuente de mensajes.
+- **Población cerrada:** con 3 mesas, el lag total no pasa de 12, así que la retención (20)
+  no llega a borrar nada sin leer. Por simplicidad, además, solo borra lo ya confirmado.
+  Para enseñar esa pérdida haría falta otra fuente de mensajes.
 - **Código:** el modelo va antes del marcador `// initial`, sin DOM, y lo prueba
   `node --test tapper.test.cjs`. Detrás van el dibujo (canvas de 730×420 ampliado
   sin suavizado) y el panel.
-- **Simplificaciones:** retención por número de mensajes (18 por hilo), hash de la
+- **Simplificaciones:** retención por número de mensajes (20 por hilo), hash de la
   clave simplificado y una comanda en curso por partición.
 - **Verificar:** con la pestaña oculta el `requestAnimationFrame` va a ~1 fps y la
   simulación casi no avanza. Sustituye `requestAnimationFrame` y `performance.now`
-  antes de cargar el script para avanzar el reloj a mano.
+  antes de cargar el script para avanzar el reloj a mano. Si reescribes la página con
+  `document.write`, el script anterior sigue vivo y también actualiza el panel: fíate solo
+  del canvas, y comprueba el panel en una carga limpia.
 
 ## Filosofía (no romper)
 
