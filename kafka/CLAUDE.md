@@ -15,12 +15,13 @@ estética con `kafka.html`.
   laterales (`.drawer`) que salen por encima con una pestaña, y se cierran con Escape.
 - **Sin textos en la escena:** Pablo quiere probar si se entiende sola, así que no hay
   marcador, rótulos, números ni carteles; esos datos están en los paneles. Las excepciones son
-  el letrero «QUEUER» de la pared del fondo, que es el nombre del restaurante, y la vista
-  «Kafka real», que existe precisamente para poner nombre a cada pieza. La clave de cada
+  el letrero «QUEUER» de la pared del fondo, que es el nombre del restaurante, el bocadillo
+  «¡Oído cocina!» del jefe de sala (Pablo lo quiere literal) y la vista «Kafka real», que existe
+  precisamente para poner nombre a cada pieza. La clave de cada
   mensaje es el color del comensal (en el código sigue siendo una letra, y `KEY_NAMES` la
   traduce en el panel).
 - **Tutorial:** botón flotante sobre la escena. Cada clic oscurece todo menos un tipo de actor,
-  en el orden en que viaja un pedido: comensales y mesas, camareros, hilos de comandas,
+  en el orden en que viaja un pedido: comensales y mesas, camareros, hilos y jefe de sala,
   cocineros y cocinas, mostrador. Tras el último vuelve a la escena completa.
   Oscurece la escena y vuelve a dibujar encima a esos actores, con el aspecto que tengan (bar o
   Kafka), así que se iluminan sus píxeles exactos; por eso los contadores de animación del dibujo
@@ -48,6 +49,8 @@ estética con `kafka.html`.
   - Los mensajes dejan de ser comida (lo pidió Pablo): un record es la cabecera con el color de
     su clave y el offset, y debajo unas líneas de datos cuya longitud sale del id del mensaje
     (`drawPayload`); el resultado de un consumer es una marca de hecho (`CHECK_MARK`).
+  - El jefe de sala se va con los hilos: es el broker. Su «¡Oído cocina!» pasa a ser un `ACK` que
+    vuelve por la flecha hasta el lote del partitioner (`drawAck`).
   - Mostrador y camarero con bandeja → desaparecen: no son Kafka. Mientras el mostrador sigue,
     el resultado del consumer vuela a él; luego solo se desvanece.
   - El grupo se aparta del borde derecho: la pestaña «Explicación» tapa el centro de ese borde.
@@ -74,6 +77,13 @@ estética con `kafka.html`.
   cocinas están contra la pared derecha.
 - **Solo las comandas son Kafka:** cuelgan con pinzas del hilo y siguen ahí tras leerlas.
   El mostrador central es una cola normal: el plato desaparece al recogerlo.
+- **Jefe de sala = el ack del broker:** calvo con cerco gris, arrugas, gafas, barba blanca de
+  unos días y camisa, de brazos cruzados en la esquina de arriba (`BOSS_SPOT`). Mira al comedor y
+  se gira hacia los hilos mientras sube un pedido. Cuando el pedido entero está colgado (ninguna
+  comanda de esa visita en vuelo) dice «¡Oído cocina!» (`callOrderHeard`), y el camarero espera
+  `ACK_S` en la barra (estado `awaitAck`) antes de volver: el producer no da el envío por hecho
+  hasta el ack. Un ack por pedido, como Kafka confirma por lote. No lo dicen los cocineros a
+  propósito: el ack es del broker, y los consumers leen a su ritmo, sin que el producer los espere.
 - **Analogía:** comensales = producer (en la vista Kafka, uno solo para todos); color del comensal =
   clave del mensaje, que fija siempre el hilo; camarero con bloc = partitioner del producer, que
   lleva cada comanda al hilo de su clave; comanda = mensaje con un solo plato; 2 hilos =

@@ -168,6 +168,7 @@
           <dt>Color del comensal</dt><dd>Clave del mensaje: decide el hilo</dd>
           <dt>Camarero con bloc</dt><dd>Partitioner, dentro del producer: lleva las comandas al hilo de su color</dd>
           <dt>Comanda</dt><dd>Mensaje: un plato del menú</dd>
+          <dt>Jefe de sala: «¡Oído cocina!»</dt><dd>Ack del broker: el pedido entero ya está en el hilo, y solo entonces el camarero se va</dd>
           <dt>Hilo de comandas</dt><dd>Partición del topic <code>comandas</code></dd>
           <dt>Triángulo</dt><dd>Offset confirmado del grupo</dd>
           <dt>Cocinero de espaldas bajo la comanda</dt><dd>Fetch: la lee</dd>
@@ -203,6 +204,8 @@
   // The counter is as tall as the tray: its top is at the waiter's feet minus TRAY_HEIGHT.
   const COUNTER_HEIGHT = 30, TRAY_HEIGHT = 30, TRAY_REACH = 14;
   const ORDER_WAITER_HOMES = [{x:150, y:190}], TRAY_WAITER_HOMES = [{x:196, y:108 + ROW_PITCH + TRAY_HEIGHT}];
+  // The head of the dining room watches over it from the top corner, next to the head of the first wire.
+  const BOSS_SPOT = {x:140, y:100};
   const TABLES = 3, TABLE_X = 70;
   const SEAT_SPEED = 170, EAT_S = 1.8;
   const WAITER_SPEED = 240;
@@ -228,7 +231,7 @@
   const OVEN_DOOR_S = 0.19, OVEN_STEP_S = 0.16;
   const OVEN_SHUT_AT = OVEN_IN_AT + 0.16 + OVEN_STEP_S + OVEN_DOOR_S, OVEN_GAG_S = OVEN_SHUT_AT + 0.4;
   const REBALANCE_MIN_S = 1.6;
-  const ORDER_S = 0.55, ORDER_ITEM_S = 0.6, WAITER_TAKE_S = 0.25, READ_S = 0.7, COMMIT_S = 1.0, PLATE_TOSS_S = 0.22, PLATE_DROP_S = 0.35;
+  const ORDER_S = 0.55, ORDER_ITEM_S = 0.6, WAITER_TAKE_S = 0.25, READ_S = 0.7, COMMIT_S = 1.0, ACK_S = 0.5, PLATE_TOSS_S = 0.22, PLATE_DROP_S = 0.35;
   const LETTERS = 'ABCDEF';
   const COURSES = ['primero', 'segundo', 'postre', 'cafe'];
   const ITEMS = {
@@ -280,7 +283,8 @@
       comandas:Array.from({length:PARTITIONS}, makePartition),
       cooks:[0, 1].map(id => ({id, name:`C${id + 1}`, active:true, slow:false, x:COOK_X, pos:rowOf(id), partitions:[], cursor:0, walking:false, faceLeft:true, job:null, idleFor:0, beerIn:null, beer:null, oven:null, ovenKind:null, windup:0})),
       trayWaiters:TRAY_WAITER_HOMES.map(spot => ({home:spot, x:spot.x, y:spot.y, state:'idle', timer:0, plate:null, faceLeft:false, walkPhase:0})),
-      barWaiters:ORDER_WAITER_HOMES.map(spot => ({home:spot, x:spot.x, y:spot.y, state:'idle', timer:0, customer:null, letter:null, row:null, toSend:[], faceLeft:false, walkPhase:0})),
+      barWaiters:ORDER_WAITER_HOMES.map(spot => ({home:spot, x:spot.x, y:spot.y, state:'idle', timer:0, customer:null, letter:null, row:null, toSend:[], heardAt:null, faceLeft:false, walkPhase:0})),
+      boss:{x:BOSS_SPOT.x, y:BOSS_SPOT.y, saidAt:-Infinity, part:null},
       customers:[], tickets:[], plates:[], counter:[],
       rebalance:null, generation:1, lastBeerEnd:-Infinity,
       stats:{ordered:0, served:0, duplicates:0, rebalances:0},
@@ -716,6 +720,14 @@
     });
   }
 
+  // The broker's ack: the head of the dining room has seen the whole order hung and says so out loud.
+  function callOrderHeard(S, w){
+    S.boss.saidAt = S.time;
+    S.boss.part = w.customer.partition;
+    logEvent(S, `«¡Oído cocina!»: el pedido ${KEY_NAMES[w.letter]} ya está en el hilo ${w.customer.partition}.`);
+    return S.time;
+  }
+
   // Producers of the orders topic: a free waiter takes the oldest diner still waiting,
   // writes the order at the table and sends it from the left end of the bar of that key.
   function stepBarWaiters(S, dt){
@@ -757,7 +769,17 @@
             const start = barStart(w.row) + 4;
             S.tickets.push({order:message, part:message.partition, x0:start, t:0, dur:(barEnd(w.row) - 34 - start) / SLIDE_SPEED});
             if(w.toSend.length) w.timer = ORDER_ITEM_S;
-            else w.state = 'back';
+            else w.state = 'awaitAck';
+          }
+          break;
+        // A producer only counts the order as sent once the broker confirms it: when the whole order
+        // is on the wire, the head of the dining room calls it out, and the waiter waits to hear it.
+        case 'awaitAck':
+          if(w.heardAt === null){
+            if(!S.tickets.some(ticket => ticket.order.visit === w.customer.visit)) w.heardAt = callOrderHeard(S, w);
+          } else if(S.time - w.heardAt >= ACK_S){
+            w.heardAt = null;
+            w.state = 'back';
           }
           break;
         case 'back':
@@ -911,7 +933,7 @@
   };
 
   const FONT = {
-    ' ':[0,0,0,0,0],'!':[0,0,0x5F,0,0],'?':[2,1,0x59,9,6],'#':[0x14,0x7F,0x14,0x7F,0x14],'+':[8,8,0x3E,8,8],',':[0,0x80,0x70,0x30,0],'-':[8,8,8,8,8],
+    ' ':[0,0,0,0,0],'!':[0,0,0x5F,0,0],'¡':[0,0,0x7D,0,0],'?':[2,1,0x59,9,6],'#':[0x14,0x7F,0x14,0x7F,0x14],'+':[8,8,0x3E,8,8],',':[0,0x80,0x70,0x30,0],'-':[8,8,8,8,8],
     '.':[0,0,0x60,0x60,0],'/':[0x20,0x10,8,4,2],':':[0,0,0x14,0,0],'>':[0,0x41,0x22,0x14,8],'·':[0,0x18,0x18,0,0],'=':[0x14,0x14,0x14,0x14,0x14],'(':[0,0x1C,0x22,0x41,0],')':[0,0x41,0x22,0x1C,0],'%':[0x23,0x13,8,0x64,0x62],
     0:[0x3E,0x51,0x49,0x45,0x3E],1:[0,0x42,0x7F,0x40,0],2:[0x72,0x49,0x49,0x49,0x46],3:[0x21,0x41,0x49,0x4D,0x33],4:[0x18,0x14,0x12,0x7F,0x10],
     5:[0x27,0x45,0x45,0x45,0x39],6:[0x3C,0x4A,0x49,0x49,0x31],7:[0x41,0x21,0x11,9,7],8:[0x36,0x49,0x49,0x49,0x36],9:[0x46,0x49,0x49,0x29,0x1E],
@@ -1105,6 +1127,31 @@
     // Bun.
     ['......HHHH......','......HHHH......','....HHHHHHHH....','....HSSSSSSH....','....SSSESSES....','....SSSSSSSS....','....SSSSSSSS....','....SSSMMSSS....','....SSSSSSSS....']
   ];
+  // The head of the dining room: bald with a grey fringe, a wrinkled forehead, glasses, a few days'
+  // white stubble and a shirt, arms crossed while he keeps an eye on everything.
+  const HEAD_BOSS = [
+    '.....SSSSSS.....',
+    '....SwwwSSSS....',
+    '....SSSwwwSSh...',
+    '...SSSSSSSShh...',
+    '..GGGGSSSSShh...',
+    '..GLEGggggShh...',
+    '..SGGSSSSSSh....',
+    '...SwySySyS.....',
+    '...MMMySyy......',
+    '....ySyyS.......'
+  ];
+  const TORSO_SHIRT = [
+    '....kCCCCk......',
+    '...CCCCCCCC.....',
+    '..CCCCCbCCCC....',
+    '..CCCCCbCCCC....',
+    '..DDDDDDDDDD....',
+    '..SDDDDDDDDS....',
+    '..CCCCCbCCCC....',
+    '...BBBBBBBB.....',
+    '...PPPPPPPP.....'
+  ];
   const CUSTOMER_LOOKS = {
     A:{head:0, hair:'#5a3417'}, B:{head:1, hair:'#1b1b1b'}, C:{head:2, hair:'#929292'},
     D:{head:3, hair:'#e0c060'}, E:{head:0, hair:'#c8541e'}, F:{head:1, hair:'#7a4a22'}
@@ -1214,6 +1261,14 @@
   function waiterSprite(reach, walk, blink = false){
     const rows = [...HEAD_WAITER, ...(reach ? TORSO_REACH : TORSO_DOWN), ...(walk ? LEGS_WALK : LEGS_STAND)];
     return sprite(`waiter-${reach}-${walk}-${blink}`, rows, {K:'#1b1b1b', S:'#e0a070', E:blink ? '#e0a070' : PAL.black, M:'#1b1b1b', W:PAL.white, A:'#0024b6', P:'#1b1b2b', B:PAL.black});
+  }
+
+  function bossSprite(talking, blink = false){
+    const head = HEAD_BOSS.map((row, i) => (talking && i === 8 ? '...OOMySyy......' : row));
+    return sprite(`boss-${talking}-${blink}`, [...head, ...TORSO_SHIRT, ...LEGS_STAND], {
+      S:'#f0b088', w:'#b0643c', h:'#d8d8d8', y:'#e4ddd6', G:'#1b1b1b', g:'#6d6d6d', L:'#bfe6ff', E:blink ? '#bfe6ff' : PAL.black, M:'#a85848', O:'#3a0e0e',
+      k:PAL.white, C:'#cfe0ff', D:'#a8c0e8', b:'#5a6a8a', B:'#1b1b1b', P:'#2b2b3b'
+    });
   }
 
   function customerSprite(letter, angry = false, blink = false){
@@ -1426,10 +1481,10 @@
   let tutorialStep = 0;
   // How much the drawing-side animation counters advance this pass: 0 when drawing a second time.
   let frameTick = 0.016;
-  const TUTORIAL_STEPS = ['Comensales y mesas', 'Camareros', 'Hilos de comandas', 'Cocineros y cocinas', 'Mostrador'];
+  const TUTORIAL_STEPS = ['Comensales y mesas', 'Camareros', 'Hilos y jefe de sala', 'Cocineros y cocinas', 'Mostrador'];
   // The Kafka view: 0 is the bar, and each step turns one more kind of actor into its Kafka box,
   // in the order a message travels. Stage i is Kafka once kafkaStep > i.
-  const KAFKA_STAGES = ['Comensales → producer', 'Camarero → partitioner', 'Hilos → topic', 'Cocineros → consumers', 'Mostrador → fuera de Kafka'];
+  const KAFKA_STAGES = ['Comensales → producer', 'Camarero → partitioner', 'Hilos y jefe → topic', 'Cocineros → consumers', 'Mostrador → fuera de Kafka'];
   const STAGE = {producers:0, partitioner:1, topic:2, consumers:3, outside:4};
   let kafkaStep = 0;
   // How far each stage is into its Kafka look, from 0 (bar) to 1, dissolving over MORPH_S real seconds.
@@ -1582,6 +1637,22 @@
     drawSprite(waiterSprite(true, moving && stride(w), isBlinking(w.home.x)), w.x, w.y, !w.faceLeft, lift);
     drawTray(trayX, trayY);
     if(w.plate) drawPlateBar(trayX, trayY - 9, w.plate);
+  }
+
+  // He watches the dining room, and turns to the wires while an order goes up. When the whole order
+  // is hung he calls «¡Oído cocina!»: the bubble stays up a little longer than the waiter waits.
+  const OIDO_SHOW_S = 1.3;
+  const bossTalking = () => S.time - S.boss.saidAt < OIDO_SHOW_S;
+
+  function drawBoss(){
+    const b = S.boss, talking = bossTalking();
+    const watchingWires = talking || S.barWaiters.some(w => w.state === 'toBar' || w.state === 'order' || w.state === 'awaitAck');
+    const mouthOpen = talking && Math.floor((S.time - b.saidAt) * 8) % 2 === 0;
+    drawSprite(bossSprite(mouthOpen, isBlinking(11)), b.x, b.y, watchingWires, talking ? 0 : breathLift(11));
+  }
+
+  function drawBossCall(){
+    if(bossTalking()) drawSpeech(['¡OÍDO COCINA!'], S.boss.x, S.boss.y - bossSprite(false).height);
   }
 
   const STAMP_INK = '#149a3a';
@@ -2326,6 +2397,18 @@
     }
   }
 
+  // The broker's ack is a message too: it goes back along the arrow to the producer, which only then
+  // counts the order as sent. While the waiter is still a waiter, it goes back to him.
+  function drawAck(){
+    const b = S.boss, k = (S.time - b.saidAt) / ACK_S;
+    if(b.part === null || k < 0 || k >= 1) return;
+    const row = rowOf(b.part), lane = logLaneY(b.part) + 6, out = batchLaneY(b.part) + 6, waiter = S.barWaiters[0];
+    const points = mixOf(STAGE.partitioner) < 0.5 ? [{x:barStart(row) - 4, y:lane}, {x:waiter.x, y:waiter.y - 44}]
+      : [{x:barStart(row) - 4, y:lane}, {x:ROUTE_X, y:lane}, {x:ROUTE_X, y:out}, {x:BATCH_X + 48, y:out}];
+    const at = alongPath(points, k);
+    kafkaTab(Math.round(at.x - 11), Math.round(at.y - 5), 'ACK', KAFKA.ink);
+  }
+
   // ---- Kinds of actor, each in its current look ----
   // Back to front. The tutorial draws these again to light one of them up.
 
@@ -2343,6 +2426,7 @@
         g.drawImage(rowLayers[rowOf(part)], 0, 0);
         drawOrdersWire(part);
       }
+      drawBoss();
     }, drawTopicBoxes);
   }
 
@@ -2373,14 +2457,19 @@
     morphDraw(mixOf(STAGE.outside), () => S.trayWaiters.forEach(drawTrayWaiter), () => {});
   }
 
-  // Orders on their way to a partition go over every actor: in the Kafka view they are what moves.
+  // Orders on their way to a partition, and the call that they arrived, go over every actor:
+  // in the Kafka view they are what moves.
   function drawMessagesInFlight(){
     morphDraw(mixOf(STAGE.topic), () => {
       for(let part = 0; part < PARTITIONS; part++) drawFlights(part);
-    }, () => S.tickets.forEach(ticket => {
-      const at = alongPath(flightPath(ticket), ticket.t);
-      drawMiniRecord(at.x - 5, at.y - 6, ticket.order);
-    }));
+      drawBossCall();
+    }, () => {
+      S.tickets.forEach(ticket => {
+        const at = alongPath(flightPath(ticket), ticket.t);
+        drawMiniRecord(at.x - 5, at.y - 6, ticket.order);
+      });
+      drawAck();
+    });
   }
 
   // The tutorial darkens the scene and draws the actors of the step again on top, so exactly

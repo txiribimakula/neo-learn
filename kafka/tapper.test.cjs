@@ -388,6 +388,30 @@ test('a waiter takes the order at the table and sends it from the bar of the key
   assert.equal(S.stats.served, 2);
 });
 
+test('the waiter only leaves the bar once the head waiter calls the whole order heard', () => {
+  const S = manualSim();
+  api.addCustomer(S, 'A', 3);
+  const waiter = S.barWaiters[0];
+  const calls = [];
+  let lastSaid = S.boss.saidAt, leftAt = null, waited = false;
+  for(let i = 0; i < 3000 && leftAt === null; i++){
+    api.stepSim(S, 1 / 60);
+    if(S.boss.saidAt !== lastSaid){
+      lastSaid = S.boss.saidAt;
+      calls.push({at:S.time, inFlight:S.tickets.length, onWire:S.comandas[0].end});
+    }
+    if(waiter.state === 'awaitAck') waited = true;
+    if(waiter.state === 'back') leftAt = S.time;
+  }
+  assert.ok(waited, 'the waiter stays at the bar after hanging the last order');
+  assert.equal(calls.length, 1, 'one call for the whole order');
+  assert.equal(calls[0].inFlight, 0, 'nothing is still on its way');
+  assert.equal(calls[0].onWire, 3, 'all three orders are on the wire');
+  assert.equal(S.boss.part, 0);
+  assert.ok(leftAt - calls[0].at >= 0.49, 'the waiter hears it before leaving');
+  assert.ok(S.events.some(event => event.text.includes('¡Oído cocina!')));
+});
+
 test('the staff is fixed and no waiter ever jumps from one place to another', () => {
   const S = api.createSim(9);
   S.rate = 40;
