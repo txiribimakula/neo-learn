@@ -14,10 +14,57 @@ estética con `kafka.html`.
 - **Pantalla:** la escena ocupa toda la ventana. Controles y explicación son dos paneles
   laterales (`.drawer`) que salen por encima con una pestaña, y se cierran con Escape.
 - **Sin textos en la escena:** Pablo quiere probar si se entiende sola, así que no hay
-  marcador, rótulos, números ni carteles; esos datos están en los paneles. La única excepción es
-  el letrero «QUEUER» de la pared del fondo, que es el nombre del restaurante. La clave de cada
+  marcador, rótulos, números ni carteles; esos datos están en los paneles. Las excepciones son
+  el letrero «QUEUER» de la pared del fondo, que es el nombre del restaurante, y la vista
+  «Kafka real», que existe precisamente para poner nombre a cada pieza. La clave de cada
   mensaje es el color del comensal (en el código sigue siendo una letra, y `KEY_NAMES` la
   traduce en el panel).
+- **Tutorial:** botón flotante sobre la escena. Cada clic oscurece todo menos un tipo de actor,
+  en el orden en que viaja un pedido: comensales y mesas, camareros, hilos de comandas,
+  cocineros y cocinas, mostrador. Tras el último vuelve a la escena completa.
+  Oscurece la escena y vuelve a dibujar encima a esos actores, con el aspecto que tengan (bar o
+  Kafka), así que se iluminan sus píxeles exactos; por eso los contadores de animación del dibujo
+  avanzan con `frameTick`, que vale 0 en esa segunda pasada. Escape cierra primero los paneles y,
+  si no hay ninguno abierto, el tutorial y la vista Kafka.
+- **Vista «Kafka real»:** otro botón flotante, junto al del tutorial. Cada clic convierte un tipo
+  de actor más en su pieza de Kafka, en el orden en que viaja un mensaje (`KAFKA_STAGES`), y se
+  queda así. Tras el último clic vuelve al bar.
+  - Ya transformado es un diagrama: **las piezas están quietas y solo se mueven los mensajes**
+    (lo pidió Pablo). Producer a la izquierda, topic en medio y grupo a la derecha, entre las dos
+    particiones (`PRODUCER_BOX`, `PARTITIONER_BOX`, `GROUP_BOX`).
+  - Comensales → un solo `PRODUCER` que envía todo: en `SEND()` esperan los mensajes de los
+    comensales que aún no ha atendido el camarero (`UNSENT`). Camarero con bloc → `PARTITIONER`
+    dentro del producer: qué colores van a `P0` y cuáles a `P1`, el lote del comensal atendido en
+    la fila de su partición y una flecha de cada fila a su partición, `HASH(KEY) % 2`.
+  - Hilos → `PARTITION 0/1` dentro de `TOPIC: COMANDAS`, con las comandas como records con su
+    offset. Un mensaje en vuelo sale del lote, sigue la flecha y corre por encima de los records
+    hasta el final del log (`flightPath`, `alongPath`); se dibuja encima de todo
+    (`drawMessagesInFlight`).
+  - Cocineros → `CONSUMER C1/C2` fijos dentro de `CONSUMER GROUP`, con lo que hacen
+    (`consumerAction`: `FETCH 3`, `PROCESS`, `OUTPUT`, `COMMIT 4`, `REBALANCE`, `CRASHED`…) y
+    las particiones asignadas (`P0`, `P1`). Al leer, una copia del record vuela al consumer y el
+    original sigue en el log; al confirmar, un triángulo verde vuela a la casilla del siguiente
+    offset y el del grupo salta allí al llegar (`drawConsumerTraffic`).
+  - Los mensajes dejan de ser comida (lo pidió Pablo): un record es la cabecera con el color de
+    su clave y el offset, y debajo unas líneas de datos cuya longitud sale del id del mensaje
+    (`drawPayload`); el resultado de un consumer es una marca de hecho (`CHECK_MARK`).
+  - Mostrador y camarero con bandeja → desaparecen: no son Kafka. Mientras el mostrador sigue,
+    el resultado del consumer vuela a él; luego solo se desvanece.
+  - El grupo se aparta del borde derecho: la pestaña «Explicación» tapa el centro de ese borde.
+  - El cambio es un fundido de píxeles (dither de Bayer en bloques de 2 px, `morphDraw`) de
+    `MORPH_S` segundos reales; con movimiento reducido es instantáneo. Cada actor se dibuja en
+    una capa auxiliar apuntando `g` a ella. Comandas y platos que viajan dentro de otro actor
+    cambian con su propia etapa (`drawTicket`, `drawPlate`), y dentro de su grupo se usan las
+    versiones fijas (`drawTicketBar`/`drawRecord`, `drawPlateBar`/`drawResult`).
+  - Entre etapas conviven los dos mundos: con solo el producer hecho, el camarero aún camina
+    hasta él a por las comandas; con solo los consumers, los resultados aún van al mostrador.
+  - El contorno del topic es un corchete que une las dos particiones por la izquierda y deja
+    fuera el centro de la sala. Azul celeste = broker, amarillo = consumers, blanco = producer;
+    cada record lleva el color de su clave. El restaurante se oscurece a medida que avanza.
+  - Fiel a Kafka: el record solo muestra offset cuando el broker lo añade (en vuelo va sin
+    número), leer no lo marca (solo se apaga) y el commit guarda el siguiente offset a leer, así
+    que el triángulo verde va una casilla más allá.
+  - Las cocinas tienen su propia capa (`stovesLayer`) para poder disolverse con los cocineros.
 - **Aspecto:** paleta sacada de la pantalla original (`PAL`), figuras a 2x con contorno
   negro y cocinas con fuego en lugar de barriles. No uses el logotipo de la cerveza del
   original.
@@ -27,9 +74,10 @@ estética con `kafka.html`.
   cocinas están contra la pared derecha.
 - **Solo las comandas son Kafka:** cuelgan con pinzas del hilo y siguen ahí tras leerlas.
   El mostrador central es una cola normal: el plato desaparece al recogerlo.
-- **Analogía:** camarero con bloc = producer; color del comensal = clave del mensaje, que
-  fija siempre el hilo; comanda = mensaje con un solo plato; 2 hilos = particiones de
-  `comandas`; cocineros = grupo `cocina`.
+- **Analogía:** comensales = producer (en la vista Kafka, uno solo para todos); color del comensal =
+  clave del mensaje, que fija siempre el hilo; camarero con bloc = partitioner del producer, que
+  lleva cada comanda al hilo de su clave; comanda = mensaje con un solo plato; 2 hilos =
+  particiones de `comandas`; cocineros = grupo `cocina`.
 - **Un color es un comensal:** no puede estar dos veces en el comedor, y las 6 personas se
   turnan en las 3 mesas, así que para entrar hace falta una libre. Cada visita es un
   menú de 1 a 4 mensajes, uno por plato y siempre en orden: primero, segundo, postre y
@@ -66,6 +114,10 @@ estética con `kafka.html`.
   con ella en la mano (`ovenBodyOffset`). No significa nada en Kafka: es
   un chiste, y comparte las reglas de la caña para no solaparse con ella.
   Solo ocurren de forma natural: no hay manera de pedirlos desde el panel.
+- **Intoxicación (botón en «Prueba esto»):** un cocinero respira humos verdes de su cocina, se
+  desmaya (sale del grupo: rebalance, el otro lleva los dos hilos), se levanta del todo con el
+  bocadillo «Am I already at Monkey Island™?» y, en cuanto termina la pregunta, vuelve a
+  entrar (otro rebalance). Las estrellas solo salen mientras está en el suelo. Ese bocadillo es una excepción pedida por Pablo a la escena sin textos.
 - **Comensal impaciente:** tras `IMPATIENT_S` sin comida tiene brotes de unos segundos
   (`FIT_S`, separados por `CALM_S`) en los que se pone rojo y da puñetazos en la mesa, con el
   codo apoyado, en recuerdo de los clientes del original. Es el coste del lag visto desde la mesa:

@@ -13,7 +13,7 @@ function harness(){
   const context = {};
   vm.createContext(context);
   vm.runInContext(source.slice(0, source.indexOf('// initial\n')) + `
-    globalThis.api = { createSim, stepSim, addCustomer, setCookActive, setCookSlow, seekToEarliest, lagOf, ITEMS, COURSES };
+    globalThis.api = { createSim, stepSim, addCustomer, setCookActive, setCookSlow, seekToEarliest, lagOf, poisonCook, consumerAction, ITEMS, COURSES };
   })();`, context);
   return context.api;
 }
@@ -44,13 +44,65 @@ function stubDom(){
   };
 }
 
-test('the whole scene draws without errors through every state', () => {
-  const html = fs.readFileSync(path.join(__dirname, 'tapper.html'), 'utf8');
-  const source = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+const pageScript = () => fs.readFileSync(path.join(__dirname, 'tapper.html'), 'utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
+function runScene(source, frames){
   const dom = stubDom();
   vm.createContext(dom.context);
   vm.runInContext(source, dom.context);
-  for(let i = 0; i < 300 * 30; i++) dom.frame(i * 100);
+  for(let i = 0; i < frames; i++) dom.frame(i * 100);
+}
+// The page has no hooks for tests: a scene starts in another state by editing one line of its source.
+function withLine(source, line, replacement){
+  assert.ok(source.includes(line), `the page still has: ${line}`);
+  return source.replace(line, replacement);
+}
+
+test('the whole scene draws without errors through every state', () => {
+  runScene(pageScript(), 300 * 30);
+});
+
+test('the Kafka view draws at every stage, while dissolving both ways and under the tutorial', () => {
+  const source = pageScript();
+  const kafka = step => withLine(source, 'let kafkaStep = 0;', `let kafkaStep = ${step};`);
+  for(let step = 1; step <= 5; step++) runScene(kafka(step), 1200);
+  // Fully Kafka on the first frame, with the step back at the bar: everything dissolves back at once.
+  runScene(withLine(source, 'const kafkaMix = KAFKA_STAGES.map(() => 0);', 'const kafkaMix = KAFKA_STAGES.map(() => 1);'), 1200);
+  for(let step = 1; step <= 5; step++) runScene(withLine(kafka(5), 'let tutorialStep = 0;', `let tutorialStep = ${step};`), 300);
+  // A consumer that crashes and comes back, drawn as a box.
+  runScene(withLine(kafka(4), 'let paused = false, speed = 1;', 'let paused = false, speed = 1; poisonCook(S);'), 600);
+});
+
+test('in the Kafka view a consumer fetches an offset and then commits the next one', () => {
+  const S = manualSim();
+  api.addCustomer(S, 'A', 1);
+  const cook = S.cooks[0];
+  const seen = new Set();
+  for(let i = 0; i < 60 * 60 && S.comandas[0].committed === 0; i++){
+    api.stepSim(S, 1 / 60);
+    seen.add(api.consumerAction(S, cook));
+  }
+  assert.equal(S.comandas[0].committed, 1);
+  assert.deepEqual([...seen].filter(label => /^(FETCH|COMMIT)/.test(label)), ['FETCH 0', 'COMMIT 1']);
+  assert.ok(seen.has('PROCESS') && seen.has('OUTPUT'), [...seen].join(', '));
+  assert.equal(api.consumerAction(S, cook), 'POLL');
+});
+
+test('in the Kafka view the labels name leaving, rebalancing and crashing', () => {
+  const S = manualSim();
+  api.setCookActive(S, 0, false);
+  assert.equal(api.consumerAction(S, S.cooks[0]), 'LEFT GROUP');
+  assert.equal(api.consumerAction(S, S.cooks[1]), 'REBALANCE');
+  run(S, 3);
+  assert.equal(api.consumerAction(S, S.cooks[1]), 'POLL');
+  api.setCookActive(S, 0, true);
+  run(S, 3);
+  const cook = api.poisonCook(S);
+  run(S, 1);
+  assert.equal(api.consumerAction(S, cook), 'FAILING');
+  run(S, 1);
+  assert.equal(api.consumerAction(S, cook), 'CRASHED');
+  run(S, 7.5);
+  assert.equal(api.consumerAction(S, cook), 'RESTART');
 });
 
 test('a cook counts as idle only while it has nothing to do', () => {
@@ -506,6 +558,53 @@ test('the cook jumps to the counter to leave the plate and jumps back to its row
   assert.equal(cook.job.phase, 'toCommit');
   assert.equal(cook.pos, 2, 'back to its own row');
   assert.ok(framesBetweenRows <= 24, `moving ${framesBetweenRows} frames there and back`);
+});
+
+test('fumes knock a cook out: two rebalances, and the other one covers both wires meanwhile', () => {
+  const S = manualSim();
+  const cook = api.poisonCook(S);
+  const other = S.cooks.find(c => c !== cook);
+  assert.ok(cook);
+  assert.equal(api.poisonCook(S), null, 'one at a time');
+  run(S, 1);
+  assert.equal(cook.faint.phase, 'fumes');
+  run(S, 1);
+  assert.equal(cook.faint.phase, 'fainted');
+  assert.equal(cook.active, false);
+  assert.equal(S.stats.rebalances, 1);
+  run(S, 2);
+  assert.deepEqual(JSON.parse(JSON.stringify(other.partitions)), [0, 1], 'the other cook takes both wires');
+  const x = cook.x;
+  run(S, 5);
+  assert.equal(cook.x, x, 'lies where it fell');
+  assert.equal(cook.beer, null);
+  run(S, 2.5);
+  assert.equal(cook.faint.phase, 'waking');
+  assert.equal(cook.active, false, 'still out while asking its question');
+  run(S, 1.5);
+  assert.equal(cook.faint, null, 'back to work right after the question');
+  assert.equal(cook.active, true);
+  assert.equal(S.stats.rebalances, 2);
+  run(S, 3);
+  assert.deepEqual(assignment(S), [[0], [1]], 'back to its own wire');
+});
+
+test('the fumes only catch a cook at its stove, and drop what it was doing', () => {
+  const S = manualSim();
+  api.addCustomer(S, 'A', 1);
+  const cook = S.cooks[0];
+  for(let i = 0; i < 60 * 30 && cook.job?.phase !== 'toTicket'; i++) api.stepSim(S, 1 / 60);
+  S.random = () => 0;
+  api.poisonCook(S);
+  api.stepSim(S, 1 / 60);
+  assert.equal(cook.faint.phase, 'waiting', 'walking along the wire, out of reach of the fumes');
+  for(let i = 0; i < 60 * 30 && cook.faint.phase === 'waiting'; i++) api.stepSim(S, 1 / 60);
+  assert.equal(cook.faint.phase, 'fumes');
+  run(S, 2);
+  assert.equal(cook.job, null);
+  assert.equal(S.comandas[0].committed, 0, 'what it was cooking was never confirmed');
+  run(S, 30);
+  assert.equal(S.stats.served, 1);
 });
 
 test('a cook does not wait for the other one at the counter', () => {
