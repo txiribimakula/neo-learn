@@ -13,7 +13,7 @@ function harness(){
   const context = {};
   vm.createContext(context);
   vm.runInContext(source.slice(0, source.indexOf('// initial\n')) + `
-    globalThis.api = { createSim, stepSim, addCustomer, setCookActive, setCookSlow, seekToEarliest, lagOf, poisonCook, consumerAction, ITEMS, COURSES };
+    globalThis.api = { createSim, stepSim, createMaterialDemo, sendMaterialEvent, stepMaterialDemo, createNestingDemo, stepNestingDemo, addCustomer, setCookActive, setCookSlow, seekToEarliest, lagOf, poisonCook, consumerAction, UPGRADES, FIRST_SCENE, BOSS_SPOT, COOK_X, stepBossOil, bossOilPose, OIL_HIT_AT, OIL_RETURN_S, OIL_GAG_S, ITEMS, COURSES };
   })();`, context);
   return context.api;
 }
@@ -69,7 +69,149 @@ test('the Kafka view draws at every stage, while dissolving both ways and under 
   runScene(withLine(source, 'const kafkaMix = KAFKA_STAGES.map(() => 0);', 'const kafkaMix = KAFKA_STAGES.map(() => 1);'), 1200);
   for(let step = 1; step <= 5; step++) runScene(withLine(kafka(5), 'let tutorialStep = 0;', `let tutorialStep = ${step};`), 300);
   // A consumer that crashes and comes back, drawn as a box.
-  runScene(withLine(kafka(4), 'let paused = false, speed = 1;', 'let paused = false, speed = 1; poisonCook(S);'), 600);
+  runScene(withLine(kafka(4), 'let speed = 1;', 'let speed = 1; poisonCook(S);'), 600);
+});
+
+test('every step from a queue to Kafka draws while it happens, in the bar and in the Kafka view', () => {
+  const source = withLine(pageScript(), '    updateView(real);', '    if(!S.build && UPGRADES[S.upgrades]) UPGRADES[S.upgrades].start(S);\n    updateView(real);');
+  runScene(source, 6000);
+  runScene(withLine(source, 'let kafkaStep = 0;', 'let kafkaStep = 5;'), 6000);
+  runScene(withLine(source, 'let tutorialStep = 0;', 'let tutorialStep = 3;'), 3000);
+});
+
+test('the advance button queues Kafka real after the last scene and reveals one stage per click', () => {
+  const dom = stubDom();
+  const source = withLine(pageScript(), '\n})();', `
+    globalThis.revealTrace = [];
+    tutorialDone = true;
+    S.upgrades = UPGRADES.length - 1;
+    S.build = {};
+    nextStep();
+    startPendingStep();
+    revealTrace.push([kafkaStep, pendingStep]);
+    S.upgrades++;
+    S.build = null;
+    startPendingStep();
+    revealTrace.push([kafkaStep, pendingStep]);
+    for(let i = 0; i < KAFKA_STAGES.length; i++){
+      nextStep();
+      revealTrace.push(kafkaStep);
+    }
+  })();`);
+  vm.runInNewContext(source, dom.context);
+  assert.deepEqual(JSON.parse(JSON.stringify(dom.context.revealTrace)), [[0, true], [1, false], 2, 3, 4, 5, 5]);
+});
+
+test('material events update the projection in order and keep their records after deletion', () => {
+  const S = api.createMaterialDemo(), demo = S.materialDemo;
+  const tick = () => api.stepMaterialDemo(S, 0.1);
+  const until = phase => {
+    for(let i = 0; i < 100 && demo.phase !== phase; i++) tick();
+    assert.equal(demo.phase, phase);
+  };
+  const expected = [
+    {referencia:'AL-104', densidad:'2,68', acabado:'BRUTO'},
+    {referencia:'AL-104', densidad:'2,70', acabado:'BRUTO'},
+    {referencia:'AL-104', densidad:'2,70', acabado:'ANODIZADO'},
+    null
+  ];
+  assert.ok(S.comandas.every(p => p.log.length === 0));
+  until('send');
+  for(let i = 0; i < expected.length; i++){
+    if(i) api.sendMaterialEvent(S);
+    until('apply');
+    const p = S.comandas[demo.flight.part];
+    assert.equal(p.log.length, i + 1);
+    assert.equal(p.committed, i);
+    assert.deepEqual(JSON.parse(JSON.stringify(demo.current)), expected[i - 1] ?? null);
+    until('ready');
+    assert.deepEqual(JSON.parse(JSON.stringify(demo.current)), expected[i]);
+    assert.equal(p.committed, i + 1);
+    tick();
+    assert.equal(demo.flight, null, 'waits for the next click');
+  }
+  assert.deepEqual([...S.comandas[0].log].map(({offset, order}) => [offset, order.key, order.materialOp]), [
+    [0, 'MAT-104', 'CREATE'], [1, 'MAT-104', 'UPDATE'], [2, 'MAT-104', 'UPDATE'], [3, 'MAT-104', 'DELETE']
+  ]);
+  assert.equal(S.comandas[1].end, 0);
+});
+
+test('two partitions let the consumer reject an UPDATE before the earlier CREATE', () => {
+  const S = api.createMaterialDemo(true), demo = S.materialDemo;
+  const consumed = [];
+  let previous;
+  for(let i = 0; i < 300 && demo.phase !== 'ready'; i++){
+    api.stepMaterialDemo(S, 0.05);
+    if(demo.phase !== 'commit' || demo.flight === previous) continue;
+    previous = demo.flight;
+    consumed.push([previous.part, previous.order.materialOp]);
+    if(previous.order.materialOp === 'UPDATE'){
+      assert.ok(S.comandas[0].log[0].at < S.comandas[1].log[0].at, 'the CREATE was published first');
+      assert.equal(S.comandas[0].committed, 0, 'P0 has not consumed the CREATE yet');
+      assert.equal(demo.current, null);
+      assert.equal(demo.updateRejected, true);
+    }
+  }
+  assert.equal(demo.phase, 'ready');
+  assert.deepEqual(consumed, [[1, 'UPDATE'], [0, 'CREATE']]);
+  assert.equal(demo.current.densidad, '2,68');
+  assert.deepEqual([...S.comandas].map(p => p.committed), [1, 1]);
+});
+
+test('the material demo renders every operation with the diagram in place', () => {
+  let source = withLine(pageScript(), 'let S = createSim(Math.floor(Math.random() * 1e6), FIRST_SCENE);', 'let S = createMaterialDemo();');
+  source = withLine(source, 'const kafkaMix = KAFKA_STAGES.map(() => 0);', 'const kafkaMix = KAFKA_STAGES.map(() => 1);');
+  source = withLine(source, 'let kafkaStep = 0;', 'let kafkaStep = KAFKA_STAGES.length;');
+  source = withLine(source, '    updateView(real);', "    if(S.materialDemo.phase === 'ready') sendMaterialEvent(S);\n    updateView(real);");
+  runScene(source, 500);
+  runScene(withLine(source, 'let S = createMaterialDemo();', 'let S = createMaterialDemo(true);'), 300);
+});
+
+test('nesting exposes idle capacity in Kafka and uses it with the same jobs in Service Bus', () => {
+  const kafka = api.createNestingDemo('kafka');
+  const bus = api.createNestingDemo('bus');
+  const workload = demo => [...demo.jobs].map(j => [j.id, j.kind, j.duration]);
+  assert.deepEqual(workload(kafka), workload(bus));
+  for(const demo of [kafka, bus]){
+    for(let i = 0; i < 2000 && demo.phase !== 'done'; i++){
+      api.stepNestingDemo(demo, 1 / 60);
+      if(demo.phase !== 'running') continue;
+      if(demo.mode === 'bus') assert.ok(demo.workers.every(w => w.job), 'both receivers busy for this batch');
+      if(demo.mode === 'kafka') assert.ok(demo.workers.every(w => !w.job || w.job.part === w.id));
+    }
+    assert.equal(demo.phase, 'done');
+    assert.equal(demo.completed, demo.jobs.length);
+    assert.ok(demo.jobs.every(job => job.status === 'done'));
+  }
+  assert.equal(kafka.elapsed, 12);
+  assert.equal(kafka.elapsed - kafka.workers[1].busy, 9);
+  assert.equal(bus.elapsed, 7.5);
+  assert.ok(bus.workers.every(w => w.busy === bus.elapsed));
+});
+
+test('advance takes the completed material comparison into Kafka nesting and then Service Bus', () => {
+  const dom = stubDom();
+  const source = withLine(pageScript(), '\n})();', `
+    tutorialDone = true;
+    S = createMaterialDemo(true);
+    S.materialDemo.phase = 'ready';
+    nextStep();
+    globalThis.modeTrace = [nestingDemo.mode];
+    nextStep();
+    modeTrace.push(nestingDemo.mode);
+    for(let i = 0; i < 300 && nestingDemo.phase !== 'done'; i++) stepNestingDemo(nestingDemo, 0.1);
+    draw();
+    nextStep();
+    modeTrace.push(nestingDemo.mode);
+    draw();
+    for(let i = 0; i < 300 && nestingDemo.phase !== 'done'; i++){
+      stepNestingDemo(nestingDemo, 0.1);
+      draw();
+    }
+    modeTrace.push(nestingDemo.phase, nestingDemo.kafkaResult, nestingDemo.elapsed);
+  })();`);
+  vm.runInNewContext(source, dom.context);
+  assert.deepEqual([...dom.context.modeTrace], ['kafka', 'kafka', 'bus', 'done', 12, 7.5]);
 });
 
 test('in the Kafka view a consumer fetches an offset and then commits the next one', () => {
@@ -219,64 +361,13 @@ test('a beer stops as soon as there is work to do', () => {
   assert.equal(cook.beer, null);
 });
 
-test('a diner with no food for a while gets impatient, and calms down when served', () => {
+test('a busy kitchen upsets nobody: diners only bang the table when something went wrong', () => {
   const S = manualSim();
   [0, 1].forEach(id => api.setCookActive(S, id, false));
   const customer = api.addCustomer(S, 'A', 1);
-  run(S, 3);
-  assert.ok(customer.waited < 20);
-  run(S, 21);
-  assert.ok(customer.waited >= 20, 'nothing arrives without cooks');
-  [0, 1].forEach(id => api.setCookActive(S, id, true));
-  for(let i = 0; i < 60 * 30 && !customer.eating; i++) api.stepSim(S, 1 / 60);
-  assert.ok(customer.eating);
-  assert.equal(customer.waited, 0);
-});
-
-test('anger comes in short fits, not all the time', () => {
-  const S = manualSim();
-  [0, 1].forEach(id => api.setCookActive(S, id, false));
-  const customer = api.addCustomer(S, 'A', 1);
-  run(S, 20);
-  const fits = [];
-  let current = 0, angryFrames = 0;
-  const frames = 120 * 60;
-  for(let i = 0; i < frames; i++){
-    api.stepSim(S, 1 / 60);
-    if(customer.fit > 0){
-      current++;
-      angryFrames++;
-    } else if(current){
-      fits.push(current / 60);
-      current = 0;
-    }
-  }
-  assert.ok(fits.length >= 8, `${fits.length} fits`);
-  fits.forEach(length => assert.ok(length < 2.5, `a fit of ${length}s`));
-  assert.ok(angryFrames / frames < 0.4, 'calm most of the time');
-});
-
-test('impatience is much more common with a slow cook than without one', () => {
-  // Share of the diners on the wire of the slow cook: fewer of them get through when it is slow.
-  const impatientShare = slow => {
-    const visits = new Set(), impatient = new Set();
-    for(const seed of [1, 2, 3, 4, 5, 6, 7, 8]){
-      const S = api.createSim(seed);
-      if(slow) api.setCookSlow(S, 1, true);
-      for(let i = 0; i < 400 * 60; i++){
-        api.stepSim(S, 1 / 60);
-        S.customers.forEach(c => {
-          if(c.partition !== 1) return;
-          visits.add(`${seed}-${c.visit}`);
-          if(c.waited >= 20) impatient.add(`${seed}-${c.visit}`);
-        });
-      }
-    }
-    return impatient.size / visits.size;
-  };
-  const normal = impatientShare(false), slowed = impatientShare(true);
-  assert.ok(normal < 0.25, `normal ${normal}`);
-  assert.ok(slowed > normal * 2, `impatient share: ${normal} normal, ${slowed} with a slow cook`);
+  let angry = false;
+  for(let i = 0; i < 60 * 60; i++){ api.stepSim(S, 1 / 60); angry ||= customer.upset > 0; }
+  assert.equal(angry, false, 'a minute with no food, and no fits');
 });
 
 test('a letter is one person: it cannot be in the dining room twice', () => {
@@ -303,6 +394,26 @@ test('random traffic never repeats a letter nor moves it to another bar', () => 
   }
   assert.ok(Object.keys(barsOf).length >= 3);
   for(const bars of Object.values(barsOf)) assert.equal(bars.size, 1);
+});
+
+test('automatic diners fill both wires without changing the partition of any color', () => {
+  for(let seed = 0; seed < 12; seed++){
+    const S = api.createSim(seed);
+    const diners = Array.from({length:3}, () => api.addCustomer(S));
+    assert.notEqual(diners[0].partition, diners[1].partition);
+    for(const diner of diners){
+      const part = 'ABCDEF'.indexOf(diner.letter) % 2;
+      assert.equal(diner.partition, part);
+      assert.ok(diner.messages.every(message => message.partition === part));
+    }
+
+    const singleTable = api.createSim(seed);
+    for(let i = 0; i < 6; i++){
+      api.addCustomer(singleTable, null, 2);
+      singleTable.customers = [];
+    }
+    assert.deepEqual([...singleTable.demandByPartition], [6, 6]);
+  }
 });
 
 test('a menu always follows the course order and coffee only comes after dessert', () => {
@@ -528,7 +639,7 @@ test('the cook walks to the order, back to cook, and to the order again to commi
     if(phase === 'commit') xWhenCommitting = cook.x;
     if(bar.committed === 1) platesWhenCommitted = S.plates.length + S.counter.length + S.trayWaiters.filter(w => w.plate).length + S.stats.served;
   }
-  assert.deepEqual(phases, ['toTicket', 'read', 'toStove', 'cook', 'plate', 'toCounter', 'drop', 'fromCounter', 'toCommit', 'commit']);
+  assert.deepEqual(phases, ['toTicket', 'read', 'toStove', 'cook', 'plate', 'toCounter', 'drop', 'toCommit', 'commit']);
   assert.ok(xWhenRead < xWhenCooking, 'reads at the wire, cooks at the stove');
   assert.equal(xWhenCommitting, xWhenRead, 'reads and stamps from the same spot, under the order');
   assert.equal(platesWhenCommitted, 1, 'the plate left before the commit');
@@ -568,10 +679,12 @@ test('the cook jumps to the counter to leave the plate and jumps back to its row
   api.addCustomer(S, 'B', 1);
   const cook = S.cooks[1];
   let framesBetweenRows = 0, posAtDrop = null, platesBeforeDrop = null;
-  for(let i = 0; i < 60 * 30 && cook.job?.phase !== 'toCommit'; i++){
+  let xLeavingCounter = null;
+  for(let i = 0; i < 60 * 30 && cook.job?.phase !== 'commit'; i++){
     const before = cook.pos;
     api.stepSim(S, 1 / 60);
     if(cook.pos !== before) framesBetweenRows++;
+    if(cook.pos !== before && before === 1) xLeavingCounter ??= cook.x;
     if(cook.job?.phase === 'drop'){
       posAtDrop = cook.pos;
       platesBeforeDrop = S.plates.length + S.counter.length;
@@ -579,8 +692,9 @@ test('the cook jumps to the counter to leave the plate and jumps back to its row
   }
   assert.equal(posAtDrop, 1, 'at the middle row');
   assert.equal(platesBeforeDrop, 0, 'the plate reaches the counter from the hand');
-  assert.equal(cook.job.phase, 'toCommit');
-  assert.equal(cook.pos, 2, 'back to its own row');
+  assert.equal(cook.job.phase, 'commit');
+  assert.equal(cook.pos, 2, 'back to its own row to stamp the order');
+  assert.ok(xLeavingCounter < api.COOK_X, 'straight from the counter, without going back to the stove first');
   assert.ok(framesBetweenRows <= 24, `moving ${framesBetweenRows} frames there and back`);
 });
 
@@ -795,4 +909,261 @@ test('every message is accounted for in a long mixed run', () => {
     assert.deepEqual(offsets, offsets.map((_, i) => p.earliest + i));
     assert.equal(api.lagOf(p), 0);
   }
+});
+
+
+test('the oil drum reverses its travel and spin at the boss kick, then leaves the screen', () => {
+  const S = manualSim(), b = S.boss;
+  const at = time => { b.oil = time; return api.bossOilPose(b); };
+  const early = at(0.2), late = at(api.OIL_HIT_AT - 0.1), hit = at(api.OIL_HIT_AT);
+  const returning = at(api.OIL_HIT_AT + 0.3);
+  assert.ok(early.x > late.x && late.x > hit.x);
+  assert.ok(early.angle > late.angle && late.angle > hit.angle);
+  assert.equal(hit.leg, 'kick');
+  assert.equal(hit.impact, true);
+  assert.ok(returning.x > hit.x && returning.angle > hit.angle);
+  assert.equal(at(api.OIL_HIT_AT + api.OIL_RETURN_S).visible, false);
+  b.oil = api.OIL_GAG_S;
+  api.stepBossOil(S, 1 / 60);
+  assert.equal(b.oil, null);
+  assert.ok(b.oilIn >= 30 && b.oilIn <= 55);
+});
+
+test('the boss gag waits for the ack and uses no Kafka randomness', () => {
+  const S = manualSim(), other = manualSim();
+  S.boss.oilIn = 0;
+  S.boss.saidAt = S.time;
+  api.stepBossOil(S, 0.1);
+  assert.equal(S.boss.oil, null);
+  S.time = 2;
+  S.barWaiters[0].state = 'awaitAck';
+  api.stepBossOil(S, 0.1);
+  assert.equal(S.boss.oil, null);
+  S.barWaiters[0].state = 'idle';
+  api.stepBossOil(S, 0.1);
+  assert.equal(S.boss.oil, 0);
+  api.stepBossOil(S, api.OIL_GAG_S);
+  assert.equal(S.random(), other.random());
+  assert.equal(S.boss.saidAt, 0);
+});
+
+// Runs one step of the way from a queue to Kafka until it is over.
+function upgrade(S, seconds = 120){
+  assert.ok(api.UPGRADES[S.upgrades].start(S), `step ${S.upgrades + 1} starts`);
+  for(let i = 0; i < seconds * 60 && S.build; i++) api.stepSim(S, 1 / 60);
+  assert.equal(S.build, null, 'and finishes');
+}
+
+test('the first scene is a plain queue of tapas: one wire, one cook, and cooked orders go in the bin', () => {
+  const S = api.createSim(3, api.FIRST_SCENE);
+  S.rate = 0;
+  assert.equal(S.comandas.length, 1);
+  assert.equal(S.cooks.length, 1);
+  assert.equal(S.boss.present, false);
+  const customer = api.addCustomer(S, 'B', 3);
+  assert.equal(customer.partition, 0);
+  assert.ok(customer.messages.every(m => ['jamon', 'croquetas', 'tortilla', 'gazpacho'].includes(m.items[0])), 'tapas, not a menu');
+  assert.equal(customer.menu, false);
+  const words = new Set();
+  const cook = S.cooks[0];
+  let binned = false, detour = false, cookedFromMemory = true;
+  for(let i = 0; i < 60 * 60; i++){
+    const wasBinning = cook.job?.phase === 'bin';
+    api.stepSim(S, 1 / 60);
+    words.add(api.consumerAction(S, cook));
+    if(wasBinning && cook.job?.phase !== 'bin') binned = true;
+    if(binned && cook.x === api.COOK_X && cook.job?.phase === 'toTicket') detour = true;
+    if(cook.job?.phase === 'read') binned = false;
+    if(cook.job?.phase === 'cook') cookedFromMemory &&= !S.comandas[0].log.includes(cook.job.entry) && cook.job.entry.taken;
+  }
+  assert.ok(cookedFromMemory, 'read, then straight in the bin: it cooks from memory');
+  assert.equal(detour, false, 'from the bin straight to the next order, not via the stove');
+  assert.equal(S.stats.served, 3);
+  assert.equal(S.comandas[0].log.length, 0, 'nothing stays on the wire');
+  assert.ok(S.bin.thrown >= 3, 'they went in the bin');
+  assert.ok(words.has('RECV+DELETE') && !words.has('COMPLETE') && ![...words].some(w => w.startsWith('COMMIT')), 'receive and delete: nothing to complete, no commits');
+});
+
+test('from a queue to Kafka: each step brings its problem or the feature that solves it', () => {
+  const S = api.createSim(12, api.FIRST_SCENE);
+  S.rate = 20;
+  run(S, 20);
+
+  // 1. Another cook: both take from the same wire.
+  upgrade(S);
+  run(S, 5);
+  assert.deepEqual(assignment(S), [[0], [0]], 'competing consumers on one queue');
+  assert.equal(S.cooks[0].row, 0, 'the first cook cooks in the top row, as from the start');
+  assert.deepEqual([...S.rows], [1], 'the wire is still in the middle');
+
+  // 2. Receive and delete: fumes knock a cook out with an order only in its head, and nobody can cook it.
+  upgrade(S, 300);
+  assert.equal(S.stats.faints, 1, 'the fumes knock it out');
+  assert.equal(S.stats.lost, 1, 'the order was only in its head');
+  assert.equal(S.stats.gaveUp, 1, 'and its diner, after banging the table and complaining, goes without it');
+  assert.equal(S.stats.rebalances, 0, 'a plain queue has no group to rebalance');
+  assert.ok(S.cooks.every(c => c.active && !c.faint), 'back on its feet');
+
+  // 3. Peek-lock: orders stay on the wire, locked, until cooked; the same fumes lose nothing.
+  assert.equal(S.stats.protested, 0, 'ordinary waits and lost orders do not trigger the hourglass protest');
+  assert.ok(api.UPGRADES[S.upgrades].start(S));
+  const protests = new Set();
+  for(let i = 0; i < 300 * 60 && S.build; i++){
+    api.stepSim(S, 1 / 60);
+    for(const diner of S.customers){
+      const speech = diner.say;
+      if(!speech?.dishComplaint || protests.has(speech)) continue;
+      protests.add(speech);
+      const locked = S.comandas[diner.partition].log.find(entry =>
+        entry.order.visit === diner.visit && entry.lockAbandonedByFaint && entry.lockUntil > S.time);
+      assert.ok(locked, 'the protest starts while the exact order still has its abandoned hourglass');
+      assert.ok(speech.lines.length, 'it has a dish-specific line to display');
+    }
+  }
+  assert.equal(S.build, null);
+  assert.equal(protests.size, 1);
+  assert.equal(S.features.peekLock, true);
+  assert.equal(S.stats.faints, 2);
+  assert.equal(S.stats.rebalances, 0);
+  assert.equal(S.stats.lapsed, 1, 'the lock stayed on until its time was up');
+  assert.equal(S.stats.protested, 1, 'its diner protests once while waiting for the delayed dish');
+  assert.equal(S.stats.gaveUp, 1, 'but stays: only the lost dish of the step before made anyone leave');
+  assert.equal(S.stats.lost, 1, 'the lock lapsed and the other cook cooked it');
+
+  // Menus: the sign is rewritten, and the first set menu has its second course overtake the first.
+  assert.equal(S.stats.outOfOrder, 0);
+  upgrade(S, 300);
+  assert.equal(S.features.menus, true);
+  assert.equal(S.stats.outOfOrder, 1, 'the order breaks, once');
+  assert.ok(S.events.some(event => event.text.includes('el orden se ha roto')));
+  run(S, 200);
+  assert.equal(S.stats.outOfOrder, 1, 'and only in the step that shows it');
+
+  // 3. One wire per color: the first wire moves up, a second one is built, one cook each.
+  assert.ok(api.UPGRADES[S.upgrades].start(S));
+  let builtAway = false;
+  for(let i = 0; i < 120 * 60 && S.build; i++){
+    api.stepSim(S, 1 / 60);
+    if(S.wire && S.cooks[1].pos !== 2) builtAway = true;
+  }
+  assert.equal(S.build, null);
+  assert.equal(builtAway, false, 'the second cook builds its wire in its own row, by its stove');
+  assert.deepEqual([...S.rows], [0, 2]);
+  assert.equal(S.features.keys, true);
+  run(S, 60);
+  assert.deepEqual(assignment(S), [[0], [1]]);
+  const broken = S.stats.outOfOrder;
+  run(S, 400);
+  assert.equal(S.stats.outOfOrder, broken, 'no more courses out of order');
+
+  // 4. Cashing up: nothing to count, all in the bin. He kicks the bin out and tells the cooks
+  // that orders are kept from now on.
+  upgrade(S, 300);
+  assert.ok(S.events.some(event => event.text.includes('no puede: la cola las borra')));
+  assert.equal(S.bin, null, 'kicked out');
+  assert.equal(S.features.retain, true);
+  assert.equal(S.features.commit, false, 'nobody marks anything yet');
+  assert.equal(S.boss.present, false);
+  assert.ok(S.events.some(event => event.text.includes('las comandas se quedan en el hilo')));
+
+  // 6. The fumes again: the cook forgets which order it was on, and with nothing marked it reads
+  // its wire again from the start.
+  const duplicatesBefore = S.stats.duplicates, faintsBefore = S.stats.faints, rebalancesBefore = S.stats.rebalances;
+  upgrade(S, 600);
+  assert.equal(S.stats.faints, faintsBefore + 1);
+  assert.equal(S.stats.rebalances, rebalancesBefore, 'it never left the group');
+  assert.equal(S.stats.rereads, 1, 'read again from the start');
+  assert.ok(S.stats.duplicates > duplicatesBefore, 'plates nobody asked for');
+
+  // 7. Commits: the cooks finish marking their progress without another incident.
+  upgrade(S, 600);
+  assert.equal(S.features.commit, true);
+  assert.equal(S.stats.faints, faintsBefore + 1, 'no second fainting scene');
+  assert.ok(S.comandas.every(p => p.committed === p.position), 'both cooks finish marking their progress');
+  assert.ok(S.comandas.some(p => p.committed > p.earliest), 'cooks commit how far they got');
+  const duplicatesAfter = S.stats.duplicates;
+  run(S, 200);
+  assert.equal(S.stats.duplicates, duplicatesAfter, 'no more plates nobody asked for');
+
+  // 8. An order falls off the wire, nobody notices, and its diner leaves without it.
+  upgrade(S, 300);
+  assert.equal(S.stats.lost, 2);
+  assert.equal(S.stats.resent, 0);
+  assert.ok(S.stats.gaveUp >= 1, 'its diner leaves without it');
+
+  // 9. «¡Oído cocina!»: the head of the dining room stays at the pass; a lost order gets no call and goes again.
+  upgrade(S, 300);
+  assert.equal(S.boss.present, true);
+  assert.deepEqual([S.boss.x, S.boss.y], [api.BOSS_SPOT.x, api.BOSS_SPOT.y]);
+  assert.equal(S.stats.lost, 3);
+  assert.ok(S.stats.resent >= 1, 'the waiter sends it again');
+  assert.equal(S.upgrades, api.UPGRADES.length);
+  const states = new Set();
+  for(let i = 0; i < 60 * 60; i++){ api.stepSim(S, 1 / 60); states.add(S.barWaiters[0].state); }
+  assert.ok(states.has('awaitAck'), 'the waiter now waits for «¡Oído cocina!»');
+  assert.equal(S.stats.outOfOrder, 1, 'no course ever came out of order again');
+});
+
+
+test('with nothing to read, each cook waits at its own stove, not under the wire', () => {
+  const S = api.createSim(5, api.FIRST_SCENE);
+  S.rate = 0;
+  upgrade(S);
+  api.addCustomer(S, 'B', 3);
+  run(S, 60);
+  assert.equal(S.customers.length, 0, 'everything served');
+  assert.deepEqual([...S.rows], [1], 'the wire hangs in the middle row');
+  S.cooks.forEach(c => {
+    assert.equal(c.pos, c.row, `${c.name} back in its stove's row`);
+    assert.equal(c.x, api.COOK_X, `${c.name} at its stove`);
+  });
+});
+
+test('peek-lock: the cook ties an hourglass under the order, and the lock lasts as long as its sand', () => {
+  const S = api.createSim(4, {...api.FIRST_SCENE, features:{menus:false, keys:false, retain:false, commit:false, peekLock:true}});
+  S.rate = 0;
+  api.addCustomer(S, 'B', 1);
+  const cook = S.cooks[0];
+  let lockedBeforeHanging = false;
+  for(let i = 0; i < 60 * 30 && cook.job?.phase !== 'toStove'; i++){
+    api.stepSim(S, 1 / 60);
+    const entry = cook.job?.entry;
+    if(entry && ['toTicket', 'read'].includes(cook.job.phase)){
+      assert.equal(entry.lockFrom, undefined, 'no hourglass until the cook ties it');
+      lockedBeforeHanging ||= entry.lockedBy === cook.id;
+    }
+  }
+  const entry = cook.job.entry;
+  assert.ok(lockedBeforeHanging, 'nobody else can take it on the way');
+  assert.ok(entry.lockFrom !== undefined && entry.lockUntil > entry.lockFrom, 'hung, with its sand running');
+
+  // The sand runs out while it is still cooking: it loses the order, which is free again.
+  entry.lockUntil = S.time + 0.05;
+  run(S, 0.2);
+  assert.equal(entry.lockedBy, null);
+  assert.equal(cook.job.lockLost, true);
+  assert.equal(S.stats.lapsed, 1);
+  run(S, 30);
+  assert.equal(S.stats.served, 1);
+  assert.equal(S.stats.duplicates, 1, 'free on the wire again, it is cooked a second time');
+  assert.equal(S.comandas[0].log.length, 0, 'and that time it is taken off and binned');
+});
+
+test('the first oil drum brings the three-headed monkey, and only the first', () => {
+  const S = api.createSim(9);
+  S.boss.oilIn = 0;
+  let firstWithMonkey = null;
+  for(let i = 0; i < 60 * 60 && firstWithMonkey === null; i++){
+    api.stepSim(S, 1 / 60);
+    if(S.boss.oil !== null) firstWithMonkey = !!S.boss.monkey;
+  }
+  assert.equal(firstWithMonkey, true, 'it comes, for sure, the first time');
+  for(let i = 0; i < 60 * 10 && S.boss.oil !== null; i++) api.stepSim(S, 1 / 60);
+  S.boss.oilIn = 0;
+  let secondWithMonkey = null;
+  for(let i = 0; i < 60 * 60 && secondWithMonkey === null; i++){
+    api.stepSim(S, 1 / 60);
+    if(S.boss.oil !== null) secondWithMonkey = !!S.boss.monkey;
+  }
+  assert.equal(secondWithMonkey, false, 'and never again');
 });
