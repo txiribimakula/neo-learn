@@ -3713,8 +3713,8 @@
 
   // The two wires are the partitions of one topic. Its outline wraps both of them and their spine
   // on the left, and leaves out the middle of the room, which is not the topic.
-  function drawTopicFrame(bands, title, border){
-    const left = barStart() - 12, spine = left + 6, right = barEnd() + 8;
+  function drawTopicFrame(bands, title, border, right = barEnd() + 8){
+    const left = barStart() - 12, spine = left + 6;
     const top0 = bands[0][0], bottom1 = bands[bands.length - 1][1];
     const shape = (inset, color) => {
       bands.forEach(([top, bottom]) => R(left + inset, top + inset, right - left - inset * 2, bottom - top - inset * 2, color));
@@ -4261,13 +4261,17 @@
   }
 
   function drawNestingDemo(demo){
-    const producer = PRODUCER_BOX, group = GROUP_BOX, summary = MATERIAL_BOX;
-    const laneX = barStart() - 2, laneW = barEnd() + 4 - laneX;
+    const producer = PRODUCER_BOX, group = GROUP_BOX;
+    const laneX = barStart() - 2, laneH = 54;
     const bus = demo.mode === 'bus';
     const merge = bus ? smooth(demo.introElapsed / 0.8) : 0;
     const merged = merge >= 1;
     const broker = merged ? NESTING_SHORT : KAFKA.topic;
-    const laneY = part => Math.round(lerp(ticketTop(rowOf(S, part)) - 20, ticketTop(rowOf(S, 0)) - 20, merge));
+    // Make room for the receivers before the two lanes reach their row.
+    const fit = smooth(Math.min(1, merge * 5));
+    const laneRight = Math.round(lerp(barEnd() + 4, group.x - 16, fit));
+    const laneW = laneRight - laneX, centerY = group.y + group.h / 2;
+    const laneY = part => Math.round(lerp(ticketTop(rowOf(S, part)) - 20, centerY - laneH / 2, merge));
     R(0, 0, W, H, KAFKA.log);
 
     diagramPanel(producer, merged ? 'SENDER' : 'PRODUCER', PAL.white);
@@ -4280,22 +4284,37 @@
     const rows = merged ? [demo.jobs.filter(job => job.status !== 'done')]
       : [0, 1].map(part => demo.jobs.filter(job => job.part === part));
     const bands = rows.map((_, part) => [laneY(part) - 4, laneY(part) + 58]);
-    drawTopicFrame(bands, merged ? 'QUEUE: ANIDADO' : 'TOPIC: ANIDADO', broker);
+    drawTopicFrame(bands, merged ? 'QUEUE: ANIDADO' : 'TOPIC: ANIDADO', broker, laneRight + 4);
     rows.forEach((jobs, part) => {
-      const y = laneY(part), out = batchLaneY(part) + 6, lane = y + 11;
+      const y = laneY(part), out = Math.round(lerp(batchLaneY(part) + 6, centerY, merge)), lane = y + Math.round(lerp(11, laneH / 2, merge));
       R(producer.x + producer.w, out, ROUTE_X - producer.x - producer.w, 1, PAL.white);
       R(ROUTE_X, Math.min(out, lane), 1, Math.abs(out - lane) + 1, PAL.white);
       R(ROUTE_X, lane, laneX - ROUTE_X - 1, 1, PAL.white);
       R(laneX - 4, lane - 1, 1, 3, PAL.white);
-      kafkaBox(laneX, y, laneW, 54, KAFKA.partition, KAFKA.log);
+      kafkaBox(laneX, y, laneW, laneH, KAFKA.partition, KAFKA.log);
+      if(merged || merge < 0.85){
+        text(merged ? 'COLA / PEEK-LOCK' : `PARTITION ${part}`, laneX + 6, y + 39, KAFKA.label);
+        text(`DISPONIBLES: ${jobs.filter(job => job.status === 'waiting').length}`, laneX + 6, y + 12, broker);
+      }
+    });
+    // Draw the tickets above both lanes as the two sets interleave in dispatch order.
+    rows.forEach((jobs, part) => {
+      const y = laneY(part);
       jobs.forEach((job, i) => {
-        const x = laneX + laneW - 10 - (jobs.length - i) * 42;
+        const from = laneRight - 10 - (jobs.length - i) * 42;
+        const slotsToEnd = merged ? jobs.length - i : demo.jobs.length - job.id + 1;
+        const x = Math.round(lerp(from, laneRight - 6 - slotsToEnd * 35, fit));
         drawNestingJob(job, x, y + 6, job.status !== 'waiting');
         if(job.status !== 'waiting') text(job.status === 'done' ? 'OK' : merged ? 'LOCK' : 'LEÍDO', x + 16, y + 39, PAL.white, 'center');
       });
-      text(merged ? 'COLA / PEEK-LOCK' : `PARTITION ${part}`, laneX + 6, y + 39, KAFKA.label);
-      text(`DISPONIBLES: ${jobs.filter(job => job.status === 'waiting').length}`, laneX + 6, y + 12, broker);
     });
+    if(merged){
+      const junction = group.x - 7;
+      const top = consumerSpot(0).y + CONSUMER_H / 2, bottom = consumerSpot(1).y + CONSUMER_H / 2;
+      R(laneRight + 4, centerY, junction - laneRight - 3, 1, broker);
+      R(junction, top, 1, bottom - top + 1, broker);
+      for(const y of [top, bottom]) R(junction, y, group.x - junction, 1, broker);
+    }
 
     diagramPanel(group, merged ? 'RECEIVERS' : 'CONSUMER GROUP', COLORS.cook);
     text('ID=ANIDADO', group.x + group.w / 2, group.y + group.h / 2 - 3, COLORS.cook, 'center');
@@ -4319,22 +4338,6 @@
       }
     }
 
-    diagramPanel(summary, merged ? 'ANIDADO / AZURE SERVICE BUS' : 'ANIDADO / KAFKA', broker);
-    const sx = summary.x + 10, sy = summary.y;
-    text(`${demo.completed} / ${demo.jobs.length}`, sx, sy + 24, PAL.white, 'left', 2);
-    text('TRABAJOS TERMINADOS', sx, sy + 46, KAFKA.label);
-    text(NESTING_TIME(demo.elapsed), summary.x + summary.w - 10, sy + 24, broker, 'right', 2);
-    text('TIEMPO DEL LOTE', summary.x + summary.w - 10, sy + 46, KAFKA.label, 'right');
-    R(sx, sy + 65, summary.w - 20, 1, KAFKA.partition);
-    const idle = demo.workers.some(worker => !worker.job) && demo.phase === 'running';
-    text(merged ? 'CADA RECEIVER LIBRE TOMA EL SIGUIENTE TRABAJO.' :
-      idle || demo.phase === 'done' ? 'C2 ACABA SUS CORTOS. LOS LARGOS SIGUEN EN P0.' :
-      'CADA CONSUMER PROCESA SU PARTICIÓN.', sx, sy + 78, idle ? '#ff9187' : PAL.white);
-    text(merged ? 'AL COMPLETAR, EL MENSAJE SALE DE LA COLA.' : 'AL CONFIRMAR, EL REGISTRO PERMANECE EN EL TOPIC.', sx, sy + 96, KAFKA.label);
-    if(demo.phase === 'done'){
-      text(bus ? `KAFKA ${NESTING_TIME(demo.kafkaResult)} / SERVICE BUS ${NESTING_TIME(demo.elapsed)}` :
-        `C2 PASA ${NESTING_TIME(demo.elapsed - demo.workers[1].busy)} OCIOSO.`, sx, sy + 123, KAFKA.ink);
-    }
   }
 
   function draw(){
@@ -4420,8 +4423,8 @@
         ? 'Azure Service Bus, demo de anidado. Dos receptores compiten por ocho trabajos independientes en una cola común.'
         : 'Kafka, demo de anidado. P0 contiene los cuatro trabajos largos y P1 los cuatro cortos. Un consumer por partición.');
       button.disabled = !done;
-      now = bus ? (done ? `✓ ${NESTING_STEP + 1}/${STEP_COUNT} Service Bus: acaban juntos` : `▶ ${NESTING_STEP + 1}/${STEP_COUNT} Anidado en Service Bus`)
-        : done ? `✓ ${NESTING_STEP}/${STEP_COUNT} Kafka: un consumer ocioso` : `▶ ${NESTING_STEP}/${STEP_COUNT} Anidado en Kafka`;
+      now = bus ? (done ? `✓ ${NESTING_STEP + 1}/${STEP_COUNT} Service Bus: ${NESTING_TIME(nestingDemo.elapsed)} / Kafka: ${NESTING_TIME(nestingDemo.kafkaResult)}` : `▶ ${NESTING_STEP + 1}/${STEP_COUNT} Anidado en Service Bus`)
+        : done ? `✓ ${NESTING_STEP}/${STEP_COUNT} Kafka: ${NESTING_TIME(nestingDemo.elapsed)}, C2 ocioso` : `▶ ${NESTING_STEP}/${STEP_COUNT} Anidado en Kafka`;
       if(done) next = bus ? `${STEP_COUNT}/${STEP_COUNT} Cierre` : `${NESTING_STEP + 1}/${STEP_COUNT} El mismo lote en Service Bus`;
     } else if(S.materialDemo){
       const demo = S.materialDemo, event = MATERIAL_EVENTS[demo.index], ready = demo.phase === 'ready';

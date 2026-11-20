@@ -203,13 +203,13 @@ estética con `kafka.html`.
      clave. P1 procesa primero, la aplicación descarta el UPDATE por no existir la ficha y el
      CREATE posterior deja la densidad original.
   19. Anidado en Kafka. El productor, las particiones y los consumidores conservan su posición;
-     el panel central pasa de la ficha del material al resultado del lote. Ocho cálculos independientes, con cuatro largos de 3 s en P0 y
+     la ficha desaparece y deja libre el centro. Ocho cálculos independientes, con cuatro largos de 3 s en P0 y
      cuatro cortos de 0,75 s en P1. C2 queda ocioso a los 3 s mientras C1 acaba P0 a los
      12 s. Los trabajos completados siguen visibles en el log.
-  20. Anidado en Azure Service Bus. Los dos carriles se unen en una cola y se repite el mismo
+  20. Anidado en Azure Service Bus. Los dos carriles convergen en el centro entre el productor y los dos receptores, y se repite el mismo
      lote. Cada receptor libre toma el primer trabajo disponible con Peek-Lock y el mensaje
      sale de la cola al completarlo. Con este lote y esta secuencia, los dos acaban juntos a
-     los 7,5 s. El resumen compara tiempos simulados.
+     los 7,5 s. El botón de avance muestra los tiempos simulados de ambos sistemas.
   21. Cierre. Tras leer la comparación, un clic muestra «The secret of queue systems» sobre
      negro con The Secret Font of Monkey Island 1990, incluida en el HTML.
   - Las filas son estado: `S.rows[part]` es la fila de cada partición (`rowOf(S, part)`) y
