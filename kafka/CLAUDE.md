@@ -31,7 +31,7 @@ estética con `kafka.html`.
   Oscurece la escena y vuelve a dibujar encima a esos actores, con el aspecto que tengan (bar o
   Kafka), así que se iluminan sus píxeles exactos; por eso los contadores de animación del dibujo
   avanzan con `frameTick`, que vale 0 en esa segunda pasada. Escape sale del tutorial.
-- **Vista «Kafka real»:** se abre con el mismo botón de avance, después de «¡Oído cocina!».
+- **Vista «Kafka real»:** se abre con el mismo botón de avance, después del reenvío sin ack.
   Cada clic convierte un tipo de actor en su pieza técnica, en el orden en que viaja un mensaje
   (`kafkaStep`, `KAFKA_STAGES`, `morphDraw`).
   - Ya transformado es un diagrama: **las piezas están quietas y solo se mueven los mensajes**
@@ -80,15 +80,20 @@ estética con `kafka.html`.
   orden da igual) y es una cola: el cocinero coge la comanda del hilo (lock), la cocina y la tira
   a la papelera (`BIN_X`) de un taconazo al completarla. Sin offsets ni commits. `S.features`
   (`menus`, `keys`, `retain`, `commit`) dice qué tiene ya de Kafka; `createSim` sin opciones es
-  Kafka entero, que es lo que usan casi todos los tests. Un solo botón en la pared, «Paso n/11», lo
-  recorre todo: el paso 1 es el tutorial (un clic por tipo de actor; ya no hay botón de tutorial
-  aparte) y luego `UPGRADES`. Si se pulsa
+  Kafka entero, que es lo que usan casi todos los tests. Un solo botón en la pared lo recorre todo
+  (21 pasos): el paso 1 es el tutorial (un clic por tipo de actor; ya no hay botón de tutorial
+  aparte), luego `UPGRADES`, la vista Kafka real y los ejemplos. El botón tiene dos líneas cortas
+  que caben en la pared (`refreshUpgrade`, letra pequeña, sin saltos de línea y con «…» si algo
+  no cupiera; el texto entero va en el `title`): arriba «▶ n/21 lo que está pasando…» o
+  «✓ n/21 lo último visto», y debajo, en otro color, «› n/21 Problema/Solución/Novedad: tema» de
+  lo que trae el siguiente clic; en espera, sin el tipo y con «· en espera». Cada paso de
+  `UPGRADES` lleva su tipo (`kind`), su tema (`name`) y lo que pasa mientras dura (`doing`),
+  cortos a propósito: caben unos 44 caracteres por línea. Si se pulsa
   cuando el paso aún no puede empezar (otro en marcha, alguien ocupado), el botón se queda pulsado
   «en espera» (`pendingStep`) y el paso arranca solo en cuanto puede. La barra espaciadora hace lo
   mismo que el botón, esté donde esté el foco (salvo en campos de texto).
-  - Cada situación se ilustra una sola vez, en su paso y a propósito: nada de esperar a que pase
-    por azar ni de que se repita después. Lo aleatorio queda para los huevos de pascua (caña,
-    horno, bidón del jefe…).
+  - Cada fallo tiene una demostración preparada en su paso. Los adelantamientos del paso 5
+    pueden repetirse mientras los dos cocineros compartan el hilo.
   - El rebalance es de Kafka (`features.keys`, un dueño por hilo). En la cola, un cocinero que se
     desmaya suelta lo que tenía (`dropJob`) sin rebalance: `triggerRebalance` solo reparte, sin
     pausa ni contador. La intoxicación del panel espera a que haya un hilo por color.
@@ -108,7 +113,10 @@ estética con `kafka.html`.
      plato queda enmarcado en rojo en el menú del comensal en cuanto se pierde la comanda; a los `GIVE_UP_S` se enfada una sola vez: da
      puñetazos y protesta primero «Kurwa!» (`KURWA_S`) y luego con la frase del plato que le falta (`LOST_DISH_LINES`) durante `COMPLAIN_S` (`state: 'complain'`) y se va. Lo
      mismo en «una comanda se pierde».
-  4. Mirar sin quitar (`startPeekLock`), arreglo: `features.peekLock`. El cocinero solo la mira y,
+  4. Mirar sin quitar (`startPeekLock`). Cuando los dos cocineros han terminado la comanda y
+     están en sus fogones, el jefe entra por la derecha y dice «Chavales... peek and lock!»
+     al llegar. Ambos contestan «Sí, jefe». El jefe se retira y los cocineros empiezan a usar
+     `features.peekLock`. Cada cocinero mira la comanda y,
      sin quitarla, le ata debajo un reloj de arena (`hang`, `HANG_S`, `drawHourglass`): de puntillas, el reloj
      sube desde sus manos por delante de él, o sea, detrás de su cuerpo visto desde aquí; asoma
      por encima de la cabeza y lo ata con un meneo mientras aparece la cuerda. Los relojes se
@@ -129,10 +137,10 @@ estética con `kafka.html`.
      (`signStep`) y escribe «MENÚ DEL DÍA» con tiza letra a letra (`signWrite`). La mano sigue
      `signHand` y el cuerpo va detrás a `SIGN_REACH`; entonces `features.menus`. Sin
      comensales nuevos (`build.quiet`) hasta que la cola se vacía, y entra uno con `SET_MENU`
-     (paella lenta, `SET_MENU_SLOW`, y pollo): un cocinero coge la paella, el otro el pollo, y el
-     pollo llega antes: «?!» (`puzzled`, `brokeOrder`, `stats.outOfOrder`). Solo esa vez: para el
-     resto, mientras un plato anterior del mismo comensal está en manos de un cocinero, el
-     siguiente no se coge (`takeable`).
+     (paella lenta, `SET_MENU_SLOW`, y flan). Un cocinero empieza la paella y el otro sirve el
+     flan antes de que llegue el primero. El comensal reacciona con «?!» (`puzzled`, `brokeOrder`,
+     `stats.outOfOrder`). En los menús siguientes cada cocinero sigue cogiendo la comanda libre
+     más antigua y un plato rápido puede volver a adelantar a otro del mismo comensal.
   6. Un hilo por color (`startKeyedWires`), arreglo: el camarero y C1 suben el hilo (`S.move`) y C2
      monta el de abajo (`stepWire`). Al plantarlo hay partición 1, `keys` y un dueño por hilo.
      Tres colores fijos por hilo. Los comensales nuevos favorecen el hilo con menos mesas
@@ -167,7 +175,7 @@ estética con `kafka.html`.
      la última protesta puede seguir visible mientras entra el jefe.
      (Ya no hay descanso ni explosión: Pablo los quitó por confusos.)
   9. Marcar por dónde va (`startCommits`), arreglo: entra el jefe de sala, se pone entre las
-     cocinas y les dice «¡CHAVALES! MARK WHERE YOU ARE!» nada más llegar
+     cocinas y les dice «¡CHAVALES! COMMIT WHERE YOU ARE!» nada más llegar
      (`markBoss`, `markSay`; «chavales» en español y el resto en inglés, lo pidió Pablo así; luz en
      toda la franja de la derecha). Cuando ambos terminan el trabajo en curso, aparece el commit
      (visible en el bar con el sello): primero cada uno sella
@@ -176,27 +184,34 @@ estética con `kafka.html`.
   10. Una comanda se pierde (`startLoss`), fallo: el camarero envía el pedido entero, pero la pinza de la última comanda se abre
      a mitad del hilo y el papel cae antes de llegar (`S.loseNext`, `S.fallen`); nadie confirma nada, nadie se entera y el comensal se va
      sin ese plato (`GIVE_UP_S`), tras decir «Kurwa!» y luego la frase del plato que le falta (`LOST_DISH_LINES`).
-  11. ¡Oído cocina! (`startAcks`), arreglo: el jefe de sala llega al pase, dice «¡Un poco de
-     orden, chavales!» y empieza a confirmar cada pedido entero colgado (ack). El camarero espera el «oído»; si falta una comanda no llega, y
-     tras `ACK_WAIT_S` la vuelve a mandar (`stats.resent`).
-  12–16. Kafka real: el mismo botón transforma por orden a los comensales en el producer,
+  11. ¡Oído cocina! (`startAcks`). El jefe llega al pase y le dice al camarero del bloc
+     «¡Un poco de orden, chaval!». El camarero contesta «Sí, jefe» y vuelve a su tarea.
+     Cada comanda que llega al hilo recibe su propio «¡Oído cocina!». El paso termina
+     cuando se ha visto el de la última comanda del pedido. Si se espera aquí, los pedidos siguen llegando con normalidad.
+  12. Reenvío sin ack (`startLoss`). Al avanzar, se suelta la última comanda de un pedido.
+     El camarero espera `ACK_WAIT_S`, reenvía la comanda que falta y oye el «¡Oído cocina!» de esa comanda.
+  13–17. Kafka real: el mismo botón transforma por orden a los comensales en el producer,
      al camarero en el partitioner, a los hilos y al jefe en el topic y su ack, y a los cocineros
      en los consumers. El último clic retira el mostrador y el camarero con bandeja. La
-     transformación se apoya en la misma simulación (`KAFKA_STAGES`, `kafkaMix`). Al terminar
-     abre un ejemplo separado con el topic `materiales` vacío, a x1. El CREATE de `MAT-104` sale
+     transformación se apoya en la misma simulación (`KAFKA_STAGES`, `kafkaMix`). El diagrama completo queda a la vista.
+     «Abrir ejemplo de materiales» da paso mediante un fundido al topic `materiales` vacío, a x1. El CREATE de `MAT-104` sale
      solo; el botón envía cada uno de los dos UPDATE y el DELETE. El consumer cambia la ficha
-     central al aplicar el evento y después confirma el siguiente offset. El DELETE elimina la
+     central al aplicar el evento y después confirma el siguiente offset. La ficha distingue
+     sin crear, creado, actualizado y borrado. En un UPDATE muestra el valor anterior y el nuevo. El DELETE elimina la
      ficha; los cuatro eventos permanecen en la partición.
-  17. Comparar dos particiones. Publica CREATE en P0 y luego UPDATE en P1 con la misma
+  18. Comparar dos particiones. Publica CREATE en P0 y luego UPDATE en P1 con la misma
      clave. P1 procesa primero, la aplicación descarta el UPDATE por no existir la ficha y el
      CREATE posterior deja la densidad original.
-  18. Anidado en Kafka. Ocho cálculos independientes, con cuatro largos de 3 s en P0 y
+  19. Anidado en Kafka. El productor, las particiones y los consumidores conservan su posición;
+     el panel central pasa de la ficha del material al resultado del lote. Ocho cálculos independientes, con cuatro largos de 3 s en P0 y
      cuatro cortos de 0,75 s en P1. C2 queda ocioso a los 3 s mientras C1 acaba P0 a los
      12 s. Los trabajos completados siguen visibles en el log.
-  19. Anidado en Azure Service Bus. Los dos carriles se unen en una cola y se repite el mismo
+  20. Anidado en Azure Service Bus. Los dos carriles se unen en una cola y se repite el mismo
      lote. Cada receptor libre toma el primer trabajo disponible con Peek-Lock y el mensaje
      sale de la cola al completarlo. Con este lote y esta secuencia, los dos acaban juntos a
      los 7,5 s. El resumen compara tiempos simulados.
+  21. Cierre. Tras leer la comparación, un clic muestra «The secret of queue systems» sobre
+     negro con The Secret Font of Monkey Island 1990, incluida en el HTML.
   - Las filas son estado: `S.rows[part]` es la fila de cada partición (`rowOf(S, part)`) y
     `c.row` la de cada cocinero y su cocina. Todos los hilos ocupan el mismo tramo
     (`barStart()`/`barEnd()`); el mostrador tiene el suyo (`COUNTER_START`/`COUNTER_END`). En una
@@ -226,15 +241,14 @@ estética con `kafka.html`.
 - **Solo las comandas son la cola o Kafka:** cuelgan con pinzas del hilo; desde «guardar las
   comandas» siguen ahí tras leerlas. El mostrador central es una cola normal: el plato
   desaparece al recogerlo.
-- **Jefe de sala = el ack del broker** (se queda en el pase en el último paso): calvo con cerco gris, arrugas, gafas, barba blanca de
+- **Jefe de sala = el ack del broker** (se queda en el pase desde el paso 11): calvo con cerco gris, arrugas, gafas, barba blanca de
   unos días y camisa, de brazos cruzados en el pase: en la fila del mostrador, lo más a la derecha
   que cabe, junto a la cocina y donde las comandas llegan al final del hilo (`BOSS_SPOT`, lo pidió
   Pablo). Mira al comedor y de vez en cuando echa un vistazo a la cocina, salvo mientras sube un
-  pedido. Cuando el pedido entero está colgado (ninguna
-  comanda de esa visita en vuelo) dice «¡Oído cocina!» (`callOrderHeard`), y el camarero espera
-  `ACK_S` en la barra (estado `awaitAck`) antes de volver: el producer no da el envío por hecho
-  hasta el ack. Un ack por pedido, como Kafka confirma por lote. No lo dicen los cocineros a
-  propósito: el ack es del broker, y los consumers leen a su ritmo, sin que el producer los espere.
+  pedido. Al añadir cada comanda a su partición, el jefe dice «¡Oído cocina!»
+  (`acknowledgeMessage`). Cada papel se ilustra como un envío individual. El camarero espera
+  a que regresen sus confirmaciones (`ACK_S`) antes de irse. Si se cae un papel, reenvía
+  solo la comanda pendiente. Los cocineros leen a su ritmo.
 - **Barril del jefe de sala:** de vez en cuando entra por la derecha un bidón metálico con
   «OIL» (excepción a la escena sin textos pedida por Pablo). El jefe se gira, prepara la pierna,
   le da una patada y el barril sale por la derecha con el giro invertido. Conserva el sprite

@@ -38,8 +38,14 @@ function stubDom(){
     apply: () => stub()
   });
   let pending = null;
+  const cover = {hidden:false, addEventListener(type, listener){ if(type === 'click') this.click = listener; }};
+  const ending = {hidden:true, focus(){}}, nodes = {cover, ending};
+  const document = new Proxy(stub(), {
+    get:(target, key) => key === 'getElementById' ? id => nodes[id] || stub() : target[key]
+  });
   return {
-    context:{document:stub(), performance:{now:() => 0}, requestAnimationFrame:callback => { pending = callback; }},
+    context:{document, performance:{now:() => 0}, requestAnimationFrame:callback => { pending = callback; }},
+    enterBar:() => { assert.equal(pending, null); cover.click(); assert.ok(cover.hidden); },
     frame:now => { const callback = pending; callback(now); }
   };
 }
@@ -49,6 +55,7 @@ function runScene(source, frames){
   const dom = stubDom();
   vm.createContext(dom.context);
   vm.runInContext(source, dom.context);
+  dom.enterBar();
   for(let i = 0; i < frames; i++) dom.frame(i * 100);
 }
 // The page has no hooks for tests: a scene starts in another state by editing one line of its source.
@@ -97,9 +104,13 @@ test('the advance button queues Kafka real after the last scene and reveals one 
       nextStep();
       revealTrace.push(kafkaStep);
     }
+    updateView(1);
+    revealTrace.push(!!S.materialDemo);
+    nextStep();
+    revealTrace.push(S.materialDemo.phase, S.materialDemo.current);
   })();`);
   vm.runInNewContext(source, dom.context);
-  assert.deepEqual(JSON.parse(JSON.stringify(dom.context.revealTrace)), [[0, true], [1, false], 2, 3, 4, 5, 5]);
+  assert.deepEqual(JSON.parse(JSON.stringify(dom.context.revealTrace)), [[0, true], [1, false], 2, 3, 4, 5, 5, false, 'intro', null]);
 });
 
 test('material events update the projection in order and keep their records after deletion', () => {
@@ -208,10 +219,12 @@ test('advance takes the completed material comparison into Kafka nesting and the
       stepNestingDemo(nestingDemo, 0.1);
       draw();
     }
-    modeTrace.push(nestingDemo.phase, nestingDemo.kafkaResult, nestingDemo.elapsed);
+    modeTrace.push(nestingDemo.phase, nestingDemo.kafkaResult, nestingDemo.elapsed, $('ending').hidden);
+    nextStep();
+    modeTrace.push($('ending').hidden);
   })();`);
   vm.runInNewContext(source, dom.context);
-  assert.deepEqual([...dom.context.modeTrace], ['kafka', 'kafka', 'bus', 'done', 12, 7.5]);
+  assert.deepEqual([...dom.context.modeTrace], ['kafka', 'kafka', 'bus', 'done', 12, 7.5, true, false]);
 });
 
 test('in the Kafka view a consumer fetches an offset and then commits the next one', () => {
@@ -499,29 +512,29 @@ test('a waiter takes the order at the table and sends it from the bar of the key
   assert.equal(S.stats.served, 2);
 });
 
-test('the waiter only leaves the bar once the head waiter calls the whole order heard', () => {
-  const S = manualSim();
-  api.addCustomer(S, 'A', 3);
-  const waiter = S.barWaiters[0];
-  const calls = [];
-  let lastSaid = S.boss.saidAt, leftAt = null, waited = false;
-  for(let i = 0; i < 3000 && leftAt === null; i++){
-    api.stepSim(S, 1 / 60);
-    if(S.boss.saidAt !== lastSaid){
-      lastSaid = S.boss.saidAt;
-      calls.push({at:S.time, inFlight:S.tickets.length, onWire:S.comandas[0].end});
+for(const loseLast of [false, true]){
+  test(`every arrival gets one ack, including a retry: lost last ticket = ${loseLast}`, () => {
+    const S = manualSim(), customer = api.addCustomer(S, 'A', 3);
+    S.loseNext = loseLast ? 1 : 0;
+    const calls = [];
+    let leftAt = null;
+    for(let i = 0; i < 3000 && leftAt === null; i++){
+      const before = S.comandas[0].end, lastSaid = S.boss.saidAt;
+      api.stepSim(S, 1 / 60);
+      if(S.comandas[0].end > before){
+        const message = S.comandas[0].log.at(-1).order;
+        assert.equal(S.boss.lastAck, message);
+        assert.equal(message.ackAt, S.time);
+        calls.push(message.seq);
+      } else assert.equal(S.boss.saidAt, lastSaid);
+      if(S.barWaiters[0].state === 'back') leftAt = S.time;
     }
-    if(waiter.state === 'awaitAck') waited = true;
-    if(waiter.state === 'back') leftAt = S.time;
-  }
-  assert.ok(waited, 'the waiter stays at the bar after hanging the last order');
-  assert.equal(calls.length, 1, 'one call for the whole order');
-  assert.equal(calls[0].inFlight, 0, 'nothing is still on its way');
-  assert.equal(calls[0].onWire, 3, 'all three orders are on the wire');
-  assert.equal(S.boss.part, 0);
-  assert.ok(leftAt - calls[0].at >= 0.49, 'the waiter hears it before leaving');
-  assert.ok(S.events.some(event => event.text.includes('¡Oído cocina!')));
-});
+    assert.deepEqual(calls, [1, 2, 3]);
+    assert.equal(S.stats.resent, loseLast ? 1 : 0);
+    assert.equal(!!customer.messages[2].resent, loseLast);
+    assert.ok(leftAt - customer.messages[2].ackAt >= 0.49);
+  });
+}
 
 test('the staff is fixed and no waiter ever jumps from one place to another', () => {
   const S = api.createSim(9);
@@ -1008,8 +1021,29 @@ test('from a queue to Kafka: each step brings its problem or the feature that so
   assert.equal(S.stats.protested, 0, 'ordinary waits and lost orders do not trigger the hourglass protest');
   assert.ok(api.UPGRADES[S.upgrades].start(S));
   const protests = new Set();
+  let heardInstruction = false, cooksReplied = false, sawHourglass = false;
   for(let i = 0; i < 300 * 60 && S.build; i++){
     api.stepSim(S, 1 / 60);
+    if(S.boss.entering && !heardInstruction){
+      assert.ok(S.cooks.every(c => !c.job && c.pos === c.row && c.x === api.COOK_X));
+      if(!S.boss.say && S.build.phase === 'peekBoss' && S.build.t > 0) assert.ok(S.boss.walking);
+    }
+    if(S.boss.say){
+      assert.equal(S.boss.say.lines.join(' '), 'Chavales... peek and lock!');
+      assert.ok(S.boss.entering && S.cooks.every(c => !c.job && c.pos === c.row && c.x === api.COOK_X));
+      assert.equal(S.features.peekLock, false);
+      heardInstruction = true;
+    }
+    if(S.cooks.some(c => c.say)){
+      assert.ok(heardInstruction && !S.boss.say);
+      assert.ok(S.cooks.every(c => c.say?.lines.join(' ') === 'Sí, jefe'));
+      cooksReplied = true;
+    }
+    if(S.features.peekLock) assert.ok(cooksReplied);
+    if(S.cooks.some(c => c.job?.phase === 'hang')){
+      assert.ok(heardInstruction && !S.boss.say);
+      sawHourglass = true;
+    }
     for(const diner of S.customers){
       const speech = diner.say;
       if(!speech?.dishComplaint || protests.has(speech)) continue;
@@ -1022,6 +1056,7 @@ test('from a queue to Kafka: each step brings its problem or the feature that so
   }
   assert.equal(S.build, null);
   assert.equal(protests.size, 1);
+  assert.ok(sawHourglass && !S.boss.entering);
   assert.equal(S.features.peekLock, true);
   assert.equal(S.stats.faints, 2);
   assert.equal(S.stats.rebalances, 0);
@@ -1030,14 +1065,14 @@ test('from a queue to Kafka: each step brings its problem or the feature that so
   assert.equal(S.stats.gaveUp, 1, 'but stays: only the lost dish of the step before made anyone leave');
   assert.equal(S.stats.lost, 1, 'the lock lapsed and the other cook cooked it');
 
-  // Menus: the sign is rewritten, and the first set menu has its second course overtake the first.
+  // Menus: the dessert overtakes the starter, then ordinary menus can also arrive out of order.
   assert.equal(S.stats.outOfOrder, 0);
   upgrade(S, 300);
   assert.equal(S.features.menus, true);
-  assert.equal(S.stats.outOfOrder, 1, 'the order breaks, once');
-  assert.ok(S.events.some(event => event.text.includes('el orden se ha roto')));
+  assert.equal(S.stats.outOfOrder, 1);
+  assert.ok(S.events.some(event => event.text.includes('flan antes que paella: el orden se ha roto')));
   run(S, 200);
-  assert.equal(S.stats.outOfOrder, 1, 'and only in the step that shows it');
+  assert.ok(S.stats.outOfOrder > 1, 'other menus can still arrive out of order on the shared wire');
 
   // 3. One wire per color: the first wire moves up, a second one is built, one cook each.
   assert.ok(api.UPGRADES[S.upgrades].start(S));
@@ -1050,9 +1085,9 @@ test('from a queue to Kafka: each step brings its problem or the feature that so
   assert.equal(builtAway, false, 'the second cook builds its wire in its own row, by its stove');
   assert.deepEqual([...S.rows], [0, 2]);
   assert.equal(S.features.keys, true);
+  const broken = S.stats.outOfOrder;
   run(S, 60);
   assert.deepEqual(assignment(S), [[0], [1]]);
-  const broken = S.stats.outOfOrder;
   run(S, 400);
   assert.equal(S.stats.outOfOrder, broken, 'no more courses out of order');
 
@@ -1091,17 +1126,42 @@ test('from a queue to Kafka: each step brings its problem or the feature that so
   assert.equal(S.stats.resent, 0);
   assert.ok(S.stats.gaveUp >= 1, 'its diner leaves without it');
 
-  // 9. «¡Oído cocina!»: the head of the dining room stays at the pass; a lost order gets no call and goes again.
-  upgrade(S, 300);
+  // The boss addresses the order waiter and acknowledges each ticket as it arrives.
+  assert.ok(api.UPGRADES[S.upgrades].start(S));
+  const dialogue = new Set();
+  for(let i = 0; i < 300 * 60 && S.build; i++){
+    api.stepSim(S, 1 / 60);
+    const waiter = S.barWaiters[0];
+    if(S.boss.say) dialogue.add(S.boss.say.lines.join(' '));
+    if(waiter.say){
+      assert.equal(waiter.state, 'listening');
+      assert.ok(S.cooks.every(c => !c.say));
+      dialogue.add(waiter.say.lines.join(' '));
+    }
+    if(S.boss.lastAck){
+      assert.ok(!S.boss.lastAck.resent);
+      dialogue.add('ack');
+    }
+  }
+  assert.equal(S.build, null);
+  assert.deepEqual([...dialogue], ['¡Un poco de orden, chaval!', 'Sí, jefe', 'ack']);
   assert.equal(S.boss.present, true);
   assert.deepEqual([S.boss.x, S.boss.y], [api.BOSS_SPOT.x, api.BOSS_SPOT.y]);
+  run(S, 60);
+  assert.equal(S.stats.lost, 2, 'waiting here never triggers the next loss');
+  assert.equal(S.stats.resent, 0);
+
+  // The next click loses a ticket. It finishes once the resent order has been acknowledged.
+  const lastGoodAck = S.boss.saidAt;
+  upgrade(S, 300);
+  assert.ok(S.boss.saidAt > lastGoodAck);
   assert.equal(S.stats.lost, 3);
   assert.ok(S.stats.resent >= 1, 'the waiter sends it again');
   assert.equal(S.upgrades, api.UPGRADES.length);
   const states = new Set();
   for(let i = 0; i < 60 * 60; i++){ api.stepSim(S, 1 / 60); states.add(S.barWaiters[0].state); }
   assert.ok(states.has('awaitAck'), 'the waiter now waits for «¡Oído cocina!»');
-  assert.equal(S.stats.outOfOrder, 1, 'no course ever came out of order again');
+  assert.equal(S.stats.outOfOrder, broken, 'no course ever came out of order again');
 });
 
 
