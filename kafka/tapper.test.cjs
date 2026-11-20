@@ -6,8 +6,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 // Exercise the Kafka model of the single-file page without a DOM.
-function harness(){
-  const html = fs.readFileSync(path.join(__dirname, 'tapper.html'), 'utf8');
+function harness(page = 'tapper.html'){
+  const html = fs.readFileSync(path.join(__dirname, page), 'utf8');
   const source = html.match(/<script>([\s\S]*?)<\/script>/)[1];
   new Function(source);
   const context = {};
@@ -473,6 +473,22 @@ test('two keys on one wire each keep their own sequence', () => {
   assert.equal(log.length, 8);
   assert.deepEqual(log.filter(tag => tag[0] === 'A'), ['A1', 'A2', 'A3', 'A4']);
   assert.deepEqual(log.filter(tag => tag[0] === 'C'), ['C1', 'C2', 'C3', 'C4']);
+});
+
+test('the pirate tavern introduces the three captains and then both duellists', () => {
+  const pirates = harness('tapper-pirata.html');
+  const S = pirates.createSim(4, pirates.FIRST_SCENE);
+  S.rate = 40;
+  const visits = new Map();
+  for(let i = 0; i < 180 * 60; i++){
+    pirates.stepSim(S, 1 / 60);
+    for(const c of S.customers) visits.set(c.visit, c.letter);
+    assert.equal(new Set(S.customers.map(c => c.letter)).size, S.customers.length);
+  }
+  const cast = [...visits.values()];
+  assert.deepEqual(cast.slice(0, 5), ['A', 'B', 'C', 'D', 'E']);
+  assert.equal(new Set(cast).size, 5);
+  assert.ok(cast.length > 5, 'service continues after all five have arrived');
 });
 
 test('six diners take turns at three tables', () => {
