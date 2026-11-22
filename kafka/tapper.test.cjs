@@ -166,7 +166,7 @@ test('pirate material groups commit independently and build different projection
     assert.equal(S.comandas[0].committed, i + 1);
     assert.equal(demo.reference.offsets[0], i, 'the reference group has its own commit');
     assert.equal(S.comandas[0].log.length, i + 1, 'both groups read the same published record');
-    assert.equal(demo.current?.densidad ?? null, ['2,68', '2,70', '2,70', null][i]);
+    assert.equal(demo.current?.densidad ?? null, ['2.68', '2.70', '2.70', null][i]);
     until(() => demo.phase === 'ready');
     assert.equal(demo.reference.value, i === 3 ? null : 'AL-104');
     assert.deepEqual(Array.from(demo.reference.offsets), [i + 1, 0]);
@@ -659,10 +659,10 @@ test('the pirate tavern shows each fix working in a step of its own', () => {
   // Peek-lock: the forgotten order waits out its hourglass and is cooked, not lost.
   assert.equal(seen.startPeekFumes.stats.lapsed, 1);
   assert.equal(seen.startPeekFumes.stats.lost, 0);
-  // Menus: a single diner, alone in the room, gets the flan before the paella.
+  // Menus: a single diner, alone in the room, gets the banana before the paella.
   assert.equal(seen.startMenus.crowd, 1, 'the set-menu diner is the only one in the room');
   assert.equal(seen.startMenus.stats.outOfOrder, 1);
-  assert.equal(seen.startMenus.firstPlate, 'flan');
+  assert.equal(seen.startMenus.firstPlate, 'platano');
   // A wire per color: the same set menu now arrives in order.
   assert.equal(seen.startOrderedMenu.stats.outOfOrder, 0);
   assert.ok(seen.startCommits.marker.every(([committed, read]) => committed === read));
