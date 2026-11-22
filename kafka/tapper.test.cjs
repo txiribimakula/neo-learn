@@ -13,7 +13,7 @@ function harness(page = 'tapper.html'){
   const context = {};
   vm.createContext(context);
   vm.runInContext(source.slice(0, source.indexOf('// initial\n')) + `
-    globalThis.api = { createSim, stepSim, createMaterialDemo, sendMaterialEvent, stepMaterialDemo, createNestingDemo, stepNestingDemo, addCustomer, setCookActive, setCookSlow, seekToEarliest, lagOf, poisonCook, consumerAction, UPGRADES, FIRST_SCENE, BOSS_SPOT, COOK_X, stepBossOil, bossOilPose, OIL_HIT_AT, OIL_RETURN_S, OIL_GAG_S, ITEMS, COURSES };
+    globalThis.api = { createSim, stepSim, createMaterialDemo, sendMaterialEvent, stepMaterialDemo, createNestingDemo, stepNestingDemo, addCustomer, setCookActive, setCookSlow, seekToEarliest, lagOf, poisonCook, consumerAction, UPGRADES, FIRST_SCENE, BOSS_SPOT, COOK_X, ...(typeof stepBossOil === 'function' ? {stepBossOil, bossOilPose, OIL_HIT_AT, OIL_RETURN_S, OIL_GAG_S} : {}), ...(typeof chickenAt === 'function' ? {chickenAt} : {}), ITEMS, COURSES };
   })();`, context);
   return context.api;
 }
@@ -37,15 +37,21 @@ function stubDom(){
     set: () => true,
     apply: () => stub()
   });
-  let pending = null;
+  let pending = null, frameId = 0;
+  const keyHandlers = [];
   const cover = {hidden:false, addEventListener(type, listener){ if(type === 'click') this.click = listener; }};
-  const ending = {hidden:true, focus(){}}, nodes = {cover, ending};
+  const ending = {hidden:true, focus(){}}, nodes = {cover, ending, slides:{hidden:true, querySelectorAll:() => [], addEventListener(){}}};
   const document = new Proxy(stub(), {
-    get:(target, key) => key === 'getElementById' ? id => nodes[id] || stub() : target[key]
+    get(target, key){
+      if(key === 'getElementById') return id => nodes[id] || stub();
+      if(key === 'addEventListener') return (type, listener) => { if(type === 'keydown') keyHandlers.push(listener); };
+      return Reflect.get(target, key);
+    }
   });
   return {
-    context:{document, performance:{now:() => 0}, requestAnimationFrame:callback => { pending = callback; }},
+    context:{document, structuredClone, setInterval(){}, performance:{now:() => 0}, requestAnimationFrame:callback => { pending = callback; return ++frameId; }},
     enterBar:() => { assert.equal(pending, null); cover.click(); assert.ok(cover.hidden); },
+    press:key => keyHandlers.forEach(listener => listener({key, target:{closest:() => null}, preventDefault(){}})),
     frame:now => { const callback = pending; callback(now); }
   };
 }
@@ -145,6 +151,26 @@ test('material events update the projection in order and keep their records afte
     [0, 'MAT-104', 'CREATE'], [1, 'MAT-104', 'UPDATE'], [2, 'MAT-104', 'UPDATE'], [3, 'MAT-104', 'DELETE']
   ]);
   assert.equal(S.comandas[1].end, 0);
+});
+
+test('pirate material groups commit independently and build different projections from one log', () => {
+  const {createMaterialDemo, sendMaterialEvent, stepMaterialDemo} = harness('tapper-pirata.html');
+  const S = createMaterialDemo(), demo = S.materialDemo;
+  const until = predicate => {
+    for(let i = 0; i < 500 && !predicate(); i++) stepMaterialDemo(S, 1 / 60);
+    assert.ok(predicate());
+  };
+  for(let i = 0; i < 4; i++){
+    if(i) sendMaterialEvent(S);
+    until(() => demo.reader === 1);
+    assert.equal(S.comandas[0].committed, i + 1);
+    assert.equal(demo.reference.offsets[0], i, 'the reference group has its own commit');
+    assert.equal(S.comandas[0].log.length, i + 1, 'both groups read the same published record');
+    assert.equal(demo.current?.densidad ?? null, ['2,68', '2,70', '2,70', null][i]);
+    until(() => demo.phase === 'ready');
+    assert.equal(demo.reference.value, i === 3 ? null : 'AL-104');
+    assert.deepEqual(Array.from(demo.reference.offsets), [i + 1, 0]);
+  }
 });
 
 test('two partitions let the consumer reject an UPDATE before the earlier CREATE', () => {
@@ -475,6 +501,96 @@ test('two keys on one wire each keep their own sequence', () => {
   assert.deepEqual(log.filter(tag => tag[0] === 'C'), ['C1', 'C2', 'C3', 'C4']);
 });
 
+test('a pirate cook serves the plate, then jumps under its wire and pushes the rubber chicken on', () => {
+  const pirates = harness('tapper-pirata.html');
+  const S = pirates.createSim(11);
+  S.rate = 0;
+  pirates.addCustomer(S, 'A', 1);
+  const phases = [], marks = [];
+  let cook = null, part = null, rowWhenPushing = null;
+  for(let i = 0; i < 60 * 30 && !(part !== null && S.comandas[part].committed === 1); i++){
+    pirates.stepSim(S, 1 / 60);
+    cook ??= S.cooks.find(c => c.job);
+    if(!cook?.job) continue;
+    part = cook.job.part;
+    if(phases.at(-1) !== cook.job.phase) phases.push(cook.job.phase);
+    if(cook.job.phase === 'commit'){
+      rowWhenPushing = cook.pos;
+      marks.push(pirates.chickenAt(S, part));
+    }
+  }
+  assert.deepEqual(phases.slice(-4), ['toCounter', 'drop', 'toCommit', 'commit']);
+  assert.equal(S.comandas[part].committed, 1);
+  assert.equal(rowWhenPushing, S.rows[part], 'pushes it from under its own wire');
+  assert.equal(marks[0], 0, 'the chicken waits for the push');
+  assert.ok(marks.every((at, i) => i === 0 || (at >= marks[i - 1] && at - marks[i - 1] < 0.1)), 'then rolls forward without jumps');
+  assert.ok(marks.at(-1) > 0.95);
+});
+
+test('pirate cooks walk along the aisle to the counter and back to each wire', () => {
+  const pirates = harness('tapper-pirata.html');
+  for(const [id, letter] of ['A', 'B'].entries()){
+    const S = pirates.createSim(11);
+    S.rate = 0;
+    pirates.addCustomer(S, letter, 1);
+    const cook = S.cooks[id], dt = 1 / 60;
+    for(let i = 0; i < 1800 && cook.job?.phase !== 'toCounter'; i++) pirates.stepSim(S, dt);
+    assert.equal(cook.job?.phase, 'toCounter');
+    assert.equal(cook.pos, id * 2);
+    let steps = 0;
+    for(let i = 0; i < 180 && cook.job?.phase === 'toCounter'; i++){
+      const before = cook.pos;
+      pirates.stepSim(S, dt);
+      assert.equal(cook.windup, 0);
+      if(before === 1) continue;
+      assert.ok(cook.walking && Math.abs(cook.pos - before) <= 0.03);
+      assert.ok(Math.abs(cook.pos - 1) < Math.abs(before - 1));
+      assert.equal(cook.x, pirates.COOK_X, 'changes rows in the aisle next to the stoves');
+      steps++;
+    }
+    assert.ok(steps > 30);
+    assert.equal(cook.job?.phase, 'drop');
+    assert.equal(cook.pos, 1);
+    assert.ok(cook.x < pirates.COOK_X, 'turns towards the counter after reaching its row');
+    for(let i = 0; i < 180 && cook.job?.phase === 'drop'; i++) pirates.stepSim(S, dt);
+    assert.equal(cook.job?.phase, 'toCommit');
+    steps = 0;
+    for(let i = 0; i < 180 && cook.job?.phase === 'toCommit'; i++){
+      const before = cook.pos;
+      pirates.stepSim(S, dt);
+      assert.equal(cook.windup, 0);
+      if(cook.pos === before) continue;
+      assert.equal(cook.x, pirates.COOK_X);
+      assert.ok(cook.walking && Math.abs(cook.pos - before) <= 0.03);
+      steps++;
+    }
+    assert.ok(steps > 30);
+    assert.equal(cook.pos, id * 2);
+    assert.equal(cook.job?.phase, 'commit');
+  }
+});
+
+test('pirate commit markers start at the current offset when each chicken lands', () => {
+  const filename = path.join(__dirname, 'tapper-pirata.html');
+  const source = fs.readFileSync(filename, 'utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
+  const dom = stubDom();
+  vm.runInNewContext(withLine(source, '\n})();', `
+    S = createSim(7);
+    S.features.commit = false;
+    S.comandas.forEach((p, part) => Object.assign(p, {end:12 + part, position:8 + part}));
+    updateView(1 / 60);
+    S.features.commit = true;
+    S.comandas.forEach(p => Object.assign(p, {committed:p.position, chickenIn:false}));
+    for(let frame = 0; frame < 120; frame++) updateView(1 / 60);
+    globalThis.firstOffsets = S.comandas.map((p, part) => {
+      p.chickenIn = true;
+      updateView(1 / 60);
+      return view.chickens[part].at;
+    });
+  })();`), dom.context);
+  assert.deepEqual(Array.from(dom.context.firstOffsets), [8, 9]);
+});
+
 test('the pirate tavern introduces the three captains and then both duellists', () => {
   const pirates = harness('tapper-pirata.html');
   const S = pirates.createSim(4, pirates.FIRST_SCENE);
@@ -489,6 +605,314 @@ test('the pirate tavern introduces the three captains and then both duellists', 
   assert.deepEqual(cast.slice(0, 5), ['A', 'B', 'C', 'D', 'E']);
   assert.equal(new Set(cast).size, 5);
   assert.ok(cast.length > 5, 'service continues after all five have arrived');
+});
+
+test('the pirate tavern shows each fix working in a step of its own', () => {
+  const pirates = harness('tapper-pirata.html');
+  const S = pirates.createSim(5, pirates.FIRST_SCENE);
+  const tick = () => pirates.stepSim(S, 1 / 60);
+  for(let i = 0; i < 20 * 60; i++) tick();
+  const seen = {};
+  while(S.upgrades < pirates.UPGRADES.length){
+    const step = pirates.UPGRADES[S.upgrades], before = {...S.stats};
+    for(let i = 0; i < 120 * 60 && !step.start(S); i++) tick();
+    assert.ok(S.build, `${step.name} starts`);
+    let takeover = null, tired = null, crowd = 0, firstPlate = null, marker = null, landings = [], busyThrow = false, bossLines = [];
+    const recountStart = step.start.name === 'startRecount' ? S.comandas.map(p => p.earliest) : null;
+    if(recountStart) assert.deepEqual(S.cashCount.map(marker => marker.offset), recountStart);
+    for(let i = 0; i < 300 * 60 && S.build; i++){
+      const build = S.build, who = S.cooks[build.who];
+      if(build.customer && step.start.name === 'startMenus'){
+        crowd = Math.max(crowd, S.customers.length);
+        firstPlate ??= build.customer.plates[0]?.items[0];
+      }
+      if(build.phase === 'markCatch' && !marker) marker = S.comandas.map(p => [p.committed, p.position, p.chickenIn]);
+      if(build.phase === 'markThrow'){
+        const inNow = S.comandas.map(p => !!p.chickenIn).join();
+        if(landings.at(-1) !== inNow) landings.push(inNow);
+        busyThrow ||= S.cooks.some(k => k.job);
+      }
+      if(build.phase === 'markSay' && S.boss.say) bossLines = [...S.boss.say.lines];
+      if(build.phase === 'signWrite'){
+        assert.ok(S.boss.entering);
+        assert.equal(S.barWaiters[0].state, 'idle');
+      }
+      if(build.phase === 'restEmpty' && !tired) tired = {id:who.id, hurt:!!(who.crutches || who.charred || who.grog), bottom:who.row === Math.max(...S.cooks.map(k => k.row)), table:S.closedTable};
+      if(build.phase === 'restBoss') tired.emptied = !S.customers.some(c => c.table === tired.table);
+      if(build.phase === 'restCover' && !takeover){
+        const other = S.cooks.find(k => k.active && k.job && build.parts.includes(k.job.part));
+        if(other) takeover = {offset:other.job.offset, mark:build.mark[other.job.part], wires:other.partitions.length, resting:!who.active};
+      }
+      tick();
+    }
+    assert.equal(S.build, null, `${step.name} finishes`);
+    if(step.start.name === 'startRecount'){
+      assert.deepEqual(Array.from(S.cashCount, (marker, part) => marker.offset - recountStart[part]), [2, 3]);
+      assert.ok(S.cashCount.every((marker, part) => marker.marked && marker.offset < S.comandas[part].end));
+    }
+    seen[step.start.name] = {stats:Object.fromEntries(Object.keys(before).map(k => [k, S.stats[k] - before[k]])), marker, takeover, tired, crowd, firstPlate, landings, busyThrow, bossLines,
+      partitions:S.cooks.map(k => [...k.partitions])};
+    for(let i = 0; i < 3 * 60; i++) tick();
+    if(step.start.name === 'startRest') seen.startRest.after = {active:S.cooks[tired.id].active, table:S.closedTable};
+
+  }
+  // Peek-lock: the forgotten order waits out its hourglass and is cooked, not lost.
+  assert.equal(seen.startPeekFumes.stats.lapsed, 1);
+  assert.equal(seen.startPeekFumes.stats.lost, 0);
+  // Menus: a single diner, alone in the room, gets the flan before the paella.
+  assert.equal(seen.startMenus.crowd, 1, 'the set-menu diner is the only one in the room');
+  assert.equal(seen.startMenus.stats.outOfOrder, 1);
+  assert.equal(seen.startMenus.firstPlate, 'flan');
+  // A wire per color: the same set menu now arrives in order.
+  assert.equal(seen.startOrderedMenu.stats.outOfOrder, 0);
+  assert.ok(seen.startCommits.marker.every(([committed, read]) => committed === read));
+  assert.ok(seen.startCommits.marker.some(([committed]) => committed > 1));
+  // The boss brings the commits: he says it, with no chicken in the words, and throws one chicken
+  // per wire, the top one first, while the cooks wait.
+  assert.deepEqual(seen.startCommits.bossLines, ['¡Chavales!', 'COMMIT where', 'you are!']);
+  assert.deepEqual(seen.startCommits.landings, ['false,false', 'true,false', 'true,true']);
+  assert.ok(seen.startCommits.marker.every(([, , landed]) => landed));
+  assert.equal(seen.startCommits.busyThrow, false);
+  assert.equal(pirates.UPGRADES[10].start.name, 'startRecount');
+  assert.equal(pirates.UPGRADES[11].start.name, 'startRest');
+  assert.equal(pirates.UPGRADES[12].start.name, 'startLoss');
+  // A rest: a table is left empty, and only then is the bottom cook, unhurt, sent for a rest. It
+  // leaves cleanly, the other takes both wires from the stamps, and it stays that way: one
+  // rebalance, nothing repeated, and the table stays empty but for the resting cook on it.
+  const rest = seen.startRest;
+  assert.equal(rest.tired.hurt, false, 'the cook sent for a rest has been through nothing');
+  assert.equal(rest.tired.bottom, true, 'it is the cook of the bottom row');
+  assert.equal(rest.tired.table, 2, 'the table left empty is the bottom one, level with its row');
+  const resting = S.cooks[rest.tired.id].rest;
+  assert.equal(resting.table, rest.tired.table);
+  assert.equal(resting.sips, 3, 'until the beer is gone');
+  assert.equal(resting.said, true, 'then it says it wants to be a pirate');
+  assert.equal(resting.phase, 'doze', 'and falls asleep on the table');
+  assert.equal(rest.tired.emptied, true);
+  assert.deepEqual(rest.takeover && [rest.takeover.offset, rest.takeover.wires, rest.takeover.resting], [rest.takeover?.mark, 2, true]);
+  assert.equal(rest.stats.rebalances, 1);
+  assert.equal(rest.stats.duplicates, 0);
+  assert.equal(rest.stats.lost, 0);
+  assert.deepEqual(rest.after, {active:false, table:rest.tired.table});
+  assert.ok(!S.customers.some(c => c.table === rest.tired.table), 'nobody sits at the closed table again');
+});
+
+test('the cat steals a ticket on its way to the top wire and the waiter retries when an ack is missing', () => {
+  const pirates = harness('tapper-pirata.html');
+  for(const boss of [false, true]){
+    const S = pirates.createSim(5, {boss});
+    S.rate = 0;
+    assert.ok(pirates.UPGRADES.findLast(step => step.start.name === 'startLoss').start(S));
+    // The cat lies above the top wire: orders for the bottom one go past it.
+    const below = pirates.addCustomer(S, 'B', 2), bottom = S.comandas[below.partition];
+    assert.ok(S.rows[below.partition] > Math.min(...S.rows));
+    for(let i = 0; i < 1800 && bottom.end < 2; i++){
+      pirates.stepSim(S, 1 / 60);
+      assert.ok(!S.tickets.some(ticket => ticket.snatch));
+    }
+    assert.equal(bottom.end, 2);
+    assert.equal(S.loseNext, 1);
+    for(let i = 0; i < 3600 && S.customers.includes(below); i++) pirates.stepSim(S, 1 / 60);
+    assert.equal(S.payments, 1, 'the first diner finishes and pays');
+
+    const customer = pirates.addCustomer(S, 'A', 2);
+    const stolen = customer.messages[1], partition = S.comandas[customer.partition];
+    assert.equal(S.rows[customer.partition], Math.min(...S.rows));
+    for(let i = 0; i < 1800 && !S.tickets.some(ticket => ticket.snatch); i++) pirates.stepSim(S, 1 / 60);
+    assert.equal(S.tickets.find(ticket => ticket.snatch)?.order, stolen);
+    assert.equal(S.stats.lost, 0);
+    for(let i = 0; i < 120 && !S.stolen.length; i++) pirates.stepSim(S, 1 / 60);
+    assert.equal(S.stolen[0]?.order, stolen);
+    assert.equal(S.catStash.length, 0, 'the cat is still carrying the slip');
+    assert.ok(stolen.lost);
+    assert.equal(S.stats.lost, 1);
+    assert.equal(partition.end, 1, 'the stolen ticket has no offset');
+    assert.equal(stolen.ackAt, boss ? null : undefined);
+
+    for(let i = 0; i < 3600; i++) pirates.stepSim(S, 1 / 60);
+    assert.equal(S.stolen.length, 0, 'the cat is back on its board');
+    assert.deepEqual([...S.catStash], [stolen], 'the original slip stays under its paws');
+    assert.equal(S.stats.lost, 1);
+    assert.equal(S.stats.resent, Number(boss));
+    assert.equal(S.stats.gaveUp, Number(!boss));
+    assert.equal(partition.end, boss ? 2 : 1);
+    assert.equal(S.stats.served, boss ? 4 : 3);
+    assert.equal(customer.eaten, boss ? 2 : 1);
+    assert.equal(S.payments, boss ? 2 : 1, 'Bizum only pulses after a complete meal');
+  }
+});
+
+test('every pirate mishap falls on the top cook, who climbs to the back wall for its crutches', () => {
+  const pirates = harness('tapper-pirata.html');
+  const S = pirates.createSim(5, pirates.FIRST_SCENE);
+  const tick = () => pirates.stepSim(S, 1 / 60);
+  for(let i = 0; i < 20 * 60; i++) tick();
+  const hit = new Map();
+  let maxUp = 0, upX = null;
+  while(S.upgrades < pirates.UPGRADES.length && pirates.UPGRADES[S.upgrades].start.name !== 'startRest'){
+    const step = pirates.UPGRADES[S.upgrades];
+    for(let i = 0; i < 120 * 60 && !step.start(S); i++) tick();
+    for(let i = 0; i < 300 * 60 && S.build; i++){
+      tick();
+      for(const c of S.cooks){
+        if(c.faint && ['blast', 'fumes', 'slip'].includes(c.faint.phase)) hit.set(c.faint.phase, c.row);
+        if(c.faint?.phase === 'crutches' && c.faint.up > maxUp){ maxUp = c.faint.up; upX = c.x; }
+      }
+    }
+    assert.equal(S.build, null, `${step.name} finishes`);
+  }
+  assert.deepEqual(Object.fromEntries(hit), {blast:0, fumes:0, slip:0});
+  assert.equal(maxUp, 58, 'it goes all the way up the floor to the back wall (CRUTCH_UP)');
+  assert.equal(upX, pirates.COOK_X, 'straight up from its spot beside the stove');
+  assert.equal(JSON.stringify(S.cooks.map(c => [c.row, !!c.crutches])), '[[0,true],[2,false]]');
+  assert.equal(S.cooks[0].faint, null);
+});
+
+test('pirate Bizum shows two close payments in separate pulses and drops them when rewinding', () => {
+  const dom = stubDom();
+  const html = fs.readFileSync(path.join(__dirname, 'tapper-pirata.html'), 'utf8');
+  const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const source = withLine(script, '\n})();', `
+    enterBar();
+    globalThis.pay = count => { S.payments += count; };
+    globalThis.pulse = dt => {
+      updateView(dt);
+      return [view.paymentsShown, view.paymentAge];
+    };
+  })();`);
+  vm.runInNewContext(source, dom.context);
+  dom.press('ArrowRight');
+  const {pay, pulse} = dom.context;
+  pay(2);
+  assert.deepEqual([...pulse(0)], [1, 0]);
+  assert.deepEqual([...pulse(.1)], [1, .1]);
+  assert.deepEqual([...pulse(.38)], [2, 0]);
+  const [shown, age] = pulse(.5);
+  assert.equal(shown, 2);
+  assert.ok(age > 0);
+  dom.press('ArrowLeft');
+  assert.deepEqual([...pulse(0)], [0, age]);
+});
+
+test('pirate arrow keys restore completed scenes and Space can play them again', () => {
+  const dom = stubDom();
+  const html = fs.readFileSync(path.join(__dirname, 'tapper-pirata.html'), 'utf8');
+  let source = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+  source = withLine(source, 'Math.floor(Math.random() * 1e6)', '5');
+  source = withLine(source, '\n})();', `
+    islandShown = true;
+    globalThis.onCover = () => !$('cover').hidden;
+    globalThis.scene = () => captureStep();
+    globalThis.status = () => ({pendingStep, speed, kafkaMix:[...kafkaMix], ends:[...view.ends]});
+  })();`);
+  vm.runInNewContext(source, dom.context);
+  const {onCover, scene, status} = dom.context;
+  const right = () => dom.press('ArrowRight');
+  const left = () => dom.press('ArrowLeft');
+  const space = () => dom.press(' ');
+  assert.ok(onCover());
+  dom.press('3');
+  assert.equal(status().speed, 1);
+  left();
+  assert.ok(onCover());
+  right();
+  assert.ok(!onCover());
+  for(const [key, expected] of [['2', 2], ['3', 3], ['9', 9], ['0', 10], ['1', 1]]){
+    dom.press(key);
+    assert.equal(status().speed, expected);
+  }
+  assert.equal(scene().tutorialStep, 0);
+  const initial = scene();
+  left();
+  assert.deepEqual(scene(), initial);
+  right();
+  assert.equal(scene().tutorialStep, 1);
+  left();
+  assert.deepEqual(scene(), initial);
+  for(let i = 0; i < 6; i++) space();
+  const tutorial = scene();
+  assert.equal(tutorial.tutorialDone, true);
+  space();
+  assert.equal(scene().S.build.phase, 'arrive');
+  left();
+  assert.deepEqual(scene(), tutorial);
+  space();
+  space();
+  assert.equal(status().pendingStep, true);
+  right();
+  const afterArrival = scene();
+  assert.equal(afterArrival.S.upgrades, 1);
+  assert.equal(afterArrival.S.build, null);
+  assert.equal(status().pendingStep, false);
+  left();
+  assert.deepEqual(scene(), tutorial);
+  right();
+  assert.deepEqual(scene(), afterArrival);
+
+  for(let i = 1; i < 15; i++) right();
+  const bar = scene();
+  assert.ok(bar.S.features.keys && bar.S.features.commit && bar.S.boss.present);
+  assert.equal(bar.S.stats.resent, 1);
+  assert.ok(bar.S.cashCount.every(marker => marker.marked), 'cash leaves a receipt on each wire');
+  assert.ok(bar.S.cashCount.every((marker, part) => marker.total >= 2 + part), 'cash counts dishes from retained orders');
+  assert.ok(status().ends.every(Number.isFinite));
+  space();
+  assert.ok(status().kafkaMix.every(mix => mix === 0));
+  right();
+  assert.equal(scene().kafkaStep, 1);
+  assert.deepEqual([...status().kafkaMix], [1, 0, 0, 0, 0]);
+  left();
+  assert.deepEqual(scene(), bar);
+  assert.ok(status().kafkaMix.every(mix => mix === 0));
+  for(let i = 0; i < 5; i++) right();
+
+  dom.press('3');
+  space();
+  assert.equal(scene().S.materialDemo.phase, 'intro');
+  assert.equal(status().speed, 3);
+  right();
+  assert.equal(scene().S.materialDemo.index, 1);
+  assert.equal(scene().S.materialDemo.phase, 'ready');
+  for(let i = 0; i < 4; i++) right();
+  const split = scene();
+  assert.ok(split.S.materialDemo.split && split.S.materialDemo.updateRejected);
+  assert.deepEqual(split.S.comandas.map(p => p.committed), [1, 1]);
+  assert.deepEqual(split.S.materialDemo.reference.offsets, [1, 1]);
+  right();
+  assert.equal(scene().nestingDemo.elapsed, 12);
+  assert.equal(status().speed, 3);
+  right();
+  assert.equal(scene().nestingDemo.elapsed, 7.5);
+  right();
+  assert.equal(scene().ending, true);
+  dom.frame(100);
+  left();
+  assert.equal(scene().ending, false);
+  assert.equal(scene().nestingDemo.mode, 'bus');
+  dom.frame(200);
+  space();
+  assert.equal(scene().ending, true);
+});
+
+test('a returning pirate cook slips on first contact with the landed peel', () => {
+  const pirates = harness('tapper-pirata.html');
+  const S = pirates.createSim(4);
+  const cook = S.cooks[1], peelX = pirates.COOK_X - 19;
+  S.rate = 0;
+  S.build = {phase:'peelWait', who:cook.id, t:0};
+  S.peel = {at:S.time, row:cook.row, stepAt:null};
+  cook.x = peelX - 15;
+  for(let i = 0; i < 60; i++) pirates.stepSim(S, 1 / 60);
+  assert.equal(cook.x, pirates.COOK_X);
+  assert.equal(S.peel.stepAt, null, 'walking under the flying peel is harmless');
+
+  cook.x = peelX - 20;
+  pirates.stepSim(S, 1 / 60);
+  assert.equal(S.peel.stepAt, null, 'the shoes are still clear of the peel');
+  pirates.stepSim(S, 1 / 60);
+  assert.equal(cook.x, peelX - 10);
+  assert.equal(cook.faint.phase, 'slip');
+  assert.equal(S.peel.stepAt, S.time);
 });
 
 test('six diners take turns at three tables', () => {
@@ -1223,6 +1647,52 @@ test('peek-lock: the cook ties an hourglass under the order, and the lock lasts 
   assert.equal(S.stats.served, 1);
   assert.equal(S.stats.duplicates, 1, 'free on the wire again, it is cooked a second time');
   assert.equal(S.comandas[0].log.length, 0, 'and that time it is taken off and binned');
+});
+
+test('pirate articulated arms keep both limb lengths while reaching in every direction', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'tapper-pirata.html'), 'utf8');
+  const source = html.match(/function cookArmPose\([\s\S]*?\n  }/)[0];
+  const pose = vm.runInNewContext(`(${source})`);
+  for(const distance of [0, 0.5, 10, 23, 40]){
+    for(let angle = 0; angle < Math.PI * 2; angle += Math.PI / 8){
+      const x = 100, y = 80, tx = x + Math.cos(angle) * distance, ty = y + Math.sin(angle) * distance;
+      const arm = pose(x, y, tx, ty);
+      assert.ok(Math.abs(Math.hypot(arm.elbowX - x, arm.elbowY - y) - 12) < 1e-9, 'upper arm keeps its length');
+      assert.ok(Math.abs(Math.hypot(arm.handX - arm.elbowX, arm.handY - arm.elbowY) - 12) < 1e-9, 'forearm keeps its length');
+      assert.ok(Math.abs(Math.hypot(arm.handX - x, arm.handY - y) - Math.min(distance, 23)) < 1e-9, 'hand reaches the target or stops at full extension');
+    }
+  }
+  const shoulder = {x:100, y:80};
+  for(const [x, y] of [[91, 84], [89, 78], [83, 69], [79, 68]]){
+    const arm = pose(shoulder.x, shoulder.y, x, y, -1);
+    assert.ok(arm.elbowY > arm.handY, 'the elbow stays below the hand while the character raises it');
+  }
+  const down = pose(shoulder.x, shoulder.y, 79, 95, -1);
+  const turn = (down.handX - shoulder.x) * (down.elbowY - shoulder.y) -
+    (down.handY - shoulder.y) * (down.elbowX - shoulder.x);
+  assert.ok(turn < 0, 'the same elbow bend is used when pointing down');
+});
+
+test('pirate padlocks release the order on expiry and finish falling independently of the next lock', () => {
+  const pirates = harness('tapper-pirata.html');
+  const S = pirates.createSim(4, {...pirates.FIRST_SCENE, features:{...pirates.FIRST_SCENE.features, peekLock:true}});
+  S.rate = 0;
+  pirates.addCustomer(S, 'B', 1);
+  const cook = S.cooks[0];
+  for(let i = 0; i < 60 * 30 && cook.job?.phase !== 'toStove'; i++) pirates.stepSim(S, 1 / 60);
+  assert.equal(cook.job.phase, 'toStove');
+  const entry = cook.job.entry;
+  entry.lockUntil = S.time + 0.05;
+  for(let i = 0; i < 6; i++) pirates.stepSim(S, 1 / 60);
+  assert.equal(entry.lockedBy, null, 'the paper is available again');
+  assert.equal(cook.job.lockLost, true, 'the previous cook cannot complete the expired lock');
+  assert.equal(S.lockDrops.length, 1, 'the released padlock remains visible while falling');
+  assert.equal(S.stats.lapsed, 1);
+  for(let i = 0; i < 60; i++) pirates.stepSim(S, 1 / 60);
+  assert.equal(S.lockDrops.length, 0, 'the falling padlock disappears without repeating');
+  for(let i = 0; i < 60 * 30; i++) pirates.stepSim(S, 1 / 60);
+  assert.equal(S.stats.served, 1, 'the released order can be fetched and completed again');
+  assert.equal(S.comandas[0].log.length, 0);
 });
 
 test('the first oil drum brings the three-headed monkey, and only the first', () => {
