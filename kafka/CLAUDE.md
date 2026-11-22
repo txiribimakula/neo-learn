@@ -349,6 +349,73 @@ estética con `kafka.html`.
   `document.write`, el script anterior sigue vivo y también actualiza el panel: fíate solo
   del canvas, y comprueba el panel en una carga limpia.
 
+## Hermano: `tapper-pirata.html` (la taberna pirata)
+
+Es la versión en la que Pablo trabaja ahora, en la rama `codex/taberna-pirata`. Parte del
+código de `tapper.html`, pero ya no lo comparte: es otra página de un solo HTML, con la misma
+historia de cola a Kafka, ambientada en una taberna pirata llena de guiños a Monkey Island.
+Lo de arriba sobre `tapper.html` sirve de referencia, pero aquí manda esta sección. Pablo
+también la edita con Codex: antes de tocar un fichero, mira si ha cambiado.
+
+- **Apertura:**
+  - Tres diapositivas: el título, una petición HTTP y una cola.
+  - Después, la frase «Let's go on an adventure, to reveal...» y la isla de portada.
+  - Un clic o la barra espaciadora entra en el bar; no hay botón ni rótulo de entrada.
+  - La pestaña se llama «The Secret of Queue Systems».
+- **Música:** `intro.mp3` (desde la diapositiva de la cola) y `bar.mp3` (en bucle dentro
+  del bar). Son pistas comerciales de *The Secret of Monkey Island*: están en `.gitignore` y
+  no se suben nunca, porque el repo es público. Sin ellas la página funciona en silencio.
+- **26 pasos con un solo botón en la pared** (espacio; ← / → recorren los pasos ya vistos;
+  1–9 y 0 cambian la velocidad):
+  - Tutorial (`TUTORIAL_STEPS`).
+  - 15 pasos de historia (`UPGRADES`), cada uno con `kind`, `name` y `doing`. Siguen la pauta
+    Problema → Solución → Demostración. «Keep orders after reading» es fallo y arreglo a la
+    vez, porque así lo pidió Pablo. «A consumer leaves» es una Novedad.
+  - 5 pasos de vista Kafka real (`KAFKA_STAGES`).
+  - Materiales (`MATERIAL_STEP`).
+  - Eventos sin key que se separan entre particiones (`SPLIT_STEP`): el producer envía con
+    `KEY: NULL`, el CREATE cae en P0, el UPDATE en P1 y el UPDATE se pierde.
+  - Anidado en Kafka (`NESTING_STEP`): el producer manda los 8 trabajos en round-robin
+    antes de calcular. Después, el mismo lote en Service Bus.
+  - Cierre «What we've learned».
+- **Personajes y guiños:**
+  - **Gato:** roba la comanda en vuelo, solo en el hilo de arriba.
+  - **Pollo de goma con polea:** es el commit; lo empujan los cocineros.
+  - **Mono y cáscara de plátano:** el resbalón del paso 10, que relee desde `earliest`.
+  - **Mono de tres cabezas** sobre el bidón.
+  - **Jefe omnipotente**, a propósito: hace de broker («¡Oído cocina!»), de coordinador
+    del grupo (anuncia el rebalance, pero no dice quién se lleva cada hilo) y de segundo
+    consumer group (el recuento de «Caja»).
+  - Todas las desgracias le pasan a C1, el cocinero de arriba; C2 es quien descansa.
+  - Los guiños nuevos se le proponen a Pablo por escrito antes de añadirlos.
+- **Idiomas:**
+  - Botón de la pared, tutorial, títulos y cierre: en inglés (`lang="en"`). Cada línea del
+    botón admite unos 44–48 caracteres.
+  - Vista Kafka: todos los rótulos en inglés, con decimales con punto.
+  - Términos de Kafka y Service Bus: siempre en inglés, también dentro de frases en español.
+  - Quejas de los piratas (plato perdido, menú desordenado, plato repetido o ajeno): mezclan
+    polaco y español, para que cualquiera de los dos entienda qué falla. La fuente de los
+    bocadillos (MonkeyDialogue) no tiene las letras polacas salvo la ó, así que el polaco se
+    escribe sin ą, ć, ę, ł, ń, ś, ź ni ż.
+  - Bocadillos del jefe: tal cual, con «¡Oído cocina!» literal. La pizarra («TAPAS» →
+    «MENÚ DEL DÍA») sigue en español.
+- **Fidelidad:**
+  - En escena va lo que cambia lo que se aprende. Los matices que no lo cambian los cuenta
+    Pablo de palabra en la charla: sesiones y DLQ de Service Bus, `acks=all` e idempotencia,
+    share groups de Kafka 4, `auto.offset.reset` y protocolo de rebalance.
+  - Las comandas no llevan número: el único número es el offset.
+  - La vista Kafka solo se abre con la historia completa, así que no tiene ramas de modo cola.
+- **Código y tests:**
+  - El modelo va antes de `// initial`, sin DOM.
+  - `tapper.test.cjs` prueba las dos páginas: `harness('tapper-pirata.html')` para la
+    taberna. Hay un recorrido completo de la historia con una sola semilla.
+  - El harness solo expone las funciones que existen: la taberna ya no tiene `poisonCook`,
+    `setCookSlow`, `seekToEarliest` ni el gag del horno.
+  - En `stepCook` queda a propósito un `random()` del horno retirado, para que cada semilla
+    conserve su noche.
+  - Para verificar a mano, carga una copia temporal con un reloj manual (ver «Verificar»
+    arriba) y bórrala después.
+
 ## Filosofía (no romper)
 
 - **Un solo HTML**, vanilla JS dentro de un IIFE en `'use strict'`. Sin build, sin

@@ -13,7 +13,7 @@ function harness(page = 'tapper.html'){
   const context = {};
   vm.createContext(context);
   vm.runInContext(source.slice(0, source.indexOf('// initial\n')) + `
-    globalThis.api = { createSim, stepSim, createMaterialDemo, sendMaterialEvent, stepMaterialDemo, createNestingDemo, stepNestingDemo, addCustomer, setCookActive, setCookSlow, seekToEarliest, lagOf, poisonCook, consumerAction, UPGRADES, FIRST_SCENE, BOSS_SPOT, COOK_X, ...(typeof stepBossOil === 'function' ? {stepBossOil, bossOilPose, OIL_HIT_AT, OIL_RETURN_S, OIL_GAG_S} : {}), ...(typeof chickenAt === 'function' ? {chickenAt} : {}), ITEMS, COURSES };
+    globalThis.api = { createSim, stepSim, createMaterialDemo, sendMaterialEvent, stepMaterialDemo, createNestingDemo, stepNestingDemo, addCustomer, setCookActive, lagOf, consumerAction, ...(typeof poisonCook === 'function' ? {poisonCook, setCookSlow, seekToEarliest} : {}), UPGRADES, FIRST_SCENE, BOSS_SPOT, COOK_X, ...(typeof stepBossOil === 'function' ? {stepBossOil, bossOilPose, OIL_HIT_AT, OIL_RETURN_S, OIL_GAG_S} : {}), ...(typeof chickenAt === 'function' ? {chickenAt} : {}), ITEMS, COURSES };
   })();`, context);
   return context.api;
 }
