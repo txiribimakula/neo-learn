@@ -49,7 +49,7 @@ function stubDom(extraNodes = {}){
     }
   });
   return {
-    context:{document, structuredClone, setInterval(){}, clearInterval(){}, performance:{now:() => 0}, requestAnimationFrame:callback => { pending = callback; return ++frameId; }},
+    context:{document, structuredClone, setInterval(){}, clearInterval(){}, performance:{now:() => 0}, requestAnimationFrame:callback => { pending = callback; return ++frameId; }, cancelAnimationFrame(){}},
     enterBar:() => { assert.equal(pending, null); cover.click(); assert.ok(cover.hidden); },
     press:key => keyHandlers.forEach(listener => listener({key, target:{closest:() => null}, preventDefault(){}})),
     frame:now => { const callback = pending; callback(now); }
@@ -1036,6 +1036,21 @@ test('pirate arrow keys restore completed scenes and Space can play them again',
   dom.frame(200);
   space();
   assert.equal(scene().ending, true);
+  // The conclusions come one line per press, forwards with Space or →, back with ←.
+  assert.equal(scene().endingLines, 0);
+  space();
+  assert.equal(scene().endingLines, 1);
+  right();
+  assert.equal(scene().endingLines, 2);
+  left();
+  assert.equal(scene().endingLines, 1);
+  right();
+  right();
+  assert.equal(scene().endingLines, 3);
+  space();
+  assert.equal(scene().endingLines, 3, 'nothing after the last line');
+  left();
+  assert.equal(scene().endingLines, 2);
 });
 
 test('a returning pirate cook slips on first contact with the landed peel', () => {

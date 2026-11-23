@@ -384,7 +384,18 @@ también la edita con Codex: antes de tocar un fichero, mira si ha cambiado.
   - Anidado en Kafka (`NESTING_STEP`): el producer manda los 8 trabajos en round-robin
     antes de calcular. Después, el mismo lote en Service Bus. En los dos, una vez repartidos los
     trabajos se espera otro clic para empezar a calcular (fase `spread`, `startNestingRun`).
-  - Cierre «What we've learned».
+  - Cierre «What we've learned», con el aspecto de las diapositivas: papel, título centrado y
+    líneas sin viñetas. Cada espacio o → saca una línea (`showEndingLines`, `ENDING_LINES`) y ←
+    la quita. La última, «Play The Secret of Monkey Island™», sale directamente en pixel
+    art, dibujada con el final del mismo morph que «Let's go on an adventure…» (`lineMorpher`).
+- **Vista Kafka real con el aspecto de las diapositivas:** la vista y los ejemplos se dibujan
+  en una segunda capa a resolución completa (`hi`, `hg`; `clean()` dice si `g` apunta a ella).
+  Esa capa usa el papel crema, la tinta oscura, la letra del sistema, tarjetas blancas
+  redondeadas con el contorno del color de su papel y pastillas para las etiquetas. La paleta
+  oscura del diagrama se traduce en un solo sitio (`C()`), así que el código de dibujo es el
+  mismo. Cada actor pasa a su pieza con un fundido cruzado (`morphDraw`), ya no con el dither de
+  píxeles, y la taberna se va fundiendo en el papel. Mientras dura, la barra del botón también
+  va en papel (`.scene.paper`).
 - **Personajes y guiños:**
   - **Gato:** roba la comanda en vuelo, solo en el hilo de arriba, y siempre un segundo:
     la merluza la primera vez (sin acks) y el pollo la segunda (con el jefe en el pase). Mientras
