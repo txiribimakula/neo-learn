@@ -128,6 +128,8 @@
   <img id="bizum-mark" alt="" hidden src="data:image/svg+xml,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 viewBox%3D%220 0 172 226%22%3E%3Cpath fill%3D%22%2305c0c7%22 d%3D%22M41.3914 80.5809C49.5978 86.5464 61.089 84.7079 67.0702 76.4874L88.6679 46.7483C94.6415 38.5308 92.8221 27.0288 84.6019 21.0648C76.3909 15.0766 64.8997 16.9028 58.9367 25.1295L37.3147 54.8807C31.3578 63.1012 33.156 74.5866 41.3914 80.5809ZM140.013 38.6251C131.813 32.6369 120.316 34.4753 114.351 42.6822L27.912 161.702C21.9384 169.908 23.7639 181.423 31.9643 187.383C40.1875 193.354 51.6802 191.542 57.6417 183.317L144.09 64.2919C150.065 56.0744 148.238 44.5875 140.013 38.6251ZM33.2472 29.1911C39.2208 20.9858 37.3953 9.47303 29.1994 3.50758C20.9626 -2.45939 9.46985 -0.620942 3.51449 7.56007C-2.45607 15.7882 -0.635107 27.2903 7.57745 33.2542C15.7794 39.2273 27.2873 37.4056 33.2472 29.1911ZM164.419 192.723C156.218 186.765 144.709 188.592 138.75 196.795C132.79 205.011 134.598 216.515 142.81 222.482C151.035 228.461 162.526 226.633 168.495 218.408C174.46 210.201 172.631 198.692 164.419 192.723ZM130.605 145.418C122.406 139.452 110.895 141.28 104.943 149.493L83.3281 179.256C77.3667 187.462 79.1755 198.952 87.382 204.943C95.6067 210.924 107.102 209.085 113.067 200.863L134.693 171.112C140.646 162.897 138.829 151.394 130.606 145.416%22%2F%3E%3C%2Fsvg%3E">
   <audio id="intro-music" src="intro.mp3" preload="auto"></audio>
   <audio id="bar-music" src="bar.mp3" preload="auto" loop></audio>
+  <audio id="journey-music" src="journey.mp3" preload="auto" loop></audio>
+  <audio id="closing-music" src="closing.mp3" preload="auto"></audio>
   <section id="slides" class="slides" aria-roledescription="presentación" aria-label="Clic, espacio o → para avanzar; ← para volver">
     <article class="slide current title-slide" aria-label="Distributed Log: Kafka. Message Queue: Azure Service Bus">
       <h1 lang="en">
@@ -6647,7 +6649,10 @@
     const next = UPGRADES[S.upgrades];
     if(next && !next.start(S)) return;
     rememberStep(before);
-    if(!next) kafkaStep++;
+    if(!next){
+      kafkaStep++;
+      syncSceneMusic();
+    }
     pendingStep = false;
     refreshPanel();
   }
@@ -6696,11 +6701,13 @@
     $('ending').hidden = !visible;
     document.querySelector('.stage').hidden = visible;
     (visible ? $('ending') : $('upgrade')).focus();
+    syncSceneMusic();
   }
 
   function restoreStep(checkpoint){
     ({S, tutorialStep, tutorialDone, kafkaStep, nestingDemo} = checkpoint);
     setEnding(checkpoint.ending);
+    syncSceneMusic();
   }
 
   function sceneIsRunning(){
@@ -7106,7 +7113,7 @@
     if(titleFrame) cancelAnimationFrame(titleFrame);
     cover.hidden = true;
     fadeOutIntroMusic();
-    playBarMusic();
+    syncSceneMusic();
     document.querySelector('.stage').hidden = false;
     refreshPanel();
     $('upgrade').focus();
@@ -7162,17 +7169,30 @@
     }, 40);
   }
 
-  // Inside the bar its own theme loops, fading in over a second while the intro fades out.
-  // Entering the bar is always a click or a key press, so the browser lets it sound.
   const barMusic = $('bar-music');
-  function playBarMusic(){
-    barMusic.volume = 0;
-    barMusic.play().catch(() => {});
+  const journeyMusic = $('journey-music'), closingMusic = $('closing-music');
+  const sceneTracks = [barMusic, journeyMusic, closingMusic];
+  const SCENE_MUSIC_VOLUME = 0.5;
+  let sceneMusic = null, sceneFade = 0;
+  function syncSceneMusic(){
+    const track = !$('ending').hidden ? closingMusic : kafkaStep ? journeyMusic : barMusic;
+    if(track === sceneMusic) return;
+    sceneMusic = track;
+    clearInterval(sceneFade);
+    const levels = sceneTracks.map(audio => audio.paused ? 0 : audio.volume);
+    if(track.paused) track.volume = 0;
+    if(track === closingMusic) track.currentTime = 0;
+    track.play().catch(() => {});
+
+    // Start from the current levels so reversing a scene midway through a fade stays smooth.
     const start = performance.now();
-    const fade = setInterval(() => {
+    sceneFade = setInterval(() => {
       const t = Math.min(1, (performance.now() - start) / 1000);
-      barMusic.volume = 0.5 * t;
-      if(t === 1) clearInterval(fade);
+      sceneTracks.forEach((audio, i) => {
+        audio.volume = lerp(levels[i], audio === track ? SCENE_MUSIC_VOLUME : 0, t);
+        if(t === 1 && audio !== track) audio.pause();
+      });
+      if(t === 1) clearInterval(sceneFade);
     }, 40);
   }
 

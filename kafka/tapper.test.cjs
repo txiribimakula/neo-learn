@@ -31,7 +31,7 @@ const assignment = S => JSON.parse(JSON.stringify(S.cooks.map(c => c.partitions)
 const tags = entries => [...entries].map(entry => `${entry.order.letter}${entry.order.seq}`);
 
 // Everything the page touches in the DOM answers with a callable no-op, so the whole script runs.
-function stubDom(){
+function stubDom(extraNodes = {}){
   const stub = () => new Proxy(function(){}, {
     get: (_, key) => (key === Symbol.toPrimitive ? () => 0 : key === 'width' || key === 'height' ? 8 : stub()),
     set: () => true,
@@ -40,7 +40,7 @@ function stubDom(){
   let pending = null, frameId = 0;
   const keyHandlers = [];
   const cover = {hidden:false, addEventListener(type, listener){ if(type === 'click') this.click = listener; }};
-  const ending = {hidden:true, focus(){}}, nodes = {cover, ending, slides:{hidden:true, querySelectorAll:() => [], addEventListener(){}}};
+  const ending = {hidden:true, focus(){}}, nodes = {cover, ending, slides:{hidden:true, querySelectorAll:() => [], addEventListener(){}}, ...extraNodes};
   const document = new Proxy(stub(), {
     get(target, key){
       if(key === 'getElementById') return id => nodes[id] || stub();
@@ -49,7 +49,7 @@ function stubDom(){
     }
   });
   return {
-    context:{document, structuredClone, setInterval(){}, performance:{now:() => 0}, requestAnimationFrame:callback => { pending = callback; return ++frameId; }},
+    context:{document, structuredClone, setInterval(){}, clearInterval(){}, performance:{now:() => 0}, requestAnimationFrame:callback => { pending = callback; return ++frameId; }},
     enterBar:() => { assert.equal(pending, null); cover.click(); assert.ok(cover.hidden); },
     press:key => keyHandlers.forEach(listener => listener({key, target:{closest:() => null}, preventDefault(){}})),
     frame:now => { const callback = pending; callback(now); }
@@ -867,6 +867,68 @@ test('pirate Bizum shows two close payments in separate pulses and drops them wh
   assert.ok(age > 0);
   dom.press('ArrowLeft');
   assert.deepEqual([...pulse(0)], [0, age]);
+});
+
+test('pirate scene music follows Kafka, the conclusions and backward navigation', () => {
+  const audio = () => ({
+    paused:true, volume:1, currentTime:0, plays:0,
+    play(){ this.paused = false; this.plays++; return Promise.resolve(); },
+    pause(){ this.paused = true; }
+  });
+  const bar = audio(), journey = audio(), closing = audio();
+  const dom = stubDom({'bar-music':bar, 'journey-music':journey, 'closing-music':closing});
+  const intervals = new Map();
+  let now = 0, nextInterval = 0;
+  Object.assign(dom.context, {
+    performance:{now:() => now},
+    setInterval(callback){ intervals.set(++nextInterval, callback); return nextInterval; },
+    clearInterval(id){ intervals.delete(id); }
+  });
+  const advanceFade = ms => {
+    now += ms;
+    for(const callback of intervals.values()) callback();
+  };
+  const html = fs.readFileSync(path.join(__dirname, 'tapper-pirata.html'), 'utf8');
+  const source = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+  vm.runInNewContext(withLine(source, '\n})();', `
+    islandShown = true;
+    tutorialDone = true;
+    S.upgrades = UPGRADES.length;
+    globalThis.showEnding = visible => setEnding(visible);
+  })();`), dom.context);
+
+  dom.press('ArrowRight');
+  assert.equal(bar.volume, 0);
+  advanceFade(1000);
+  assert.equal(bar.volume, 0.5);
+
+  dom.press(' ');
+  advanceFade(500);
+  assert.deepEqual([bar.volume, journey.volume], [0.25, 0.25]);
+  dom.press('ArrowLeft');
+  advanceFade(1000);
+  assert.equal(bar.volume, 0.5);
+  assert.ok(journey.paused);
+
+  dom.press('ArrowRight');
+  advanceFade(1000);
+  assert.equal(journey.volume, 0.5);
+  assert.ok(bar.paused);
+  const journeyStarts = journey.plays;
+  dom.press(' ');
+  assert.equal(journey.plays, journeyStarts);
+
+  dom.context.showEnding(true);
+  advanceFade(1000);
+  assert.equal(closing.volume, 0.5);
+  assert.ok(journey.paused);
+  closing.currentTime = 2;
+  dom.context.showEnding(false);
+  advanceFade(1000);
+  assert.equal(journey.volume, 0.5);
+  assert.ok(closing.paused);
+  dom.context.showEnding(true);
+  assert.equal(closing.currentTime, 0);
 });
 
 test('pirate arrow keys restore completed scenes and Space can play them again', () => {

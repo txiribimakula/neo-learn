@@ -362,9 +362,10 @@ también la edita con Codex: antes de tocar un fichero, mira si ha cambiado.
   - Después, la frase «Let's go on an adventure, to reveal...» y la isla de portada.
   - Un clic o la barra espaciadora entra en el bar; no hay botón ni rótulo de entrada.
   - La pestaña se llama «The Secret of Queue Systems».
-- **Música:** `intro.mp3` (desde la diapositiva de la cola) y `bar.mp3` (en bucle dentro
-  del bar). Son pistas comerciales de *The Secret of Monkey Island*: están en `.gitignore` y
-  no se suben nunca, porque el repo es público. Sin ellas la página funciona en silencio.
+- **Música:** `intro.mp3` empieza en la diapositiva de la cola. En la taberna suena `bar.mp3`
+  en bucle y en Kafka real toma el relevo `journey.mp3`, también en bucle. Las conclusiones
+  arrancan `closing.mp3` una vez. Las tres pistas de escena tienen un volumen del 50 % y se
+  funden al cambiar de una a otra.
 - **25 pasos con un solo botón en la pared** (espacio; ← / → recorren los pasos ya vistos;
   1–9 y 0 cambian la velocidad):
   - Tutorial (`TUTORIAL_STEPS`).
