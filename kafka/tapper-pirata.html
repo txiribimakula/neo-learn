@@ -238,7 +238,7 @@
   const SEAT_SPEED = 170, EAT_S = 1.8, SIT_S = 0.48;
   const DINER_FEET_X = TABLE_X - 24, STOOL_X = DINER_FEET_X - 18;
   const WAITER_SPEED = 240;
-  const SLIDE_SPEED = 800, COOK_ROWS_PER_S = 12, DASH_WINDUP_S = 0.25, WALK_SPEED = 90;
+  const SLIDE_SPEED = 800;
   // Fumes from the stove knock a cook out: it leaves the group (rebalance), lies on the floor,
   // gets up wondering where it is, and rejoins the group straight away (another rebalance).
   const FUMES_S = 1.6, FAINTED_S = 7, WAKING_S = 3.5, GET_UP_S = 0.35;
@@ -266,6 +266,8 @@
   // Peek-lock: the cook ties a padlock under the order, and the lock opens after its lease
   // (Service Bus's LockDuration, scaled down). Long enough for any order at a normal pace.
   const LOCK_S = 20, HANG_S = 0.6, LOCK_DROP_S = 0.65;
+  // The shackle's top sits over the slip's last rows, so the lock hangs from the paper itself.
+  const LOCK_HOOK_Y = 19;
   // A dish lost for good: fits that come round sooner, and on its feet complaining before it goes.
   const LOST_FIT_CYCLE_S = 2.6, COMPLAIN_S = 2.4, KURWA_S = 0.7;
   // Polish and Spanish mixed, so a speaker of either can tell which dish is missing. The dialogue
@@ -288,7 +290,8 @@
   // came early. Up long enough to read three lines.
   const OUT_OF_ORDER_LINES = {
     segundo:['¿Y mi primero?', 'To nie po kolei!'],
-    postre:['¿El postre primero?', 'Deser na koniec!'],
+    // The classic: no dessert before the meal, or mum will not have it.
+    postre:['Deser przed obiadem?', '¡Mamá no me deja', 'postre sin comer!'],
     cafe:['¿Ya el café?', 'Kawa? Ja jeszcze jem!']
   };
   const OUT_OF_ORDER_SAY_S = 3.2;
@@ -325,6 +328,7 @@
     E:{keyName:'Turquesa', color:'#35bdb5', voice:'#a1e5d5', sleeve:'#329466', skin:'#a56b48'}
   };
   const LETTERS = Object.keys(DINERS).join('');
+  const TRIAL_PIRATES = 'ABC';
   const COURSES = ['primero', 'segundo', 'postre', 'cafe'];
   const ITEMS = {
     gazpacho:{name:'Gazpacho', course:'primero', cook:0.5}, paella:{name:'Paella', course:'primero', cook:2.2},
@@ -350,7 +354,7 @@
   const COUNTER_START = 220, COUNTER_END = 638;
   // The stove stands against the right wall, so a cook out of the group waits beside the cook's spot.
   const COOK_X = 670, COOK_BREAK_X = 636, COOK_WALK_SPEED = 300, COUNTER_DROP_X = 656;
-  const COUNTER_AISLE_SPEED = 132;
+  const COOK_AISLE_SPEED = 132;
   // Waiters send from the left end of a wire, at the height of the hanging orders.
   const standX = row => barStart(row) - 22;
   const COOK_FEET = 52;
@@ -386,7 +390,7 @@
   }
 
   // Each cook works at the stove of its own row; arriving is set while it brings that stove in.
-  const makeCook = (id, row = id === 0 ? 0 : 2) => ({building:false, id, name:`C${id + 1}`, row, active:true, x:COOK_X, pos:row, partitions:[], cursor:0, walking:false, faceLeft:true, job:null, idleFor:0, beerIn:null, beer:null, windup:0, arriving:null});
+  const makeCook = (id, row = id === 0 ? 0 : 2) => ({building:false, id, name:`C${id + 1}`, row, active:true, x:COOK_X, pos:row, partitions:[], cursor:0, walking:false, faceLeft:true, job:null, idleFor:0, beerIn:null, beer:null, arriving:null});
 
   // The page starts small, with one wire and one cook; the upgrades add the rest. The model's
   // default is the full kitchen, which is what most tests exercise.
@@ -446,6 +450,11 @@
 
   // Balance who comes into the restaurant, while routing each color to its fixed wire.
   function pickDiner(S, free){
+    // While the cat is due, the next pirate is one of the top wire, the only one it reaches.
+    if(S.loseNext > 0 && S.features.menus && !S.customers.some(c => c.messages.some(m => m.bait && !m.lost && !m.served))){
+      const top = free.filter(letter => rowOf(S, partitionFor(S, letter)) === Math.min(...S.rows));
+      if(top.length) free = top;
+    }
     const seated = S.comandas.map(() => 0);
     S.customers.forEach(c => {
       if(c.state !== 'leave') seated[c.partition]++;
@@ -478,14 +487,24 @@
     if(!free.length) return null;
     const who = letter || S.debuts[0] || pickDiner(S, free);
     if(!who || !free.includes(who)) return null;
-    const total = setMenu ? setMenu.length : count || menuSize(random(S.random));
+    let total = setMenu ? setMenu.length : count || menuSize(random(S.random));
     // Tapas come in any order; a menu's courses do not.
-    const menu = setMenu || (S.features.menus ? pickMenu(S, total) : Array.from({length:total}, () => TAPAS[Math.floor(random(S.random) * TAPAS.length)]));
+    let menu = setMenu || (S.features.menus ? pickMenu(S, total) : Array.from({length:total}, () => TAPAS[Math.floor(random(S.random) * TAPAS.length)]));
     const partition = partitionFor(S, who);
+    // The cat always steals a second course (Pablo's call): the hake the first time, with no acks
+    // yet, and the roast chicken the second, with the boss at the pass. While a loss is due, the next
+    // pirate of the top wire, the only one the cat reaches, orders a starter and then that dish, last.
+    // The draws are made as usual, so the rest of each seed's night is unchanged.
+    const bait = !setMenu && S.features.menus && S.loseNext > 0 && rowOf(S, partition) === Math.min(...S.rows)
+      && !S.customers.some(c => c.messages.some(m => m.bait && !m.lost && !m.served));
+    if(bait){
+      menu = [menu[0], S.boss.present ? 'pollo' : 'merluza'];
+      total = 2;
+    }
     const visit = S.nextVisit++;
     const messages = Array.from({length:total}, (_, i) => ({
       id:S.nextMessage++, visit, letter:who, key:who, seq:i + 1, total, partition, table,
-      items:[menu[i]], scripted:!!setMenu
+      items:[menu[i]], scripted:!!setMenu, ...(bait && i === total - 1 ? {bait:true} : {})
     }));
     const customer = {visit, letter:who, partition, table, x:-20, state:'enter', timer:0, messages, plates:[], eating:null, eaten:0, total, upset:0, walkPhase:random(S.random) * 6, menu:S.features.menus, puzzled:0};
     S.customers.push(customer);
@@ -783,7 +802,7 @@
         break;
       case 'toCounter':
         // Carry the plate along the aisle to the right of the counter, then turn in.
-        if(c.pos !== PLATES_ROW){ walkCounterAisle(c, PLATES_ROW, dt); break; }
+        if(c.pos !== PLATES_ROW){ walkCookAisle(c, PLATES_ROW, dt); break; }
         if(walkTo(c, COUNTER_DROP_X, COOK_WALK_SPEED, dt)){
           c.faceLeft = true;
           job.phase = 'drop';
@@ -815,7 +834,7 @@
         // Its lease expired on the way: the order is not its own any more.
         if(job.lockLost){ finishJob(S, c); break; }
         const row = rowOf(S, job.part);
-        if(!walkFromCounter(c, row, dt)) break;
+        if(!walkToRow(c, row, dt)) break;
         if(walkTo(c, ticketStandX(S, job), COOK_WALK_SPEED, dt)){ job.phase = 'take'; job.timer = 0; }
         break;
       }
@@ -854,7 +873,7 @@
       case 'toCommit': {
         if(job.stale){ finishJob(S, c); break; }
         const row = rowOf(S, job.part);
-        if(!walkFromCounter(c, row, dt)) break;
+        if(!walkToRow(c, row, dt)) break;
         if(walkTo(c, commitStandX(S, c, p.committed), COOK_WALK_SPEED, dt)){
           Object.assign(job, {phase:'commit', timer:0, from:p.committed});
           c.faceLeft = false;
@@ -879,46 +898,23 @@
   }
 
   // Walk at a constant speed on the floor even though the rows are spaced differently.
-  function walkCounterAisle(c, row, dt){
-    c.windup = 0;
-    const y = barTop(c.pos), gap = barTop(row) - y, step = COUNTER_AISLE_SPEED * dt;
+  function walkCookAisle(c, row, dt){
+    const y = barTop(c.pos), gap = barTop(row) - y, step = COOK_AISLE_SPEED * dt;
     if(Math.abs(gap) <= step){ c.pos = row; return; }
     const nextY = y + Math.sign(gap) * step;
     const lowerRow = nextY < ROW_TOPS[PLATES_ROW] ? 0 : PLATES_ROW;
     c.pos = lowerRow + (nextY - ROW_TOPS[lowerRow]) / (ROW_TOPS[lowerRow + 1] - ROW_TOPS[lowerRow]);
   }
 
-  function walkFromCounter(c, row, dt){
+  // Walk around the right-hand posts before crossing to another row.
+  function walkToRow(c, row, dt){
     if(c.pos !== row){
       if(c.x !== COOK_X) walkTo(c, COOK_X, COOK_WALK_SPEED, dt);
-      else walkCounterAisle(c, row, dt);
+      else walkCookAisle(c, row, dt);
       return false;
     }
     c.leavingCounter = false;
     return true;
-  }
-
-  // Like the arcade's bartender: a gesture to gather momentum, then a dash to the other row.
-  function jumpToRow(c, row, dt){
-    if(c.pos === row){
-      c.windup = 0;
-      return true;
-    }
-    if(c.windup < DASH_WINDUP_S){
-      c.windup += dt;
-      return false;
-    }
-    const delta = COOK_ROWS_PER_S * dt;
-    c.pos = Math.abs(row - c.pos) <= delta ? row : c.pos + Math.sign(row - c.pos) * delta;
-    if(c.pos !== row) return false;
-    c.windup = 0;
-    return true;
-  }
-
-  // Rows only change next to the stoves: the cook walks back first, then jumps.
-  function walkToRow(c, row, dt){
-    if(c.leavingCounter && !walkFromCounter(c, row, dt)) return false;
-    return walkTo(c, COOK_X, COOK_WALK_SPEED, dt) && jumpToRow(c, row, dt);
   }
 
   // Only seconds in a row count: going back to work starts the wait again. Never two cooks at
@@ -1118,8 +1114,7 @@
     const startX = c.x, startPos = c.pos;
     if(!c.active){
       // Out of the group but still in the kitchen, standing by its own stove.
-      if(c.pos === c.row) walkTo(c, COOK_BREAK_X, COOK_WALK_SPEED, dt);
-      else walkToRow(c, c.row, dt);
+      if(walkToRow(c, c.row, dt)) walkTo(c, COOK_BREAK_X, COOK_WALK_SPEED, dt);
     } else if(c.job){
       stepCookJob(S, c, dt);
     } else if(!holding(S)){
@@ -1129,14 +1124,13 @@
       if(pick && c.pos === goal){
         c.leavingCounter = false;
         startFetch(S, c, pick);
+      } else if(walkToRow(c, goal, dt)){
+        // With no order to read, wait at its own stove.
+        walkTo(c, COOK_X, COOK_WALK_SPEED, dt);
       }
-      // With an order to read it dashes to its row from wherever it is; with none (or while the group
-      // shares out the wires), it waits at its own stove, not under the wire.
-      else if(pick && c.x !== COOK_X && !c.leavingCounter) jumpToRow(c, goal, dt);
-      else walkToRow(c, goal, dt);
     } else {
       // Held while something is set up: back to its own stove to wait.
-      walkToRow(c, c.row, dt);
+      if(walkToRow(c, c.row, dt)) walkTo(c, COOK_X, COOK_WALK_SPEED, dt);
     }
     c.walking = c.x !== startX || c.pos !== startPos;
     const listening = S.build?.phase === 'peekBoss' || S.build?.phase === 'peekSay'
@@ -1303,9 +1297,9 @@
           if(w.timer <= 0){
             const message = w.toSend.shift();
             const start = barStart(w.row) + 4;
-            // The cat intercepts only the last order, leaving the earlier ones in the log. It lies
-            // above the top wire, so it only reaches orders going there.
-            const snatch = S.loseNext > 0 && !w.toSend.length && !message.resent
+            // The cat intercepts only the dish left for it, the last order of its pirate, leaving the
+            // earlier ones in the log. It lies above the top wire, so it only reaches orders going there.
+            const snatch = S.loseNext > 0 && message.bait && !w.toSend.length && !message.resent
               && rowOf(S, message.partition) === Math.min(...S.rows);
             if(snatch) S.loseNext--;
             if(S.boss.present) message.ackAt = null;
@@ -1509,10 +1503,9 @@
     {kind:'New', name:'competing consumers on one queue', doing:'a second cook joins the same queue', start:startSecondCook},
     {kind:'Problem', name:'receive-and-delete loses orders on a crash', doing:'a stove blows up with the order', start:startBurnt},
     {kind:'Fix', name:'peek-lock locks it, deletes it when done', doing:'orders stay, under a timed padlock', start:startPeekLock},
-    {kind:'Demo', name:'with peek-lock, the lock just runs out', doing:'fumes again: the order waits its lock', start:startPeekFumes},
+    {kind:'Demo', name:'with peek-lock, the lock just runs out', doing:'stove fumes: the order waits out its lock', start:startPeekFumes},
     {kind:'Problem', name:'competing consumers break the order', doing:'set menus: courses must come in order', start:startMenus},
     {kind:'Fix', name:'each key always goes to the same wire', doing:'a second wire: one per partition', start:startKeyedWires},
-    {kind:'Demo', name:'same key, same partition, same order', doing:'the paella and banana menu comes back', start:startOrderedMenu},
     {kind:'Problem and fix', name:'keep orders after reading, like a log', doing:'the boss wants to count the orders', start:startCashCount},
     {kind:'Problem', name:'without a saved offset, work is repeated', doing:'a slip: back to earliest (latest would skip)', start:startBreak},
     {kind:'Fix', name:'commit saves each wire\'s offset', doing:'rubber chickens mark each cook\'s place', start:startCommits},
@@ -1665,7 +1658,7 @@
     return true;
   }
 
-  // Its demonstration: the same fumes as before now just let the lock lapse, and the other cook
+  // Its demonstration: this time the stove gives off fumes, the lock just lapses, and the other cook
   // cooks the order. The diner gets it late instead of never.
   function startPeekFumes(S){
     if(S.build || !S.features.peekLock || S.features.keys || S.cooks.length < 2) return false;
@@ -1679,15 +1672,6 @@
     if(S.build || S.features.menus) return false;
     // No new diners until the set menu has the queue to itself, so the overtaking is sure to happen.
     S.build = {phase:'signWait', t:0, quiet:true};
-    return true;
-  }
-
-  // The demonstration of one wire per color: the same set menu as before, now on a single wire with
-  // a single cook, so the banana waits for the paella. No new diners until it has been served, so the
-  // other cook is seen standing idle meanwhile.
-  function startOrderedMenu(S){
-    if(S.build || !S.features.keys || S.features.retain) return false;
-    S.build = {phase:'menuAgain', t:0, quiet:true};
     return true;
   }
 
@@ -1706,13 +1690,13 @@
   function startCashCount(S){
     if(S.build || S.features.retain || !S.features.keys) return false;
     Object.assign(S.boss, {entering:true, x:W + 30, y:VISIT_Y, faceLeft:true});
-    S.build = {phase:'search', t:0, hold:true, searchPart:0};
+    S.build = {phase:'search', t:0, hold:true, searchPart:0, speedMultiplier:1.4};
     return true;
   }
 
   // Cashing up reads the retained orders with its own cursor, separate from the kitchen.
-  const RECOUNT_READ_S = 1.15, RECOUNT_MARK_S = 0.35;
-  const RECOUNT_LIMITS = [2, 3], RECOUNT_SPEED = 138;
+  const RECOUNT_READ_S = 0.9, RECOUNT_MARK_S = 0.3;
+  const RECOUNT_LIMITS = [2, 3], RECOUNT_SPEED = 175;
   const RECOUNT_AISLE_X = 167, RECOUNT_AISLE_Y = VISIT_Y;
   const recountFeet = (S, part) => barTop(rowOf(S, part)) + COOK_FEET;
 
@@ -1723,12 +1707,13 @@
     Object.assign(S.boss, {entering:true, x:W + 30, y:RECOUNT_AISLE_Y, faceLeft:true});
     S.cashCount = S.comandas.map(p => ({offset:p.earliest, total:0, marked:false}));
     // Cross along the front of the counter and use the aisle left of the wire posts to change rows.
-    S.build = {phase:'recountWalk', t:0, quiet:true, hold:true, part:0, remaining:RECOUNT_LIMITS[0],
+    // The kitchen carries on meanwhile: cash is another consumer group, with its own offsets.
+    S.build = {phase:'recountWalk', t:0, part:0, remaining:RECOUNT_LIMITS[0],
       path:[{x:RECOUNT_AISLE_X, y:RECOUNT_AISLE_Y}, {x:RECOUNT_AISLE_X, y:recountFeet(S, 0)}]};
     return true;
   }
 
-  // 6. The fumes again, now that orders are kept: the cook comes round with no idea which order it
+  // 6. A slip, now that orders are kept: the cook comes round with no idea which order it
   // was on, nothing marked says so, and it reads its wire again from the start, sending out plates
   // nobody asked for any more.
   function startBreak(S){
@@ -1737,7 +1722,7 @@
     return true;
   }
 
-  // 7. Commits: each cook marks on the wire how far it has got, so after the same fumes it picks up there.
+  // 7. Commits: each cook marks on the wire how far it has got, so after a slip it picks up there.
   // The head of the dining room comes in to tell them so.
   function startCommits(S){
     if(S.build || !S.features.retain || S.features.commit) return false;
@@ -1905,7 +1890,8 @@
           v.faint = {phase:'fumes', t:0};
           logEvent(S, `Empieza a salir humo raro de la cocina de ${v.name}.`, 'warn');
         } else {
-          v.faint = {phase:'blast', t:0};
+          // Its own line on getting up; the fumes keep the Monkey Island one.
+          v.faint = {phase:'blast', t:0, waking:['Who put grog', 'in the stove?']};
           logEvent(S, `La cocina de ${v.name} empieza a temblar.`, 'warn');
         }
         next('burnAfter');
@@ -1964,24 +1950,12 @@
         // to see. Nobody else comes in until it has eaten and gone.
         if(!build.customer){
           const busy = w.state !== 'idle' || S.tickets.length || S.comandas.some(p => p.log.length) || S.customers.length;
-          if(!busy) build.customer = addCustomer(S, null, 0, SET_MENU);
+          // Always one of the three trial pirates: «¡Mamá no me deja!» suits them best. One draw, as
+          // pickDiner would make, so the rest of each seed's night is unchanged.
+          if(!busy) build.customer = addCustomer(S, TRIAL_PIRATES[Math.floor(random(S.random) * TRIAL_PIRATES.length)], 0, SET_MENU);
           break;
         }
         if(S.customers.includes(build.customer)) break;
-        build.quiet = false;
-        done();
-        break;
-      case 'menuAgain':
-        // The set menu again, as soon as the waiter is free, and no one else until it has been served.
-        // Its courses share a wire and a cook now, so they come out in order whatever else is queued.
-        if(!build.customer){
-          if(w.state === 'idle' && !S.tickets.length) build.customer = addCustomer(S, null, 0, SET_MENU);
-          break;
-        }
-        if(S.customers.includes(build.customer) && !build.customer.messages.every(m => m.served)) break;
-        // A moment to see the banana land after the paella.
-        build.servedAt ??= build.t;
-        if(build.t - build.servedAt < 1.5) break;
         build.quiet = false;
         done();
         break;
@@ -2037,7 +2011,7 @@
         if(!victim.partitions.some(part => S.comandas[part].position - S.comandas[part].earliest >= REREAD_MIN)) break;
         build.who = victim.id;
         S.monkeyRun = {at:S.time};
-        logEvent(S, 'Entra por la derecha un mono de tres cabezas haciendo equilibrios sobre un bidón de aceite.', 'warn');
+        logEvent(S, 'Por detrás de la cocina entra un mono de tres cabezas haciendo equilibrios sobre un bidón de aceite.', 'warn');
         next('monkeyRide');
         break;
       }
@@ -2138,8 +2112,11 @@
         break;
       }
       case 'recountRead': {
-        if(build.t < RECOUNT_READ_S) break;
         const part = build.part, cash = S.cashCount[part], p = S.comandas[part];
+        // The kitchen carries on, so new orders push the old ones along the wire: he keeps up with his.
+        pace({x:markX(S, part, cash.offset) + 28, y:recountFeet(S, part)}, RECOUNT_SPEED);
+        b.faceLeft = true;
+        if(build.t < RECOUNT_READ_S) break;
         if(cash.offset < p.earliest){
           cash.offset = p.earliest;
           next('recountToTicket');
@@ -2168,7 +2145,7 @@
         const x = markX(S, part, S.cashCount[part].offset) + 36;
         if(!pace({x, y:b.y}, RECOUNT_SPEED)) break;
         b.faceLeft = true;
-        say(b, ['Luego sigo.']);
+        say(b, ['Luego sigo.', 'Na razie.']);
         logEvent(S, 'Caja lee las comandas desde el principio de cada hilo y guarda su propio commit en los dos.', 'key');
         next('recountPause');
         break;
@@ -2479,6 +2456,7 @@
     if(demo.phase === 'crossError'){
       demo.flight = demo.deferredCreate;
       demo.deferredCreate = null;
+      demo.lateCreate = true;
       demo.reader = 0;
       demo.phase = 'fetch';
       return;
@@ -2487,10 +2465,13 @@
     if(demo.phase === 'send'){
       message.offset = appendToLog(S, partition, order);
       if(demo.split && order.materialOp === 'CREATE'){
+        // By chance the reference group polls P0 straight away and gets the CREATE first; the
+        // full view's consumer will only reach P0 after the UPDATE has come in on P1.
         demo.deferredCreate = message;
         demo.index++;
-        demo.flight = null;
-        demo.phase = 'crossWait';
+        demo.luckyCreate = true;
+        demo.reader = 1;
+        demo.phase = 'fetch';
       } else {
         demo.phase = 'fetch';
       }
@@ -2514,13 +2495,26 @@
       demo.phase = 'commit';
     } else if(demo.reader === 0){
       partition.committed = message.offset + 1;
-      demo.reader = 1;
-      demo.phase = 'fetch';
+      // The late CREATE: the reference group already had it, so the example is over.
+      if(demo.lateCreate){
+        demo.lateCreate = false;
+        demo.flight = null;
+        demo.phase = 'ready';
+      } else {
+        demo.reader = 1;
+        demo.phase = 'fetch';
+      }
     } else {
       demo.reference.offsets[message.part] = message.offset + 1;
-      demo.index++;
       demo.flight = null;
-      demo.phase = demo.deferredCreate ? 'crossError' : 'ready';
+      if(demo.luckyCreate){
+        // Then the UPDATE is sent, and this time the full view reads first.
+        demo.luckyCreate = false;
+        demo.phase = 'crossWait';
+      } else {
+        demo.index++;
+        demo.phase = demo.deferredCreate ? 'crossError' : 'ready';
+      }
     }
   }
 
@@ -2548,27 +2542,37 @@
     };
   }
 
+  // Each free consumer takes the next job it may: in Kafka only from its own partition.
+  function nestingDispatch(demo){
+    for(const worker of demo.workers){
+      if(worker.job) continue;
+      const job = demo.jobs.find(item => item.status === 'waiting' && (demo.mode === 'bus' || item.part === worker.id));
+      if(!job) continue;
+      job.status = 'running';
+      job.startedAt = demo.elapsed;
+      worker.job = job;
+      worker.finishAt = demo.elapsed + job.duration;
+      worker.busy += job.duration;
+    }
+  }
+
+  // Once the jobs are spread out it waits ('spread') for the next click, so the split can be
+  // explained before anyone computes.
+  function startNestingRun(demo){
+    if(demo.phase !== 'spread') return;
+    demo.phase = 'running';
+    nestingDispatch(demo);
+  }
+
   function stepNestingDemo(demo, dt){
-    if(demo.phase === 'done') return;
-    const dispatch = () => {
-      for(const worker of demo.workers){
-        if(worker.job) continue;
-        const job = demo.jobs.find(item => item.status === 'waiting' && (demo.mode === 'bus' || item.part === worker.id));
-        if(!job) continue;
-        job.status = 'running';
-        job.startedAt = demo.elapsed;
-        worker.job = job;
-        worker.finishAt = demo.elapsed + job.duration;
-        worker.busy += job.duration;
-      }
-    };
+    if(demo.phase === 'done' || demo.phase === 'spread') return;
+    const dispatch = () => nestingDispatch(demo);
     if(demo.phase !== 'running'){
       demo.introElapsed += dt;
       const ready = demo.mode === 'kafka'
         ? nestingSentAt(demo.jobs[demo.jobs.length - 1]) + NESTING_FLY_S + NESTING_SETTLE_S : 1.25;
       if(demo.introElapsed < ready) return;
-      demo.phase = 'running';
-      dispatch();
+      demo.phase = 'spread';
       return;
     }
     const until = demo.elapsed + dt;
@@ -2600,9 +2604,9 @@
   const EATEN_ALPHA = 0.15;
   // Below the hanging orders, so a cook walking past them does not hide them.
   const COUNTER_LIFT_SPEED = 160;
-  const WISP_S = 0.8;
   // Over the counter a wire hangs higher, so the orders clear the plates.
   const wireY = row => barTop(row) - (row === PLATES_ROW ? 46 : 32);
+  const wirePostFoot = row => wireY(row) + 72;
   const ticketTop = row => wireY(row) + 6;
   const PAL = {
     wall:'#00006d', backWall:'#0024b6', floor:'#494949', black:'#000000', white:'#ffffff',
@@ -2810,7 +2814,7 @@
   function cookSprite(id, pose, walk, blink = false, heel = false){
     const back = pose === 'back' || pose === 'backFree';
     const name = back ? 'back' : pose === 'reach' ? 'reach' : 'idle';
-    const leg = heel ? 'heel' : pose === 'windup' ? 'windup' : walk ? 'walk' : 'stand';
+    const leg = heel ? 'heel' : walk ? 'walk' : 'stand';
     // backFree: from behind, with its right arm drawn separately (raised to push the chicken).
     return crewFrame('cook-' + name + '-' + id, leg, blink, pose === 'downFree' || pose === 'backFree', cookScars(id));
   }
@@ -3167,7 +3171,7 @@
   // A wire between two posts, in any row: the first one starts in the middle, over the counter.
   function buildWireLayer(row){
     const {c, rect} = layerContext();
-    const x0 = barStart(), x1 = barEnd(), wire = wireY(row), foot = wire + 72;
+    const x0 = barStart(), x1 = barEnd(), wire = wireY(row), foot = wirePostFoot(row);
     for(const px of [x0 + 2, x1 - 6]){
       rect(px - 6, foot, 19, 2, '#282334');
       rect(px - 1, wire - 4, 6, foot - wire + 2, PAL.black);
@@ -3352,10 +3356,10 @@
   }
 
   // Locked for the cook that has it: nobody else can take it until it is done, or the lock lapses.
-  // A brass padlock hangs from the paper; its shackle opens when the lease expires.
-  function drawPadlock(cx, top, open = false, string = 4){
+  // A brass padlock hooked straight through the bottom of the paper; its shackle opens when the
+  // lease expires.
+  function drawPadlock(cx, top, open = false){
     const x = Math.round(cx), y = Math.round(top), lift = open ? 3 : 0;
-    if(string > 0) R(x, y - string, 1, string, PAL.black);
     // Steel shackle, with a clear gap at the right when unlocked.
     R(x - 4, y - lift, 8, 2, PAL.black);
     R(x - 5, y + 2 - lift, 3, 6 + lift, PAL.black);
@@ -3724,36 +3728,47 @@
     }
   }
 
-  // Overarm, facing the wires: the hand goes back over the shoulder with the chicken, comes
-  // forward and lets go above the head, and the chicken flies in an arc onto its spot on the wire.
+  // Rotate both joints through the overarm throw, keeping the shoulder planted.
+  const THROW_RELEASE = 0.25;
+  const THROW_REST = [36, -18], THROW_BACK = [220, 192], THROW_FORWARD = [125, 147];
+  function bossThrowArm(shoulderX, shoulderY, at){
+    const {wind, flight} = at ?? {wind:0, flight:0};
+    const [from, to, progress] = flight === 0 ? [THROW_REST, THROW_BACK, wind]
+      : flight < THROW_RELEASE ? [THROW_BACK, THROW_FORWARD, flight / THROW_RELEASE]
+      : [THROW_FORWARD, THROW_REST, (flight - THROW_RELEASE) / (1 - THROW_RELEASE)];
+    const k = smooth(progress);
+    const upper = lerp(from[0], to[0], k) * Math.PI / 180;
+    const forearm = lerp(from[1], to[1], k) * Math.PI / 180;
+    const elbowX = shoulderX - 12 * Math.sin(upper), elbowY = shoulderY + 12 * Math.cos(upper);
+    const handX = elbowX - 12 * Math.sin(forearm), handY = elbowY + 12 * Math.cos(forearm);
+    return {elbowX, elbowY, handX, handY};
+  }
+
   function drawBossThrow(b){
     const shoulderX = b.x - 11, shoulderY = b.y - 46;
-    const back = {x:shoulderX + 14, y:shoulderY - 20}, release = {x:shoulderX - 14, y:shoulderY - 16};
-    const rest = {x:shoulderX - 4, y:shoulderY + 16};
     const throwing = S.comandas.map((_, part) => ({part, at:chickenThrow(S, part)})).find(t => t.at);
-    let hand = rest;
-    if(throwing){
-      const {wind, flight} = throwing.at;
-      // Up and back with the chicken, then the swing forward, then the arm comes down.
-      const swing = clamp01(flight / 0.25);
-      hand = flight === 0 ? {x:lerp(rest.x, back.x, smooth(wind)), y:lerp(rest.y, back.y, smooth(wind))}
-        : swing < 1 ? {x:lerp(back.x, release.x, smooth(swing)), y:lerp(back.y, release.y, Math.sin(swing * Math.PI / 2))}
-        : {x:lerp(release.x, rest.x, smooth((flight - 0.25) / 0.75)), y:lerp(release.y, rest.y, smooth((flight - 0.25) / 0.75))};
-    }
-    const arm = cookArmPose(shoulderX, shoulderY, hand.x, hand.y, -1);
-    const body = () => drawSprite(crewFrame('boss-command', 'stand', false, 'bossPoint'), b.x, b.y, false);
-    const limb = () => drawCharacterArm(shoulderX, shoulderY, arm, BOSS_POINT_ARM);
+    const arm = bossThrowArm(shoulderX, shoulderY, throwing?.at);
+    const sprite = crewFrame('boss-command', 'stand', false, 'bossPoint');
+    const body = () => drawSprite(sprite, b.x, b.y, false);
+    const limb = () => {
+      drawCharacterArm(shoulderX, shoulderY, arm, BOSS_POINT_ARM);
+      // The arm passes behind his head on the backswing, with the sleeve in front of his shirt.
+      if(arm.handY < shoulderY || arm.elbowY < shoulderY){
+        const headHeight = 24;
+        g.drawImage(sprite, 0, 0, sprite.width, headHeight,
+          Math.round(b.x - sprite.width / 2), Math.round(b.y - sprite.height), sprite.width, headHeight);
+      }
+    };
     if(!throwing){ body(); limb(); return; }
     const {part, at} = throwing, row = rowOf(S, part);
     const land = {x:Math.max(barStart(row) + 10, slotX(part, view.ends[part], S.comandas[part].committed)), y:wireY(row)};
     // Held by the tail until the swing lets it go at the release point, then it flies.
-    const held = at.flight < 0.25, fly = clamp01((at.flight - 0.25) / 0.75);
-    const x = held ? arm.handX + PULLEY_X - 2 : lerp(release.x + PULLEY_X - 2, land.x, fly);
-    const y = held ? arm.handY + 4 : lerp(release.y + 4, land.y, fly) - 34 * 4 * fly * (1 - fly);
+    const held = at.flight < THROW_RELEASE, fly = clamp01((at.flight - THROW_RELEASE) / (1 - THROW_RELEASE));
+    const release = held ? arm : bossThrowArm(shoulderX, shoulderY, {flight:THROW_RELEASE});
+    const x = lerp(release.handX + PULLEY_X - 2, land.x, fly);
+    const y = lerp(release.handY + 4, land.y, fly) - 34 * 4 * fly * (1 - fly);
     const chicken = () => drawRubberChicken(x, Math.round(y), fly * 9, false);
-    // Wound back over the shoulder it is behind his head; in his hand the fingers close on it.
-    // It comes past his head halfway through the swing.
-    if(held && ((at.flight === 0 && at.wind > 0.4) || (at.flight > 0 && at.flight < 0.12))){ chicken(); body(); limb(); }
+    if(held && arm.handX >= shoulderX && arm.handY < shoulderY){ chicken(); body(); limb(); }
     else if(held){ body(); chicken(); limb(); }
     else { body(); limb(); chicken(); }
   }
@@ -4039,80 +4054,26 @@
     drawCookHand(arm.handX, arm.handY);
   }
 
-  // What the arcade's bartender leaves behind: thin pale streaks and a couple of curls of air.
-  function drawWisp(wisp){
-    const fade = wisp.life / WISP_S, x = wisp.x, y = wisp.feet - 30 - (1 - fade) * 5;
-    const before = g.globalAlpha;
-    g.globalAlpha = 0.85 * Math.min(1, fade * 1.6);
-    const line = points => points.forEach(([dx, dy], i) => {
-      if(i === 0) return;
-      const [px, py] = points[i - 1];
-      const steps = Math.ceil(Math.hypot(dx - px, dy - py));
-      for(let n = 0; n <= steps; n++) R(x + lerp(px, dx, n / steps), y + lerp(py, dy, n / steps), 2, 2, '#d8f5d0');
-    });
-    // Streaks trailing away to one side.
-    line([[-24, 4], [-12, 1], [-2, 2]]);
-    line([[-20, 10], [-8, 7], [2, 9]]);
-    // Big curl above, small one beside it.
-    line([[-2, 2], [3, -3], [5, -10], [2, -16], [-3, -15], [-4, -10], [0, -8]]);
-    line([[8, 9], [12, 4], [12, -2], [9, -5], [6, -3]]);
-    g.globalAlpha = before;
-  }
-
-  // A rigid mug: drawn once and rotated around the handle, so tilting never changes its shape.
-  const mugCache = {};
-  const MUG_EMPTY = 13;
-  function mugSprite(level){
-    if(mugCache[level]) return mugCache[level];
-    const c = document.createElement('canvas');
-    c.width = 18; c.height = 15;
-    const ctx = c.getContext('2d');
-    const rect = (x, y, w, h, color) => { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); };
-    rect(0, 0, 12, 15, PAL.black);
-    rect(12, 3, 6, 9, PAL.black);
-    rect(13, 5, 3, 5, '#e8a33d');
-    rect(14, 6, 1, 3, PAL.black);
-    rect(1, 1, 10, 13, '#fff4d6');
-    // At MUG_EMPTY there is nothing left, not even foam.
-    if(level < MUG_EMPTY){
-      rect(1, 1 + level, 10, 13 - level, '#e8a33d');
-      rect(1, 1 + level, 10, Math.min(3, MUG_EMPTY - level), PAL.white);
-      if(level < 7) rect(3, 5 + level, 1, Math.max(1, 7 - level), '#ffd98a');
-    }
-    return mugCache[level] = c;
-  }
-
-  // Angle in small steps, like frames of a sprite. The hand holds the mug by the handle.
-  function drawMug(handX, handY, angle, level){
-    const spr = mugSprite(level), step = Math.round(angle / 0.2) * 0.2;
-    g.save();
-    g.translate(Math.round(handX), Math.round(handY));
-    g.rotate(step);
-    g.drawImage(spr, -15, -8);
-    g.restore();
-  }
-
-  // Where the mug's rim meets the lips, from the hand on the handle, for a given tilt.
-  function mugLip(tilt){
-    const step = Math.round(tilt / 0.2) * 0.2, x = -4, y = -7;
-    return {x:x * Math.cos(step) - y * Math.sin(step), y:x * Math.sin(step) + y * Math.cos(step)};
-  }
-
-  // Facing the room: lifts the mug to the lips, drinks it down, lowers it and wipes the moustache.
-  // The arm is the one the sprite leaves free: it starts and ends where that arm hangs, so the
-  // pose joins the plain sprite without a jump. The elbow stays at his side, a little forward
-  // when raised, and the forearm swings round it, out in front of him, up to the face.
-  function drawBeerPose(c, feet, progress){
+  // Facing the room: lifts the glass mug of the rest scene to the lips, drinks it down, lowers it and
+  // wipes the moustache. The arm is the far one, the one the sprite leaves free: like the seated
+  // cook's, it and the mug pass behind the torso, so only the hand, the mug's front and its rim show
+  // at the mouth. It starts and ends where that arm hangs, joining the plain sprite without a jump.
+  function drawBeerPose(c, feet, progress, sprite, flip){
     const shoulderX = c.x - 9, shoulderY = feet - 44;
-    const rest = {x:c.x - 13, y:feet - 22}, mouthX = c.x - 7, mouthY = feet - 50;
-    const atLips = tilt => { const lip = mugLip(tilt); return {x:mouthX - lip.x, y:mouthY - lip.y}; };
+    const rest = {x:c.x - 13, y:feet - 22}, mouthX = c.x - 7, mouthY = feet - 49;
+    const rimX = BEER_RIM.x - BEER_HANDLE.x, rimY = BEER_RIM.y - BEER_HANDLE.y;
+    // The hand pivots on the handle so that the rim stays on the lips.
+    const atLips = tilt => ({
+      x:mouthX - (rimX * Math.cos(tilt) - rimY * Math.sin(tilt)),
+      y:mouthY - (rimX * Math.sin(tilt) + rimY * Math.cos(tilt))
+    });
     // The wrist sweeps out in front of the apron on the way to and from the mouth.
     const swing = (raised, k) => ({
-      x:lerp(rest.x, raised.x, k) - 5 * Math.sin(Math.PI * k),
+      x:lerp(rest.x, raised.x, k) - 3 * Math.sin(Math.PI * k),
       y:lerp(rest.y, raised.y, k)
     });
-    const lipTilt = 0.6, emptyTilt = 1.2;
-    let hand = rest, tilt = 0, level = 0, holdingMug = true;
+    const lipTilt = .48, emptyTilt = 1.04;
+    let hand = rest, tilt = 0, level = 1, holdingMug = true;
     if(progress !== null){
       if(progress < 0.18){
         const k = smooth(progress / 0.18);
@@ -4121,12 +4082,12 @@
       } else if(progress < 0.68){
         const k = (progress - 0.18) / 0.5;
         tilt = lerp(lipTilt, emptyTilt, k);
-        level = Math.floor(clamp01(k * 1.1) * 6);
+        level = 1 - smooth(clamp01(k * 1.1));
         hand = atLips(tilt);
       } else if(progress < 0.8){
         const k = 1 - smooth((progress - 0.68) / 0.12);
         tilt = emptyTilt * k;
-        level = 6;
+        level = 0;
         hand = swing(atLips(tilt), k);
       } else {
         holdingMug = false;
@@ -4136,9 +4097,18 @@
       }
     }
     const arm = cookArmPose(shoulderX, shoulderY, hand.x, hand.y, -1);
-    if(holdingMug) drawMug(arm.handX, arm.handY, tilt, level);
     drawCookArm(shoulderX, shoulderY, arm);
     drawCookHand(arm.handX, arm.handY);
+    if(holdingMug) drawBeerGlass(arm.handX, arm.handY, tilt, level);
+    // The torso again on top, down to the hips, as in the rest scene.
+    g.save();
+    g.beginPath();
+    g.rect(c.x - sprite.width, 0, sprite.width * 2, Math.round(feet - sprite.height) + REST_HIPS);
+    g.clip();
+    drawSprite(sprite, c.x, feet, flip);
+    g.restore();
+    // Wiping the moustache, the back of the hand comes in front of the face, and only up there.
+    if(!holdingMug && arm.handY < feet - 38) drawCookHand(arm.handX, arm.handY);
   }
 
   // Green fumes curling up from the burner towards the cook's face.
@@ -4171,13 +4141,14 @@
     drawSpeech(lines, headX - 40, headY, '#f4d8ca', headX - 10);
   }
 
-  const ASIDE_PX = 8;
+  // 12 rather than the font's native 16 (Pablo found 16 too big); it still reads as pixel lettering.
+  const SPEECH_PX = 12, ASIDE_PX = 8;
   // Italic lines are what the speaker feels rather than says.
   // An aside (`small`) is lettered smaller than the rest of the dialogue.
   function drawSpeech(lines, headX, headY, color = '#ffe999', rightEdge = W - 6, italic = false, small = false){
     // SCUMM dialogue floats above the speaker. A one-pixel shadow keeps it legible on wood and sky.
     g.save();
-    const size = small ? ASIDE_PX : 16, leading = size + 1;
+    const size = small ? ASIDE_PX : SPEECH_PX, leading = size + 1;
     g.font = `${italic ? 'italic ' : ''}${size}px MonkeyDialogue, monospace`;
     g.textBaseline = 'top';
     const width = Math.max(...lines.map(line => g.measureText(line).width));
@@ -4572,8 +4543,9 @@
 
   // ---- The three-headed monkey riding the oil drum ----
 
-  // It rides along the top row, where every mishap happens, just in front of its floor line.
+  // It rolls in behind the top stove, then turns out towards the cook.
   const MONKEY_FEET = barTop(0) + COOK_FEET + 11;
+  const MONKEY_BACK_FEET = stoveTop(0) + 8;
   // The drum stops in front of the stove. Each cel is aligned by its supporting foot or feet.
   const MONKEY_STOP_X = stoveX(0) - 7;
   const MONKEY_STEPS = [0, 1, 4, 2, 3, 4];
@@ -4591,13 +4563,22 @@
     } else {
       cel = 17; // extended, empty throwing hand
     }
+    const feet = age < MONKEY_ARRIVE_S
+      ? Math.round(lerp(MONKEY_BACK_FEET, MONKEY_FEET, smooth(age / MONKEY_ARRIVE_S)))
+      : MONKEY_FEET;
     // With feet apart, both soles sit a few pixels below the crown of the drum.
-    const sole = MONKEY_FEET - 2 * OIL_RADIUS + (cel >= 5 ? 3 : 0);
-    return {x, sole, cel, angle:(x - MONKEY_STOP_X) / OIL_RADIUS};
+    const sole = feet - 2 * OIL_RADIUS + (cel >= 5 ? 3 : 0);
+    return {x, feet, sole, cel, angle:(x - MONKEY_STOP_X) / OIL_RADIUS};
   }
   function drawMonkeyRun(pose){
-    drawRollingCask(pose.x, MONKEY_FEET, pose.angle);
+    drawRollingCask(pose.x, pose.feet, pose.angle);
     g.drawImage(document.getElementById('monkey'), pose.cel * 72, 0, 72, 48, pose.x - 36, pose.sole - 48, 72, 48);
+  }
+
+  function drawMonkeyAtDepth(behindStove){
+    if(!S.monkeyRun) return;
+    const pose = monkeyPose(S.time - S.monkeyRun.at);
+    if(pose && (pose.feet < stoveTop(0) + 39) === behindStove) drawMonkeyRun(pose);
   }
 
   // The last tile is the loose peel from the release cel.
@@ -5019,12 +5000,38 @@
     g.restore();
   }
 
-  function drawCooks(){
+  const cookLayer = layerContext();
+  function drawCookBehindWires(c, paint){
+    const feet = barTop(c.pos) + COOK_FEET;
+    const foreground = S.rows.map((row, part) => {
+      const dy = Math.round(moveDy(part));
+      // The post bases mark the point on the floor where the cook passes in front.
+      return feet >= wireY(row) + dy - 4 && feet < wirePostFoot(row) + dy ? orderWireLayers[part].c : null;
+    }).filter(Boolean);
+    const mix = mixOf(STAGE.topic);
+    if(c.rest || mix === 1 || !foreground.length) return paint();
+
+    const target = g, ctx = cookLayer.ctx;
+    ctx.clearRect(0, 0, W, H);
+    g = ctx;
+    ctx.save();
+    try {
+      paint();
+      ctx.globalCompositeOperation = 'destination-out';
+      morphDraw(mix, () => foreground.forEach(wire => g.drawImage(wire, 0, 0)), () => {});
+    } finally {
+      ctx.restore();
+      g = target;
+    }
+    target.drawImage(cookLayer.c, 0, 0);
+  }
+
+  function drawCooks(occludeByWires){
     stoveRows().forEach(row => {
       const cooking = S.cooks.some(c => c.job && (c.job.cookRow ?? rowOf(S, c.job.part)) === row && c.job.phase === 'cook');
       drawFlames(stoveX(row), stoveTop(row), cooking);
     });
-    S.cooks.forEach(c => {
+    const paint = c => {
       const top = barTop(c.pos);
       if(c.arriving){
         drawArrivingCook(c, top);
@@ -5067,23 +5074,16 @@
       const carrying = job && (['toStove', 'cook', 'plate', 'toCounter', 'drop'].includes(job.phase) || platedBin);
       const beer = c.beer === null ? null : c.beer / BEER_SIP_S;
       const pose = reading ? (pushing && commitArmUp(job.timer) ? 'backFree' : 'back') : carrying ? 'reach' : beer !== null ? 'downFree' : 'down';
-      const dashing = c.windup >= DASH_WINDUP_S;
-      const winding = c.windup > 0 && !dashing;
-      // Wisps of air stay where the cook was, for a moment after it has gone.
-      c.wisps = (c.wisps || []).map(wisp => ({...wisp, life:wisp.life - frameTick})).filter(wisp => wisp.life > 0);
-      if(dashing && !c.wasDashing && frameTick) c.wisps.push({x:c.x, feet, life:WISP_S});
-      c.wasDashing = dashing;
-      c.wisps.forEach(drawWisp);
-      const standing = !job && !c.walking && beer === null && !winding && !dashing;
+      const standing = !job && !c.walking && beer === null;
       const heel = job && job.phase === 'bin' && heelUp(job.timer / BIN_S);
-      const body = cookSprite(c.id, winding ? 'windup' : heel && !platedBin ? 'downFree' : pose, dashing || walk, isBlinking(c.id + 7), heel);
+      const body = cookSprite(c.id, heel && !platedBin ? 'downFree' : pose, walk, isBlinking(c.id + 7), heel);
       // On crutches it commits facing the chicken, towards where it will carry it.
       const crutchPush = job && job.phase === 'commit' && c.crutches ? job : null;
       const faceRight = crutchPush || (!reading && beer === null && !c.faceLeft);
       if(c.crutches) drawOnCrutches(c, bodyX, feet, !!faceRight, c.walking, walk, isBlinking(c.id + 7), crutchPush);
       else drawSprite(body, bodyX, feet, standing && isGlancing(c.id + 7) ? !faceRight : faceRight, standing ? breathLift(c.id + 7) : 0);
       if(c.charred) drawSootWisps(bodyX + (faceRight ? 1 : -1), feet - 62, c.id);
-      if(beer !== null && !c.crutches) drawBeerPose(c, feet, beer);
+      if(beer !== null && !c.crutches) drawBeerPose(c, feet, beer, body, faceRight);
       if(pushing) drawCommitPush(c, job, bodyX, feet);
       g.globalAlpha = 1;
       // On the cook's own body, so it never covers the orders while walking past them.
@@ -5107,6 +5107,10 @@
         const k = job.timer / PLATE_DROP_S;
         drawPlate(lerp(c.x - 24, COUNTER_END - 8, k), feet - lerp(45, 39, k), job.order);
       }
+    };
+    S.cooks.forEach(c => {
+      if(occludeByWires) drawCookBehindWires(c, () => paint(c));
+      else paint(c);
     });
     drawCarriedPost();
 
@@ -5565,16 +5569,19 @@
       : 'UPDATE REJECTED / NO SUCH MATERIAL', x + 10, y + 91, '#ff827a');
     else if(statusLine) text(statusLine, x + 10, y + 91, PAL.cyan);
 
+    // The reference view is coloured by its own state, like the full view: the line to it keeps the
+    // colour of the group that builds it.
     const ref = REFERENCE_BOX, refColor = MATERIAL_GROUP_COLORS[1];
+    const {value, last:read} = demo.reference;
+    const refState = MATERIAL_STATES[value === null ? (read?.order.materialOp === 'DELETE' ? 'DELETE' : 'EMPTY') : read.order.materialOp];
     R(x + w, y + 42, materialGroupBox(0).x - x - w, 1, MATERIAL_GROUP_COLORS[0]);
     R(ref.x + ref.w, ref.y + 17, materialGroupBox(1).x - ref.x - ref.w, 1, refColor);
-    kafkaBox(ref.x, ref.y, ref.w, ref.h, refColor, KAFKA.log);
-    R(ref.x + 2, ref.y + 2, ref.w - 4, 13, refColor);
+    kafkaBox(ref.x, ref.y, ref.w, ref.h, refState.color, KAFKA.log);
+    R(ref.x + 2, ref.y + 2, ref.w - 4, 13, refState.color);
     text('REFERENCE VIEW', ref.x + 9, ref.y + 5, PAL.black);
     text(MATERIAL_KEY, ref.x + ref.w - 9, ref.y + 5, PAL.black, 'right');
-    const {value, last:read} = demo.reference;
-    text(value === null ? (read?.order.materialOp === 'DELETE' ? 'DELETED' : 'NOT CREATED') : `REFERENCE  ${value}`,
-      ref.x + 10, ref.y + 22, PAL.white);
+    if(value === null) text(refState.label, ref.x + 10, ref.y + 22, refState.color);
+    else text(`REFERENCE  ${value}`, ref.x + 10, ref.y + 22, PAL.white);
     if(read) text(`READ P${read.part} / OFFSET ${read.offset}`, ref.x + ref.w - 10, ref.y + 22, refColor, 'right');
   }
 
@@ -5636,13 +5643,13 @@
         const x = orderX(part, entry), left = entry.lockUntil - S.time;
         if(x < barStart(row) + 10) return;
         const rattle = left < 1.5 ? Math.round(Math.sin(S.time * 32)) : 0;
-        drawPadlock(x + rattle, ticketTop(row) + 27 + dy);
+        drawPadlock(x + rattle, ticketTop(row) + LOCK_HOOK_Y + dy);
       });
       S.lockDrops.filter(drop => drop.part === part).forEach(drop => {
         const k = clamp01((S.time - drop.at) / LOCK_DROP_S);
         g.save();
         g.globalAlpha *= 1 - k;
-        drawPadlock(drop.x + Math.round(k * 5), ticketTop(row) + 27 + dy + Math.round(32 * k * k), true, 0);
+        drawPadlock(drop.x + Math.round(k * 5), ticketTop(row) + LOCK_HOOK_Y + dy + Math.round(32 * k * k), true);
         g.restore();
       });
       // One being tied: it comes up from the cook's hands, in front of the cook and so behind it
@@ -5650,22 +5657,31 @@
       S.cooks.forEach(c => {
         if(!c.job || c.job.phase !== 'hang' || c.job.part !== part) return;
         const k = clamp01(c.job.timer / HANG_S), rise = clamp01(k / 0.55), ease = rise * rise * (3 - 2 * rise);
-        const tie = clamp01((k - 0.55) / 0.45), hangY = ticketTop(row) + 27 + dy;
+        const tie = clamp01((k - 0.55) / 0.45), hangY = ticketTop(row) + LOCK_HOOK_Y + dy;
         const x = orderX(part, c.job.entry), handsY = barTop(c.pos) + COOK_FEET - 30;
         const wiggle = tie > 0 && tie < 1 ? (Math.floor(c.job.timer * 16) % 2 ? 1 : -1) : 0;
-        drawPadlock(x + wiggle, lerp(handsY, hangY, ease), false, Math.round(4 * tie));
+        drawPadlock(x + wiggle, lerp(handsY, hangY, ease));
       });
     }), () => {});
   }
 
+  const orderWireLayers = Array.from({length:PARTITIONS}, () => layerContext());
   function drawTopic(){
     morphDraw(mixOf(STAGE.topic), () => {
       for(let part = 0; part < S.comandas.length; part++){
+        const target = g, layer = orderWireLayers[part];
+        g = layer.ctx;
+        g.clearRect(0, 0, W, H);
         g.save();
-        g.translate(0, Math.round(moveDy(part)));
-        g.drawImage(wireLayers[rowOf(S, part)], 0, 0);
-        drawOrdersWire(part);
-        g.restore();
+        try {
+          g.translate(0, Math.round(moveDy(part)));
+          g.drawImage(wireLayers[rowOf(S, part)], 0, 0);
+          drawOrdersWire(part);
+        } finally {
+          g.restore();
+          g = target;
+        }
+        target.drawImage(layer.c, 0, 0);
       }
       drawWireBuild();
     }, drawTopicBoxes);
@@ -5704,9 +5720,10 @@
     }, () => {});
   }
 
-  function drawKitchen(){
+  function drawKitchen(occludeByWires = true){
     morphDraw(mixOf(STAGE.consumers), () => {
       if(S.blast) drawScorch(S.blast.row);
+      drawMonkeyAtDepth(true);
       drawPeel(false);
       drawWallCrutches();
       stoveRows().forEach(row => {
@@ -5715,7 +5732,7 @@
         if(S.blast?.row === row) drawStoveSoot(row);
         if(rattle) drawStoveRattle(row, rattle);
       });
-      drawCooks();
+      drawCooks(occludeByWires);
       drawBlast();
     }, () => {
       drawGroupBox();
@@ -6185,7 +6202,8 @@
     if(upset) return {x:TABLE_X, y:tableTop(upset.table) - 22, r:56};
     const talking = S.cooks.find(c => c.say && !c.rest);
     if(talking) return {x:talking.x, y:cookFeet(talking) - 30, r:56};
-    if(S.boss.say) return {x:S.boss.x, y:S.boss.y - 26, r:58};
+    // His parting line after the cash count is not lit: there is nothing more to point at.
+    if(S.boss.say && !phase.startsWith('recount')) return {x:S.boss.x, y:S.boss.y - 26, r:58};
     return null;
   }
   function drawFocus(){
@@ -6359,7 +6377,7 @@
     drawProducers();
     // On the chalkboard route, the kitchen is behind the boss and the order rows are in front.
     if(bossAtChalkboard){
-      drawKitchen();
+      drawKitchen(false);
       morphDraw(mixOf(STAGE.topic), drawBoss, () => {});
     }
     drawTopic();
@@ -6371,13 +6389,10 @@
     drawOrderWaiters(bossFeet);
     drawTrayWaiters(bossFeet);
     drawMessagesInFlight();
-    if(S.monkeyRun){
-      const age = S.time - S.monkeyRun.at, pose = monkeyPose(age);
-      if(pose) morphDraw(mixOf(STAGE.consumers), () => {
-        drawMonkeyRun(pose);
-        drawPeel(true);
-      }, () => {});
-    }
+    if(S.monkeyRun) morphDraw(mixOf(STAGE.consumers), () => {
+      drawMonkeyAtDepth(false);
+      drawPeel(true);
+    }, () => {});
     drawSceneMenus();
     drawFocus();
     drawTutorial();
@@ -6457,7 +6472,6 @@
       case 'signGo': case 'signWipe': case 'signStep': case 'signWrite': return 'the new board';
       case 'signBack': return 'the boss to come back';
       case 'menuWatch': return build.customer ? 'the menu to arrive' : 'a pirate with a menu';
-      case 'menuAgain': return build.customer ? 'the menu to arrive' : 'the waiter';
       case 'restEmpty': return 'a table to empty';
       case 'restSeen': return 'the boss';
       case 'restFinish': return S.cooks[build.who]?.job ? 'him to commit his order' : 'him to leave the group';
@@ -6502,13 +6516,15 @@
         next = tutorialStep < TUTORIAL_STEPS.length ? TUTORIAL_STEPS[tutorialStep] : 'the whole scene';
       }
     } else if(nestingDemo){
-      const bus = nestingDemo.mode === 'bus', done = nestingDemo.phase === 'done';
+      const bus = nestingDemo.mode === 'bus', done = nestingDemo.phase === 'done', spread = nestingDemo.phase === 'spread';
       describeScene(bus
         ? 'Azure Service Bus, demo de anidado. Dos receivers compiten por ocho trabajos independientes en una queue común.'
         : 'Kafka, demo de anidado. P0 contiene los cuatro trabajos largos y P1 los cuatro cortos. Un consumer por partition.');
-      button.disabled = !done;
-      now = bus ? (done ? `✓ ${NESTING_STEP + 1}/${STEP_COUNT} Service Bus: ${NESTING_TIME(nestingDemo.elapsed)} / Kafka: ${NESTING_TIME(nestingDemo.kafkaResult)}` : `▶ ${NESTING_STEP + 1}/${STEP_COUNT} Service Bus: free receivers take any job`)
+      button.disabled = !done && !spread;
+      now = spread ? `✓ ${bus ? NESTING_STEP + 1 : NESTING_STEP}/${STEP_COUNT} ${bus ? 'Service Bus: 8 jobs in one queue' : 'Kafka: long jobs in P0, short in P1'}`
+        : bus ? (done ? `✓ ${NESTING_STEP + 1}/${STEP_COUNT} Service Bus: ${NESTING_TIME(nestingDemo.elapsed)} / Kafka: ${NESTING_TIME(nestingDemo.kafkaResult)}` : `▶ ${NESTING_STEP + 1}/${STEP_COUNT} Service Bus: free receivers take any job`)
         : done ? `✓ ${NESTING_STEP}/${STEP_COUNT} Kafka: ${NESTING_TIME(nestingDemo.elapsed)} · C2 idle for ${NESTING_TIME(nestingDemo.elapsed - nestingDemo.workers[1].busy)}` : `▶ ${NESTING_STEP}/${STEP_COUNT} Kafka: each consumer only its partition`;
+      if(spread) next = `${bus ? NESTING_STEP + 1 : NESTING_STEP}/${STEP_COUNT} Start computing`;
       if(done) next = bus ? `${STEP_COUNT}/${STEP_COUNT} What we've learned` : `${NESTING_STEP + 1}/${STEP_COUNT} The same jobs in a Service Bus queue`;
     } else if(S.materialDemo){
       const demo = S.materialDemo, event = MATERIAL_EVENTS[demo.index], ready = demo.phase === 'ready';
@@ -6516,7 +6532,7 @@
       describeScene(`${routing} Dos consumer groups leen el mismo log y guardan sus propios offsets. Material ${MATERIAL_KEY}: ${materialState(demo).label.toLowerCase()}.`);
       button.disabled = !ready;
       if(demo.split){
-        now = ready ? `✓ ${SPLIT_STEP}/${STEP_COUNT} UPDATE arrived before its CREATE` : `▶ ${SPLIT_STEP}/${STEP_COUNT} No key: each event to any partition`;
+        now = ready ? `✓ ${SPLIT_STEP}/${STEP_COUNT} C1 lost the UPDATE; C2 got lucky` : `▶ ${SPLIT_STEP}/${STEP_COUNT} No key: each event to any partition`;
         if(ready) next = `${NESTING_STEP}/${STEP_COUNT} Long and short jobs in Kafka`;
       } else if(!event){
         now = `✓ ${MATERIAL_STEP}/${STEP_COUNT} ${MATERIAL_KEY}: 4 events, all still in the log`;
@@ -6581,6 +6597,12 @@
   function nextStep(){
     if(!tutorialDone) return setTutorialStep((tutorialStep + 1) % (TUTORIAL_STEPS.length + 1));
     if(nestingDemo){
+      if(nestingDemo.phase === 'spread'){
+        rememberStep();
+        startNestingRun(nestingDemo);
+        refreshPanel();
+        return;
+      }
       if(nestingDemo.phase !== 'done') return;
       if(nestingDemo.mode === 'kafka'){
         rememberStep();
@@ -6682,7 +6704,7 @@
   }
 
   function sceneIsRunning(){
-    if(nestingDemo) return nestingDemo.phase !== 'done';
+    if(nestingDemo) return nestingDemo.phase !== 'done' && nestingDemo.phase !== 'spread';
     if(S.materialDemo) return S.materialDemo.phase !== 'ready';
     return Boolean(S.build);
   }
@@ -6710,12 +6732,9 @@
           startPendingStep();
         }
         if(S.time !== before){
-          // These positions and trails normally catch up one painted frame at a time.
+          // These positions normally catch up one painted frame at a time.
           for(const p of S.comandas) for(const entry of p.log) delete entry.vx;
-          for(const cook of S.cooks){
-            delete cook.lift;
-            cook.wisps = [];
-          }
+          for(const cook of S.cooks) delete cook.lift;
         }
       }
     }
@@ -6777,7 +6796,7 @@
     if(!$('ending').hidden) return;
     const real = Math.min(0.1, (now - last) / 1000);
     last = now;
-    accumulator += real * speed * BASE_SPEED;
+    accumulator += real * speed * BASE_SPEED * (S.build?.speedMultiplier ?? 1);
     while(accumulator >= STEP){
       stepScene();
       accumulator -= STEP;
@@ -7152,7 +7171,7 @@
     const start = performance.now();
     const fade = setInterval(() => {
       const t = Math.min(1, (performance.now() - start) / 1000);
-      barMusic.volume = t;
+      barMusic.volume = 0.5 * t;
       if(t === 1) clearInterval(fade);
     }, 40);
   }

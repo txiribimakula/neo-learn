@@ -365,28 +365,55 @@ también la edita con Codex: antes de tocar un fichero, mira si ha cambiado.
 - **Música:** `intro.mp3` (desde la diapositiva de la cola) y `bar.mp3` (en bucle dentro
   del bar). Son pistas comerciales de *The Secret of Monkey Island*: están en `.gitignore` y
   no se suben nunca, porque el repo es público. Sin ellas la página funciona en silencio.
-- **26 pasos con un solo botón en la pared** (espacio; ← / → recorren los pasos ya vistos;
+- **25 pasos con un solo botón en la pared** (espacio; ← / → recorren los pasos ya vistos;
   1–9 y 0 cambian la velocidad):
   - Tutorial (`TUTORIAL_STEPS`).
-  - 15 pasos de historia (`UPGRADES`), cada uno con `kind`, `name` y `doing`. Siguen la pauta
+  - 14 pasos de historia (`UPGRADES`), cada uno con `kind`, `name` y `doing`. Siguen la pauta
     Problema → Solución → Demostración. «Keep orders after reading» es fallo y arreglo a la
-    vez, porque así lo pidió Pablo. «A consumer leaves» es una Novedad.
+    vez, porque así lo pidió Pablo. «A consumer leaves» es una Novedad. Con un hilo por color,
+    los menús salen en orden durante el servicio normal.
   - 5 pasos de vista Kafka real (`KAFKA_STAGES`).
-  - Materiales (`MATERIAL_STEP`).
+  - Materiales (`MATERIAL_STEP`). Las dos fichas («FULL VIEW» y «REFERENCE VIEW») se pintan
+    del color de su estado (`MATERIAL_STATES`): sin crear, creado (verde), actualizado (cian),
+    borrado (rojo). La línea que las une a su consumer group lleva el color del grupo.
   - Eventos sin key que se separan entre particiones (`SPLIT_STEP`): el producer envía con
-    `KEY: NULL`, el CREATE cae en P0, el UPDATE en P1 y el UPDATE se pierde.
+    `KEY: NULL`, el CREATE cae en P0 y el UPDATE en P1. Por casualidad, C2 (REFERENCE VIEW) lee
+    P0 enseguida y crea bien el material (`luckyCreate`). C1 (FULL VIEW) recibe antes el UPDATE,
+    lo rechaza y, al llegarle el CREATE (`lateCreate`), el UPDATE se ha perdido.
   - Anidado en Kafka (`NESTING_STEP`): el producer manda los 8 trabajos en round-robin
-    antes de calcular. Después, el mismo lote en Service Bus.
+    antes de calcular. Después, el mismo lote en Service Bus. En los dos, una vez repartidos los
+    trabajos se espera otro clic para empezar a calcular (fase `spread`, `startNestingRun`).
   - Cierre «What we've learned».
 - **Personajes y guiños:**
-  - **Gato:** roba la comanda en vuelo, solo en el hilo de arriba.
+  - **Gato:** roba la comanda en vuelo, solo en el hilo de arriba, y siempre un segundo:
+    la merluza la primera vez (sin acks) y el pollo la segunda (con el jefe en el pase). Mientras
+    el robo está pendiente (`S.loseNext`), el siguiente pirata que entra es uno del hilo de
+    arriba y pide un primero y ese plato (`m.bait`). El gato solo se lleva esa comanda, que es la
+    última del pedido.
   - **Pollo de goma con polea:** es el commit; lo empujan los cocineros.
-  - **Mono y cáscara de plátano:** el resbalón del paso 10, que relee desde `earliest`.
+  - **Mono y cáscara de plátano:** el resbalón del paso 9, que relee desde `earliest`.
   - **Mono de tres cabezas** sobre el bidón.
   - **Jefe omnipotente**, a propósito: hace de broker («¡Oído cocina!»), de coordinador
     del grupo (anuncia el rebalance, pero no dice quién se lleva cada hilo) y de segundo
     consumer group (el recuento de «Caja»).
+  - Mientras el jefe hace caja, los cocineros siguen a lo suyo y entran comensales: es otro
+    consumer group, con sus propios offsets. Como las comandas nuevas empujan las viejas por el
+    hilo, el jefe sigue a la que lee. Se despide con «Luego sigo. / Na razie.», sin foco.
   - Todas las desgracias le pasan a C1, el cocinero de arriba; C2 es quien descansa.
+  - El menú desordenado del paso 6 lo pide siempre uno de los tres piratas de las pruebas
+    (`TRIAL_PIRATES`, A, B y C), y se queja con «Deser przed obiadem? ¡Mamá no me deja postre
+    sin comer!».
+  - Los bocadillos van a 12 px (`SPEECH_PX`); a 16 px, el tamaño nativo de la fuente, le
+    parecían excesivos a Pablo. Los apartes van a 8 px (`ASIDE_PX`).
+  - El candado del peek-lock cuelga enganchado directamente al borde inferior de la comanda,
+    sin cuerda (`LOCK_HOOK_Y`).
+  - La caña del cocinero parado usa la misma jarra de cristal que el descanso
+    (`drawBeerGlass`). El brazo que la sube es el de detrás: pasa por detrás del torso, que se
+    vuelve a dibujar encima hasta las caderas (`REST_HIPS`). Al limpiarse el bigote, solo la mano
+    sale por delante de la cara.
+  - Al levantarse, C1 dice una frase distinta en cada incidente. Tras la explosión del paso 3:
+    «Who put grog in the stove?». Tras los humos del paso 5: «Am I already at Monkey Island™?».
+    Tras el resbalón: «Is this real life?» (`faint.waking`).
   - Los guiños nuevos se le proponen a Pablo por escrito antes de añadirlos.
 - **Idiomas:**
   - Botón de la pared, tutorial, títulos y cierre: en inglés (`lang="en"`). Cada línea del
